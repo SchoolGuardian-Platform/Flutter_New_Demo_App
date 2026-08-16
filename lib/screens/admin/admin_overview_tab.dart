@@ -308,5 +308,5 @@ class _BarRow extends StatelessWidget {
 /// Small local color so this file doesn't need to depend on
 /// `theme/kukie_accent.dart` just for one bar color.
 class KukieBarColor {
-  static const violet = Color(0xFF6750A4);
+  static const violet = AppColors.primary;
 }

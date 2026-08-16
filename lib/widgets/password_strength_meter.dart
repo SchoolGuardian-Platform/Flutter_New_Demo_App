@@ -55,7 +55,7 @@ class PasswordStrengthMeter extends StatelessWidget {
       case PasswordStrength.fair:
         return AppColors.warning;
       case PasswordStrength.good:
-        return const Color(0xFF3F51B5);
+        return AppColors.primaryContainer;
       case PasswordStrength.strong:
         return AppColors.secondary;
     }

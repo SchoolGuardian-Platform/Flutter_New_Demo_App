@@ -165,27 +165,9 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
   Future<void> _respondToUser(UserRole role, User user) async {
     final decision = await showDialog<_Decision>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(user.fullName),
-        content: Text('${user.email}\nRequesting access as ${role.label}.'),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-              onPressed: () => Navigator.of(context).pop(_Decision.reject),
-              child: const Text('Reject'),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(_Decision.approve),
-              child: const Text('Approve'),
-            ),
-          ),
-        ],
+      builder: (context) => _DecisionDialog(
+        title: 'Review ${user.fullName}',
+        description: '${user.email}\nRequesting access as ${role.label}.',
       ),
     );
     if (decision == null) return;
@@ -200,30 +182,10 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
   Future<void> _respondToRelationship(Relationship relationship) async {
     final decision = await showDialog<_Decision>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('${relationship.relationshipType.label} link request'),
-        content: Text(
-          'Parent ID: ${relationship.parentId}\n'
-          'Student ID: ${relationship.studentId}',
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-              onPressed: () => Navigator.of(context).pop(_Decision.reject),
-              child: const Text('Reject'),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(_Decision.approve),
-              child: const Text('Approve'),
-            ),
-          ),
-        ],
+      builder: (context) => _DecisionDialog(
+        title: '${relationship.relationshipType.label} link request',
+        description: 'Parent ID: ${relationship.parentId}\n'
+            'Student ID: ${relationship.studentId}',
       ),
     );
     if (decision == null) return;
@@ -248,12 +210,18 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
         title: Text(title),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Reason (optional)',
-            border: OutlineInputBorder(),
+            filled: true,
+            fillColor: AppColors.surfaceContainerLow,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.dfault),
+              borderSide: const BorderSide(color: AppColors.outlineVariant),
+            ),
           ),
           maxLines: 3,
         ),
+        actionsAlignment: MainAxisAlignment.end,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -428,6 +396,50 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
       case _Category.relationship:
         return 'Guardian Links';
     }
+  }
+}
+
+/// Approve/Reject confirm dialog — white rounded card, bold title, gray
+/// description, right-aligned actions. Matches the "Approve lem hiw?"
+/// dialog on the web admin console: a plain "Cancel"-style text button next
+/// to a solid red "Reject" and solid indigo "Approve".
+class _DecisionDialog extends StatelessWidget {
+  const _DecisionDialog({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(title),
+      content: Text(description),
+      actionsAlignment: MainAxisAlignment.end,
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.error,
+            side: const BorderSide(color: AppColors.error),
+            minimumSize: const Size(64, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.dfault),
+            ),
+          ),
+          onPressed: () => Navigator.of(context).pop(_Decision.reject),
+          child: const Text('Reject'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_Decision.approve),
+          child: const Text('Approve'),
+        ),
+      ],
+    );
   }
 }
 

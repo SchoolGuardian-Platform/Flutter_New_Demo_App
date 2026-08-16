@@ -59,7 +59,15 @@ class AppLogoBadge extends StatelessWidget {
                 AppColors.primary,
                 BlendMode.srcIn,
               ),
-              child: _crest(),
+              child: Image.asset(
+                kAppLogoAssetPath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.gpp_good_rounded,
+                  color: AppColors.primary,
+                  size: size * 0.85,
+                ),
+              ),
             )
           : _crest(),
     );
@@ -69,10 +77,20 @@ class AppLogoBadge extends StatelessWidget {
     return Image.asset(
       kAppLogoAssetPath,
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => Icon(
-        Icons.shield_outlined,
-        color: filled ? AppColors.primary : AppColors.primary,
-        size: size * 0.85,
+      // Matches the web app's mark: a solid indigo rounded square with a
+      // white shield-check glyph, used whenever the real crest asset isn't
+      // available (no asset is currently bundled in this project).
+      errorBuilder: (context, error, stackTrace) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(size * 0.28),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.gpp_good_rounded,
+          color: Colors.white,
+          size: size * 0.55,
+        ),
       ),
     );
   }
@@ -88,6 +106,10 @@ class AppWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+        );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -97,20 +119,38 @@ class AppWordmark extends StatelessWidget {
           child: Image.asset(
             kAppLogoAssetPath,
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => Icon(
-              Icons.shield_outlined,
-              color: iconColor ?? AppColors.primary,
-              size: 22,
+            errorBuilder: (context, error, stackTrace) => Container(
+              decoration: BoxDecoration(
+                color: iconColor ?? AppColors.primary,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.gpp_good_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
             ),
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          'SchoolGuardian',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: textColor ?? AppColors.onSurface,
+        // Two-tone wordmark: "School" in ink, "Guardian" in the brand
+        // indigo — matches the web app's header exactly. If a single
+        // override color is supplied (e.g. white text on a dark hero),
+        // both words use it instead so the mark stays legible.
+        RichText(
+          text: TextSpan(
+            style: baseStyle?.copyWith(color: textColor ?? AppColors.onSurface),
+            children: [
+              const TextSpan(text: 'School'),
+              TextSpan(
+                text: 'Guardian',
+                style: textColor == null
+                    ? const TextStyle(color: AppColors.primary)
+                    : null,
               ),
+            ],
+          ),
         ),
       ],
     );
