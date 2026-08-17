@@ -49,6 +49,29 @@
                     android:host="school-guardian-one.vercel.app"
                     android:pathPrefix="/reset-password"/>
             </intent-filter>
+            <!-- Handles schoolguardian://verify-email?token=... links from
+                 the email verification email (EMAIL_VERIFICATION_URL in the
+                 backend .env). Mirrors the reset-password custom-scheme
+                 filter above. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="schoolguardian" android:host="verify-email"/>
+            </intent-filter>
+            <!-- Real Android App Links for verify-email: verified against
+                 the same assetlinks.json as reset-password above, so
+                 tapping the verification link opens this app directly
+                 instead of Chrome. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="school-guardian-one.vercel.app"
+                    android:pathPrefix="/verify-email"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
