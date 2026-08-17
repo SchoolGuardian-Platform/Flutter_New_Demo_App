@@ -157,7 +157,7 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SchoolGuardian',
+      title: 'School Guard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       // Every launch starts at SessionCheckPage, which decides between

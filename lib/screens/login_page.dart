@@ -74,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             const AppLogoBadge(),
             const SizedBox(height: AppSpacing.md),
-            Text('SchoolGuardian',
+            Text('School Guard',
                 style: Theme.of(context).textTheme.headlineLarge,
                 textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.sm),

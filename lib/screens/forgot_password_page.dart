@@ -133,7 +133,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           'this device, or paste the reset code from the '
                           'email below.'
                       : "Enter the email or phone number associated with your "
-                          "SchoolGuardian account and we'll help you reset your "
+                          "School Guard account and we'll help you reset your "
                           'password.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,

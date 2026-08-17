@@ -134,7 +134,7 @@ class AppWordmark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        // Two-tone wordmark: "School" in ink, "Guardian" in the brand
+        // Two-tone wordmark: "School" in ink, "Guard" in the brand
         // indigo — matches the web app's header exactly. If a single
         // override color is supplied (e.g. white text on a dark hero),
         // both words use it instead so the mark stays legible.
@@ -142,9 +142,9 @@ class AppWordmark extends StatelessWidget {
           text: TextSpan(
             style: baseStyle?.copyWith(color: textColor ?? AppColors.onSurface),
             children: [
-              const TextSpan(text: 'School'),
+              const TextSpan(text: 'School '),
               TextSpan(
-                text: 'Guardian',
+                text: 'Guard',
                 style: textColor == null
                     ? const TextStyle(color: AppColors.primary)
                     : null,
