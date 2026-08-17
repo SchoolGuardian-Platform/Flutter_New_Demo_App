@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Required for network requests to your backend API -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="schoolguardian_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -12,6 +18,7 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+            
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -20,10 +27,12 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
             <!-- Handles schoolguardian://reset-password?token=... links from
                  the password reset email (RESET_PASSWORD_URL in the
                  backend .env). Custom schemes are the reliable choice here:
@@ -36,6 +45,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="schoolguardian" android:host="reset-password"/>
             </intent-filter>
+
             <!-- Real Android App Links: verified against
                  https://school-guardian-one.vercel.app/.well-known/assetlinks.json
                  so tapping the reset-password link in Gmail opens this app
@@ -49,13 +59,40 @@
                     android:host="school-guardian-one.vercel.app"
                     android:pathPrefix="/reset-password"/>
             </intent-filter>
+
+            <!-- Handles schoolguardian://verify-email?token=... links from
+                 the email verification email (EMAIL_VERIFICATION_URL in the
+                 backend .env). Mirrors the reset-password custom-scheme
+                 filter above. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="schoolguardian" android:host="verify-email"/>
+            </intent-filter>
+
+            <!-- Real Android App Links for verify-email: verified against
+                 the same assetlinks.json as reset-password above, so
+                 tapping the verification link opens this app directly
+                 instead of Chrome. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="school-guardian-one.vercel.app"
+                    android:pathPrefix="/verify-email"/>
+            </intent-filter>
         </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
