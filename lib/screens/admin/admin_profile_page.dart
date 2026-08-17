@@ -85,7 +85,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   Center(
                     child: Column(
                       children: [
-                        const AppLogoBadge(size: 88, filled: true),
+                        // filled: false renders the crest in its real
+                        // navy/gold artwork instead of the solid-blue
+                        // silhouette `filled: true` produces.
+                        const AppLogoBadge(size: 88),
                         const SizedBox(height: AppSpacing.md),
                         Text(user.fullName,
                             style: Theme.of(context).textTheme.headlineSmall),

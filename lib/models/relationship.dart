@@ -68,6 +68,20 @@ class Relationship {
   final RelationshipStatus status;
   final DateTime? createdAt;
 
+  /// Returns a copy with [status] swapped out (everything else unchanged).
+  /// Used after an approve/reject decision so the row can be updated in
+  /// place in a list instead of being removed from it.
+  Relationship copyWith({RelationshipStatus? status}) {
+    return Relationship(
+      id: id,
+      parentId: parentId,
+      studentId: studentId,
+      relationshipType: relationshipType,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
+
   factory Relationship.fromJson(Map<String, dynamic> json) => Relationship(
         id: json['id'] as String,
         parentId: json['parentId'] as String,

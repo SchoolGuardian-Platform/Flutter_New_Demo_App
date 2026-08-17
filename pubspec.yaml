@@ -51,6 +51,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  flutter_launcher_icons: ^0.14.4
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -58,6 +60,15 @@ dev_dependencies:
 flutter:
   assets:
     - assets/images/logo.png
+    - assets/images/app_icon.png
+    - assets/images/app_icon_foreground.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
