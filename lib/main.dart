@@ -44,13 +44,14 @@ void main() {
   // screenshot instead of guessed at.
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Container(
-      color: const Color(0xFFFFEBEE),
+      color: AppColors.errorContainer,
       padding: const EdgeInsets.all(12),
       alignment: Alignment.center,
       child: Text(
         'Something went wrong displaying this.\n${details.exceptionAsString()}',
         textAlign: TextAlign.center,
-        style: const TextStyle(color: Color(0xFFB00020), fontSize: 12),
+        style: const TextStyle(
+            color: AppColors.onErrorContainer, fontSize: 12),
       ),
     );
   };

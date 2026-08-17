@@ -258,8 +258,14 @@ class _BarRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 60,
-          child: Text(data.label, style: Theme.of(context).textTheme.bodySmall),
+          width: 68,
+          child: Text(
+            data.label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
         Expanded(
           child: LayoutBuilder(

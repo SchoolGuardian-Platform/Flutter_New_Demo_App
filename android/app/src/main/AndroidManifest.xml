@@ -36,6 +36,19 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="schoolguardian" android:host="reset-password"/>
             </intent-filter>
+            <!-- Real Android App Links: verified against
+                 https://school-guardian-one.vercel.app/.well-known/assetlinks.json
+                 so tapping the reset-password link in Gmail opens this app
+                 directly instead of the browser. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="school-guardian-one.vercel.app"
+                    android:pathPrefix="/reset-password"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

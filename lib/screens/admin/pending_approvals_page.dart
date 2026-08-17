@@ -414,29 +414,38 @@ class _DecisionDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(title),
       content: Text(description),
-      actionsAlignment: MainAxisAlignment.end,
       actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.error,
-            side: const BorderSide(color: AppColors.error),
-            minimumSize: const Size(64, 44),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.dfault),
-            ),
+        SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.dfault),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(_Decision.reject),
+                  child: const Text('Reject'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 44,
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(_Decision.approve),
+                  child: const Text('Approve'),
+                ),
+              ),
+            ],
           ),
-          onPressed: () => Navigator.of(context).pop(_Decision.reject),
-          child: const Text('Reject'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_Decision.approve),
-          child: const Text('Approve'),
         ),
       ],
     );

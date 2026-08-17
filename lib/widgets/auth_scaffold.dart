@@ -30,7 +30,7 @@ class AuthScaffold extends StatelessWidget {
             colors: [
               AppColors.background,
               AppColors.background,
-              Color(0xFFF1F6F1),
+              AppColors.primarySoftBg,
             ],
             stops: [0.0, 0.6, 1.0],
           ),

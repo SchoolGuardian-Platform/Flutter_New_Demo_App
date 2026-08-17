@@ -79,21 +79,33 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
       builder: (context) => AlertDialog(
         title: Text(user.fullName),
         content: Text('${user.email}\nRequesting access as ${role.label}.'),
-        actionsAlignment: MainAxisAlignment.center,
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         actions: [
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-              onPressed: () => Navigator.of(context).pop(_Decision.reject),
-              child: const Text('Reject'),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(_Decision.approve),
-              child: const Text('Approve'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error),
+                    onPressed: () =>
+                        Navigator.of(context).pop(_Decision.reject),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 44,
+                  child: FilledButton(
+                    onPressed: () =>
+                        Navigator.of(context).pop(_Decision.approve),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -147,21 +159,33 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
           'Parent ID: ${relationship.parentId}\n'
           'Student ID: ${relationship.studentId}',
         ),
-        actionsAlignment: MainAxisAlignment.center,
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         actions: [
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-              onPressed: () => Navigator.of(context).pop(_Decision.reject),
-              child: const Text('Reject'),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(_Decision.approve),
-              child: const Text('Approve'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error),
+                    onPressed: () =>
+                        Navigator.of(context).pop(_Decision.reject),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 44,
+                  child: FilledButton(
+                    onPressed: () =>
+                        Navigator.of(context).pop(_Decision.approve),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

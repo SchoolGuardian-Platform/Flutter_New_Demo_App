@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.schoolguardian.app",
+      "sha256_cert_fingerprints": [
+        "A2:A3:7E:52:A5:79:E9:47:4E:89:29:15:F3:B7:46:01:16:3F:F2:17:EE:92:58:E7:04:D2:55:00:52:47:50:70"
+      ]
+    }
+  }
+]
