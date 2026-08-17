@@ -12,8 +12,12 @@ import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
 import '../admin/manage_users_page.dart';
+import '../grades/parent_grades_page.dart';
+import '../grades/student_grades_page.dart';
 import '../landing_page.dart';
 import '../reports/reports_page.dart';
+import '../teacher/my_classes_page.dart';
+import '../teacher/teacher_portal_page.dart';
 
 /// Post-login home screen. One shell, per-role content — the four roles
 /// share the same shape (app bar with profile menu + logout, a welcome
@@ -364,6 +368,15 @@ class _RoleSections extends StatelessWidget {
     switch (role) {
       case UserRole.parent:
         return [
+          _SectionSpec(
+            icon: Icons.grade_outlined,
+            title: 'Child Grades & Recommendations',
+            subtitle: 'View grades, assessment scores, and confidential teacher notes.',
+            route: 'GET /parents/grades',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => ParentGradesPage(
+                    studentId: user.studentId ?? 'STU-1001'))),
+          ),
           const _SectionSpec(
             icon: Icons.link,
             title: 'Linked Students',
@@ -381,6 +394,15 @@ class _RoleSections extends StatelessWidget {
         ];
       case UserRole.student:
         return [
+          _SectionSpec(
+            icon: Icons.school_outlined,
+            title: 'My Grades & Coursework',
+            subtitle: 'View your assessment scores, quizzes, and project results.',
+            route: 'GET /students/grades',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => StudentGradesPage(
+                    studentId: user.studentId ?? 'STU-1001'))),
+          ),
           const _SectionSpec(
             icon: Icons.badge_outlined,
             title: 'My Profile',
@@ -404,11 +426,22 @@ class _RoleSections extends StatelessWidget {
         ];
       case UserRole.teacher:
         return [
-          const _SectionSpec(
+          _SectionSpec(
+            icon: Icons.psychology_outlined,
+            title: 'Teacher Professional Portal',
+            subtitle:
+                'Manage major field of study, input student grades & parent notes.',
+            route: 'POST /teacher/grades',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TeacherPortalPage())),
+          ),
+          _SectionSpec(
             icon: Icons.groups_outlined,
             title: 'My Classes',
-            subtitle: 'Rosters and classroom safety tools.',
-            route: 'not yet on the backend',
+            subtitle: 'Class rosters, attendance, and student performance.',
+            route: 'GET /teacher/classes',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
