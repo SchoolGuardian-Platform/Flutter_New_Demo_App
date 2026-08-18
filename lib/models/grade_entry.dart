@@ -178,22 +178,30 @@ class GradeEntry {
 
   String get letterGrade {
     final p = percentage;
-    if (p >= 86) return 'A';
-    if (p >= 76) return 'B+';
-    if (p >= 66) return 'B';
-    if (p >= 56) return 'C+';
-    if (p >= 46) return 'C';
+    if (p >= 90) return 'A+';
+    if (p >= 85) return 'A';
+    if (p >= 80) return 'A-';
+    if (p >= 75) return 'B+';
+    if (p >= 70) return 'B';
+    if (p >= 65) return 'B-';
+    if (p >= 60) return 'C+';
+    if (p >= 50) return 'C';
+    if (p >= 45) return 'C-';
     if (p >= 40) return 'D';
     return 'F';
   }
 
   double get gpaPoints {
     final p = percentage;
-    if (p >= 86) return 4.0;
-    if (p >= 76) return 3.5;
-    if (p >= 66) return 3.0;
-    if (p >= 56) return 2.5;
-    if (p >= 46) return 2.0;
+    if (p >= 90) return 4.0;
+    if (p >= 85) return 4.0;
+    if (p >= 80) return 3.75;
+    if (p >= 75) return 3.5;
+    if (p >= 70) return 3.0;
+    if (p >= 65) return 2.75;
+    if (p >= 60) return 2.5;
+    if (p >= 50) return 2.0;
+    if (p >= 45) return 1.75;
     if (p >= 40) return 1.0;
     return 0.0;
   }

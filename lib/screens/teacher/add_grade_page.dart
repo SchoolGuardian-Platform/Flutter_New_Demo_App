@@ -172,10 +172,16 @@ class _AddGradePageState extends State<AddGradePage> {
 
   String get _computedGrade {
     final p = _percentage;
-    if (p >= 90) return 'A';
-    if (p >= 80) return 'B';
-    if (p >= 70) return 'C';
-    if (p >= 60) return 'D';
+    if (p >= 90) return 'A+';
+    if (p >= 85) return 'A';
+    if (p >= 80) return 'A-';
+    if (p >= 75) return 'B+';
+    if (p >= 70) return 'B';
+    if (p >= 65) return 'B-';
+    if (p >= 60) return 'C+';
+    if (p >= 50) return 'C';
+    if (p >= 45) return 'C-';
+    if (p >= 40) return 'D';
     return 'F';
   }
 
