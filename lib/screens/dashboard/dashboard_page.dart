@@ -14,7 +14,11 @@ import '../admin/admin_profile_page.dart';
 import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
+import '../parent/my_students_page.dart';
 import '../reports/reports_page.dart';
+import '../student/guardians_page.dart';
+import '../student/student_overview_tab.dart';
+import '../student/student_profile_page.dart';
 
 /// Post-login home screen. One shell, per-role content — the four roles
 /// share the same shape (app bar with profile menu + logout, a welcome
@@ -58,6 +62,14 @@ class _DashboardPageState extends State<DashboardPage> {
   /// with the "Manage Users" section. Removed rather than kept as a
   /// second way to do the same thing.
   final _overviewKey = GlobalKey<AdminOverviewTabState>();
+
+  /// Student-only bottom nav, same shape as the admin one above:
+  /// "Overview" (index 0) renders inline via [StudentOverviewTab]; "My
+  /// Profile", "Guardians", and "Reports" are shortcuts that push their
+  /// existing full-screen pages and return here, refreshing Overview's
+  /// live guardian count in case it changed (a new guardian got linked,
+  /// etc). See `_onStudentTabTapped`.
+  final _studentOverviewKey = GlobalKey<StudentOverviewTabState>();
 
   @override
   void initState() {
@@ -165,9 +177,35 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadPendingCount();
   }
 
+  Future<void> _onStudentTabTapped(int index) async {
+    switch (index) {
+      case 0:
+        return; // Overview renders inline; nothing to navigate to.
+      case 1:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => StudentProfilePage(initialUser: _user),
+        ));
+        break;
+      case 2:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const GuardiansPage(),
+        ));
+        break;
+      case 3:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ReportsPage(),
+        ));
+        break;
+    }
+    // Returning here could follow a guardian-link change, so refresh
+    // Overview's live count.
+    _studentOverviewKey.currentState?.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdmin = _user.role == UserRole.admin;
+    final isStudent = _user.role == UserRole.student;
     return Scaffold(
       appBar: AppBar(
         title: const AppWordmark(),
@@ -257,19 +295,22 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       body: isAdmin
           ? AdminOverviewTab(key: _overviewKey)
-          : RefreshIndicator(
-              onRefresh: _refreshProfile,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  _WelcomeCard(user: _user),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Overview', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: AppSpacing.sm),
-                  _RoleSections(role: _user.role, user: _user),
-                ],
-              ),
-            ),
+          : isStudent
+              ? StudentOverviewTab(key: _studentOverviewKey, user: _user)
+              : RefreshIndicator(
+                  onRefresh: _refreshProfile,
+                  child: ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      _WelcomeCard(user: _user),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('Overview',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      _RoleSections(role: _user.role, user: _user),
+                    ],
+                  ),
+                ),
       bottomNavigationBar: isAdmin
           ? BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
@@ -296,7 +337,33 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             )
-          : null,
+          : isStudent
+              ? BottomNavigationBar(
+                  type: BottomNavigationBarType.fixed,
+                  currentIndex: 0,
+                  selectedItemColor: AppColors.primary,
+                  unselectedItemColor: AppColors.outline,
+                  onTap: _onStudentTabTapped,
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.dashboard_outlined),
+                      label: 'Overview',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.badge_outlined),
+                      label: 'My Profile',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.family_restroom),
+                      label: 'Guardians',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.description_outlined),
+                      label: 'Reports',
+                    ),
+                  ],
+                )
+              : null,
     );
   }
 }
@@ -375,11 +442,13 @@ class _RoleSections extends StatelessWidget {
     switch (role) {
       case UserRole.parent:
         return [
-          const _SectionSpec(
+          _SectionSpec(
             icon: Icons.link,
             title: 'Linked Students',
             subtitle: 'View and manage students linked to your account.',
             route: 'GET /parents/my-students',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MyStudentsPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,

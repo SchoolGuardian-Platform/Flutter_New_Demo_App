@@ -27,6 +27,12 @@ RelationshipStatus relationshipStatusFromApiValue(String value) {
   switch (value.toUpperCase()) {
     case 'PENDING':
       return RelationshipStatus.pending;
+    // Backend (`prisma/schema.prisma`) uses APPROVED. 'VERIFIED' is kept
+    // as a defensive alias only -- the real API value is APPROVED, and
+    // treating it as an unrecognized value (falling through to the old
+    // default of `pending`) was the bug: an approved relationship coming
+    // back from the server was silently displayed as still pending.
+    case 'APPROVED':
     case 'VERIFIED':
       return RelationshipStatus.verified;
     case 'REJECTED':
@@ -47,6 +53,25 @@ extension RelationshipTypeLabel on RelationshipType {
         return 'Guardian';
       case RelationshipType.other:
         return 'Other';
+    }
+  }
+
+  /// Exact string the backend uses for `enum RelationshipType`
+  /// (`prisma/schema.prisma`) -- the reverse of
+  /// [relationshipTypeFromApiValue]. Needed when a parent submits
+  /// `POST /parents/relationships` (see `CreateRelationshipRequest` in
+  /// `SchoolGuardian_Final_OpenAPI.yaml`), which is the only place this
+  /// app sends a relationship type rather than just reading one back.
+  String get apiValue {
+    switch (this) {
+      case RelationshipType.mother:
+        return 'MOTHER';
+      case RelationshipType.father:
+        return 'FATHER';
+      case RelationshipType.guardian:
+        return 'GUARDIAN';
+      case RelationshipType.other:
+        return 'OTHER';
     }
   }
 }
