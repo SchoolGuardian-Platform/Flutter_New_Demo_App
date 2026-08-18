@@ -1,5 +1,6 @@
 import '../models/grade_entry.dart';
 import '../models/teacher_profile.dart';
+import 'course_service.dart';
 
 class TeacherService {
   factory TeacherService() => _instance;
@@ -130,6 +131,7 @@ class TeacherService {
     );
 
     _entries.insert(0, entry);
+    await CourseService().attachGradeToRegistration(studentId, subject, entry);
     return entry;
   }
 
@@ -140,6 +142,8 @@ class TeacherService {
     } else {
       _entries.insert(0, updatedEntry);
     }
+    await CourseService().attachGradeToRegistration(
+        updatedEntry.studentId, updatedEntry.subject, updatedEntry);
     return updatedEntry;
   }
 

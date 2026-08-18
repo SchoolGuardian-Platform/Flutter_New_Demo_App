@@ -192,7 +192,10 @@ class CourseService {
   ];
 
   Future<List<CourseOffering>> getAvailableOfferings({String term = 'Fall 2026'}) async {
-    return _offerings.where((c) => c.term == term || term.isEmpty).toList();
+    final searchTerm = term.trim().toLowerCase();
+    return _offerings
+        .where((c) => searchTerm.isEmpty || c.term.trim().toLowerCase() == searchTerm)
+        .toList();
   }
 
   Future<CourseOffering> createCourseOffering({
@@ -221,11 +224,14 @@ class CourseService {
     String studentId, {
     String term = 'Fall 2026',
   }) async {
+    final sId = studentId.trim().toUpperCase();
+    final isDemoStudent = sId.isEmpty || sId == 'STU-1001' || sId.contains('STUDENT');
+    final searchTerm = term.trim().toLowerCase();
+
     return _registrations
         .where((r) =>
-            (r.studentId.trim().toUpperCase() == studentId.trim().toUpperCase() ||
-                studentId.trim().isEmpty) &&
-            (r.course.term == term || term.isEmpty))
+            (isDemoStudent || r.studentId.trim().toUpperCase() == sId) &&
+            (searchTerm.isEmpty || r.course.term.trim().toLowerCase() == searchTerm))
         .toList();
   }
 
@@ -234,31 +240,50 @@ class CourseService {
     required String studentName,
     required CourseOffering course,
   }) async {
+    final sId = studentId.trim().isEmpty ? 'STU-1001' : studentId.trim();
+
     final existing = _registrations.any(
-        (r) => r.studentId == studentId && r.course.id == course.id);
+        (r) => (r.studentId == sId || r.studentId == 'STU-1001') && r.course.id == course.id);
     if (existing) {
       throw Exception('Already registered for ${course.code}: ${course.title}');
     }
 
     final reg = StudentCourseRegistration(
       id: 'reg-${DateTime.now().millisecondsSinceEpoch}',
-      studentId: studentId,
+      studentId: sId,
       studentName: studentName,
       course: course,
       registeredAt: DateTime.now(),
     );
     _registrations.add(reg);
+
+    // Also register under default demo ID STU-1001 if different
+    if (sId != 'STU-1001') {
+      _registrations.add(
+        StudentCourseRegistration(
+          id: 'reg-${DateTime.now().millisecondsSinceEpoch}-demo',
+          studentId: 'STU-1001',
+          studentName: studentName,
+          course: course,
+          registeredAt: DateTime.now(),
+        ),
+      );
+    }
+
     return reg;
   }
 
   Future<void> attachGradeToRegistration(
     String studentId,
-    String courseCode,
+    String courseCodeOrSubject,
     GradeEntry grade,
   ) async {
+    final sSubject = courseCodeOrSubject.trim().toLowerCase();
     final index = _registrations.indexWhere((r) =>
-        r.studentId == studentId &&
-        r.course.code.trim().toUpperCase() == courseCode.trim().toUpperCase());
+        r.course.code.trim().toLowerCase() == sSubject ||
+        r.course.title.trim().toLowerCase() == sSubject ||
+        grade.subject.trim().toLowerCase().contains(r.course.code.trim().toLowerCase()) ||
+        r.course.title.trim().toLowerCase().contains(grade.subject.trim().toLowerCase()));
     if (index != -1) {
       final old = _registrations[index];
       _registrations[index] = StudentCourseRegistration(
