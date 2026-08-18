@@ -119,6 +119,12 @@ class AdminService {
     UserRole.teacher: '/admin/teachers/pending',
   };
 
+  static const Map<UserRole, String> _activePaths = {
+    UserRole.student: '/admin/students/active',
+    UserRole.parent: '/admin/parents/active',
+    UserRole.teacher: '/admin/teachers/active',
+  };
+
   static const Map<UserRole, String> _resourceSegments = {
     UserRole.student: 'students',
     UserRole.parent: 'parents',
@@ -130,6 +136,25 @@ class AdminService {
     final path = _pendingPaths[role];
     if (path == null) {
       throw ArgumentError('No pending-approvals endpoint for role: $role');
+    }
+    final decoded = await _get(path);
+    final list = decoded['data'];
+    if (list is! List) {
+      throw ApiException.malformed(200);
+    }
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((json) => User.fromJson(json))
+        .toList();
+  }
+
+  /// `GET /admin/{students|parents|teachers}/active` -- verified/approved
+  /// accounts for this role (AccountStatus.ACTIVE), for the "Users"
+  /// directory tab rather than the approvals queue.
+  Future<List<User>> getActive(UserRole role) async {
+    final path = _activePaths[role];
+    if (path == null) {
+      throw ArgumentError('No active-users endpoint for role: $role');
     }
     final decoded = await _get(path);
     final list = decoded['data'];

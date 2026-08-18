@@ -12,6 +12,7 @@ import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
 import '../admin/manage_users_page.dart';
+import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
 import '../reports/reports_page.dart';
 
@@ -45,9 +46,10 @@ class _DashboardPageState extends State<DashboardPage> {
   int _pendingCount = 0;
 
   /// Admin-only bottom nav. "Overview" (index 0) renders inline; the other
-  /// two are shortcuts that push the existing full-screen admin pages
-  /// and then return here, refreshing Overview's stats so numbers don't
-  /// go stale after an approve/reject. See `_onAdminTabTapped`.
+  /// three ("Manage", "Users", "Profile") are shortcuts that push the
+  /// existing full-screen admin pages and then return here, refreshing
+  /// Overview's stats so numbers don't go stale after an approve/reject.
+  /// See `_onAdminTabTapped`.
   ///
   /// There used to be a dedicated "Approvals" tab here, but approving or
   /// rejecting is already fully doable from the Notifications bell (see
@@ -147,6 +149,11 @@ class _DashboardPageState extends State<DashboardPage> {
         ));
         break;
       case 2:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const VerifiedUsersPage(),
+        ));
+        break;
+      case 3:
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AdminProfilePage(initialUser: _user),
         ));
@@ -278,6 +285,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 BottomNavigationBarItem(
                   icon: Icon(Icons.manage_accounts_outlined),
                   label: 'Manage',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_outlined),
+                  label: 'Users',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),

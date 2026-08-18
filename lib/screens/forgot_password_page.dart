@@ -58,19 +58,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   /// That native deep-link wiring (custom URL scheme / app link, platform
   /// manifest entries, a listener package like `app_links`) isn't set up
   /// yet — see PROGRESS.md #1. Until it is, this dialog lets the user
-  /// paste the `token=` value from the emailed link by hand so the reset
-  /// flow is usable today; swap this for the deep-link handler later.
+  /// paste the reset link (or just the token) from the emailed link by
+  /// hand so the reset flow is usable today; swap this for the deep-link
+  /// handler later.
   Future<void> _promptForToken(BuildContext context) async {
     final controller = TextEditingController();
-    final token = await showDialog<String>(
+    final pasted = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Enter reset code'),
+        title: const Text('Enter reset link'),
         content: TextField(
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(
-            hintText: 'Paste the code or token from your email',
+            hintText: 'Paste the link from your email',
           ),
         ),
         actions: [
@@ -85,8 +86,22 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ],
       ),
     );
-    if (token == null || token.isEmpty || !context.mounted) return;
+    if (pasted == null || pasted.isEmpty || !context.mounted) return;
+    // Accept either the full emailed link (…/reset-password?token=XYZ) or
+    // just the bare token, in case the user copies only that part.
+    final token = _extractToken(pasted);
+    if (token.isEmpty || !context.mounted) return;
     Navigator.of(context).pushReplacementNamed('/reset-password', arguments: token);
+  }
+
+  /// Pulls the `token` query parameter out of a pasted reset link, or
+  /// returns the input unchanged if it doesn't look like a URL.
+  String _extractToken(String pasted) {
+    final uri = Uri.tryParse(pasted);
+    if (uri != null && uri.queryParameters.containsKey('token')) {
+      return uri.queryParameters['token']!;
+    }
+    return pasted;
   }
 
   @override
@@ -130,8 +145,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 Text(
                   _sent
                       ? "We've emailed you a password reset link. Open it on "
-                          'this device, or paste the reset code from the '
-                          'email below.'
+                          'this device to continue, or if you opened your '
+                          'email elsewhere, paste the link below.'
                       : "Enter the email or phone number associated with your "
                           "School Guard account and we'll help you reset your "
                           'password.',
@@ -175,7 +190,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       const SizedBox(height: AppSpacing.lg),
                       ElevatedButton(
                         onPressed: () => _promptForToken(context),
-                        child: const Text('I have the code'),
+                        child: const Text('Paste the link instead'),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       TextButton(
@@ -211,7 +226,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                     color: AppColors.onPrimary,
                                   ),
                                 )
-                              : const Text('Send Verification Code'),
+                              : const Text('Send Reset Link'),
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Center(
