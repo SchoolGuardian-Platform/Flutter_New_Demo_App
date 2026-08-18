@@ -20,6 +20,12 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
   TeacherProfile? _profile;
   List<GradeEntry> _grades = [];
   bool _loading = true;
+  String _selectedSubject = 'ALL';
+  final List<String> _customSubjects = [
+    'Intro to Computer Science',
+    'Advanced Algebra & Calculus',
+    'Robotics & Embedded Systems',
+  ];
 
   @override
   void initState() {
@@ -32,11 +38,80 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
     final profile = await _teacherService.getTeacherProfile();
     final grades = await _teacherService.getGradeEntries();
     if (!mounted) return;
+
+    // Collect all unique subjects from existing grades
+    final uniqueSubjectsFromGrades = grades.map((g) => g.subject).toSet();
+    for (final s in uniqueSubjectsFromGrades) {
+      if (!_customSubjects.contains(s)) {
+        _customSubjects.add(s);
+      }
+    }
+
     setState(() {
       _profile = profile;
       _grades = grades;
       _loading = false;
     });
+  }
+
+  Future<void> _showAddSubjectBarDialog() async {
+    final controller = TextEditingController(text: 'General Physics II');
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Teaching Subject / Course Bar'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add a new subject bar to organize and manage your student grades separately per course.',
+                style: TextStyle(fontSize: 12.5, color: Colors.black87),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextFormField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Subject / Course Title *',
+                  hintText: 'e.g. PHYS-301: General Physics II',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final newSub = controller.text.trim();
+                if (!_customSubjects.contains(newSub)) {
+                  setState(() {
+                    _customSubjects.add(newSub);
+                    _selectedSubject = newSub;
+                  });
+                }
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Added subject bar for "$newSub"!'),
+                    backgroundColor: KukieAccent.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Add Subject Bar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openAddGrade() async {
@@ -116,11 +191,75 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                   const SizedBox(height: AppSpacing.lg),
                   _StatsRow(gradesCount: _grades.length),
                   const SizedBox(height: AppSpacing.lg),
+
+                  // --- Subject / Course Teaching Bars ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Recent Student Grades & Guidance',
+                        'My Teaching Subject Bars',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _showAddSubjectBarDialog,
+                        icon: const Icon(Icons.add_card, size: 16),
+                        label: const Text('+ Add Subject Bar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          selected: _selectedSubject == 'ALL',
+                          label: Text('All Subjects (${_grades.length})'),
+                          onSelected: (selected) {
+                            if (selected) setState(() => _selectedSubject = 'ALL');
+                          },
+                          selectedColor: KukieAccent.violetTint,
+                          checkmarkColor: KukieAccent.violet,
+                        ),
+                        const SizedBox(width: 8),
+                        ..._customSubjects.map((subject) {
+                          final count = _grades
+                              .where((g) =>
+                                  g.subject.trim().toLowerCase() ==
+                                  subject.trim().toLowerCase())
+                              .length;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              selected: _selectedSubject == subject,
+                              label: Text('$subject ($count)'),
+                              onSelected: (selected) {
+                                if (selected) setState(() => _selectedSubject = subject);
+                              },
+                              selectedColor: KukieAccent.violetTint,
+                              checkmarkColor: KukieAccent.violet,
+                            ),
+                          );
+                        }),
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16, color: KukieAccent.violet),
+                          label: const Text('Add Subject'),
+                          onPressed: _showAddSubjectBarDialog,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedSubject == 'ALL'
+                            ? 'Student Grades (${_grades.length})'
+                            : 'Students in $_selectedSubject (${_grades.where((g) => g.subject.trim().toLowerCase() == _selectedSubject.trim().toLowerCase()).length})',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -133,23 +272,42 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  if (_grades.isEmpty)
-                    const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(AppSpacing.xl),
-                        child: Center(
-                          child: Text('No student grades recorded yet.'),
-                        ),
-                      ),
-                    )
-                  else
-                    ..._grades.map(
-                      (g) => _TeacherGradeCard(
-                        grade: g,
-                        onEdit: () => _openEditGrade(g),
-                        onDelete: () => _deleteGrade(g.id),
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final filtered = _selectedSubject == 'ALL'
+                          ? _grades
+                          : _grades
+                              .where((g) =>
+                                  g.subject.trim().toLowerCase() ==
+                                  _selectedSubject.trim().toLowerCase())
+                              .toList();
+
+                      if (filtered.isEmpty) {
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.xl),
+                            child: Center(
+                              child: Text(_selectedSubject == 'ALL'
+                                  ? 'No student grades recorded yet.'
+                                  : 'No students enrolled/graded for "$_selectedSubject" yet.'),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        children: filtered
+                            .map(
+                              (g) => _TeacherGradeCard(
+                                grade: g,
+                                onEdit: () => _openEditGrade(g),
+                                onDelete: () => _deleteGrade(g.id),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

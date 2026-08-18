@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/api_exception.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/kukie_accent.dart';
+import 'manage_courses_page.dart';
 
 /// Bottom-nav "Overview" tab for the admin dashboard.
 ///
@@ -81,6 +83,28 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                 .textTheme
                 .bodySmall
                 ?.copyWith(color: AppColors.outline),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Card(
+            color: KukieAccent.violetTint,
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: KukieAccent.violet,
+                child: Icon(Icons.how_to_reg, color: Colors.white, size: 20),
+              ),
+              title: const Text(
+                'Generate & Publish Course Registration',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+              subtitle: const Text(
+                'Create semester course offerings, assign credit hours & publish for students.',
+                style: TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: KukieAccent.violet),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ManageCoursesPage()),
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (_loading && summary == null)

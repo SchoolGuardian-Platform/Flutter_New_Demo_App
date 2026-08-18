@@ -13,7 +13,6 @@ import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
 import '../admin/manage_courses_page.dart';
 import '../admin/manage_users_page.dart';
-import '../admin/pending_approvals_page.dart';
 import '../grades/parent_grades_page.dart';
 import '../grades/student_grades_page.dart';
 import '../landing_page.dart';

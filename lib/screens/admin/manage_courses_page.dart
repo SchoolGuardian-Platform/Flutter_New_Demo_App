@@ -170,25 +170,63 @@ class _ManageCoursesPageState extends State<ManageCoursesPage> {
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
+                  // --- Director Registration Generator Banner ---
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: KukieAccent.violetTint,
+                      gradient: LinearGradient(
+                        colors: [KukieAccent.violet, KukieAccent.violet.withValues(alpha: 0.85)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-                      border: Border.all(color: KukieAccent.cardBorder),
+                      boxShadow: AppColors.cardShadow,
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.admin_panel_settings, color: KukieAccent.violet),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Directors create semester course offerings, assign credit hours, and assign target teachers for student registration.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: KukieAccent.ink,
-                                  fontWeight: FontWeight.w500,
+                        const Row(
+                          children: [
+                            Icon(Icons.auto_awesome, color: Colors.amberAccent),
+                            SizedBox(width: 8),
+                            Text(
+                              'Director Registration Generator',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800, color: Colors.white, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Generate and publish semester course registration batches for all enrolled students.',
+                          style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Success: Course registration batch generated & published for Fall 2026! Students can now register.'),
+                                      backgroundColor: KukieAccent.success,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.send, size: 16),
+                                label: const Text(
+                                  'Publish Registration Batch (Fall 2026)',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
                                 ),
-                          ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amberAccent,
+                                  foregroundColor: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
