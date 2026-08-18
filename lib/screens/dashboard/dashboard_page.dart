@@ -20,6 +20,7 @@ import '../parent/linked_students_page.dart';
 import '../reports/reports_page.dart';
 import '../student/course_registration_page.dart';
 import '../student/linked_guardians_page.dart';
+import '../student/student_profile_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -418,11 +419,13 @@ class _RoleSections extends StatelessWidget {
                 builder: (_) => StudentGradesPage(
                     studentId: user.studentId ?? 'STU-1001'))),
           ),
-          const _SectionSpec(
+          _SectionSpec(
             icon: Icons.badge_outlined,
             title: 'My Profile',
             subtitle: 'Student ID, school, and enrollment details.',
             route: 'GET /auth/me',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => StudentProfilePage(user: user))),
           ),
           _SectionSpec(
             icon: Icons.family_restroom,
