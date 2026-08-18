@@ -19,6 +19,7 @@ class _ParentGradesPageState extends State<ParentGradesPage> {
   List<StudentCourseRegistration> _registrations = [];
   bool _loading = true;
   String _selectedTerm = 'Fall 2026';
+  bool _isTableView = true;
 
   @override
   void initState() {
@@ -47,6 +48,13 @@ class _ParentGradesPageState extends State<ParentGradesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Child Semester Performance & Guidance'),
+        actions: [
+          IconButton(
+            icon: Icon(_isTableView ? Icons.grid_view : Icons.table_chart),
+            onPressed: () => setState(() => _isTableView = !_isTableView),
+            tooltip: _isTableView ? 'Switch to Card View' : 'Switch to Table Matrix View',
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -71,9 +79,15 @@ class _ParentGradesPageState extends State<ParentGradesPage> {
                           }
                         },
                       ),
+                      IconButton.filledTonal(
+                        onPressed: () => setState(() => _isTableView = !_isTableView),
+                        icon: Icon(_isTableView ? Icons.grid_view : Icons.table_chart, size: 18),
+                        tooltip: 'Toggle Table View',
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
+
                   // --- Automated GPA Summary Banner ---
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -121,19 +135,168 @@ class _ParentGradesPageState extends State<ParentGradesPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Multi-Teacher Academic Matrix & Parent Notes',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Multi-Teacher Academic Matrix & Parent Notes',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      Text(
+                        _isTableView ? 'Table Mode' : 'Card Mode',
+                        style: const TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
+
                   if (_registrations.isEmpty)
                     const Card(
                       child: Padding(
                         padding: EdgeInsets.all(AppSpacing.xl),
                         child: Center(
                           child: Text('No courses registered for this semester.'),
+                        ),
+                      ),
+                    )
+                  else if (_isTableView)
+                    // ==========================================
+                    // 🏛️ PARENT PROFESSIONAL DATA TABLE MATRIX
+                    // ==========================================
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+                        side: const BorderSide(color: KukieAccent.cardBorder),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 16,
+                          headingRowColor: WidgetStateProperty.all(KukieAccent.violetTint),
+                          columns: const [
+                            DataColumn(
+                                label: Text('Course Code & Title',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Instructor',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Credit Hours',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Total Mark',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Grade',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('GPA Pts',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Teacher Confidential Note for Parents',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                          ],
+                          rows: _registrations.map((reg) {
+                            final c = reg.course;
+                            final g = reg.gradeEntry;
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    '${c.code}: ${c.title}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700, fontSize: 13),
+                                  ),
+                                ),
+                                DataCell(Text(c.teacherName,
+                                    style: const TextStyle(fontSize: 12.5))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: KukieAccent.violetTint,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${c.credits} Cr',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: KukieAccent.violet,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Text(
+                                          '${g.score.toStringAsFixed(0)} / ${g.maxScore.toStringAsFixed(0)} (${g.percentage.toStringAsFixed(1)}%)',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13),
+                                        )
+                                      : const Text('Pending',
+                                          style: TextStyle(color: Colors.orange)),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: KukieAccent.violet,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            g.letterGrade,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                color: Colors.white,
+                                                fontSize: 13),
+                                          ),
+                                        )
+                                      : const Text('-'),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Text(
+                                          '${g.gpaPoints.toStringAsFixed(2)} Pts',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: KukieAccent.violet,
+                                              fontSize: 12.5),
+                                        )
+                                      : const Text('-'),
+                                ),
+                                DataCell(
+                                  g != null && g.parentRecommendation != null
+                                      ? Container(
+                                          constraints: const BoxConstraints(maxWidth: 240),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: Colors.amber.shade300),
+                                          ),
+                                          child: Text(
+                                            g.parentRecommendation!,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: Colors.amber.shade900),
+                                          ),
+                                        )
+                                      : const Text('-'),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
                       ),
                     )

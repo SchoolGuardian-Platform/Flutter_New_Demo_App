@@ -53,7 +53,8 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully registered for ${course.code}: ${course.title}! Connected to teacher ${course.teacherName}.'),
+          content: Text(
+              'Successfully registered for ${course.code}: ${course.title}! Connected to teacher ${course.teacherName}.'),
           backgroundColor: KukieAccent.success,
         ),
       );
@@ -68,9 +69,12 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final totalEnrolledCredits =
+        _myRegistrations.fold(0.0, (sum, r) => sum + r.course.credits);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Semester Course Registration'),
+        title: const Text('Semester Course Registration & Board'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -79,6 +83,7 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
+                  // --- Registration Info Banner ---
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
@@ -92,7 +97,7 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Select Director-approved semester courses to enroll. Once registered, your enrollment automatically connects with the assigned teacher.',
+                            'Enroll in Director-approved semester courses. Enrolled courses automatically appear on your Registered Board and connect to assigned teachers.',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: KukieAccent.ink,
                                   fontWeight: FontWeight.w500,
@@ -103,10 +108,152 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
+
+                  // ==========================================
+                  // 📋 SECTION 1: MY REGISTERED COURSES BOARD
+                  // ==========================================
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'My Registered Courses Board (Fall 2026)',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Text(
+                          '${_myRegistrations.length} Enrolled · ${totalEnrolledCredits.toStringAsFixed(1)} Total Cr',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.green.shade800,
+                              fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (_myRegistrations.isEmpty)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(AppSpacing.xl),
+                        child: Center(
+                          child: Text(
+                            'No courses registered yet. Select from the catalog below to enroll!',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    // Professional Data Table / Matrix Board for Registered Courses
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+                        side: const BorderSide(color: KukieAccent.cardBorder),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 20,
+                          headingRowColor: WidgetStateProperty.all(KukieAccent.violetTint),
+                          columns: const [
+                            DataColumn(
+                                label: Text('Course Code & Title',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Assigned Instructor',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Credit Hours',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Department',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Status',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                          ],
+                          rows: _myRegistrations.map((reg) {
+                            final c = reg.course;
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.bookmark_added,
+                                          color: KukieAccent.violet, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${c.code}: ${c.title}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                DataCell(Text(c.teacherName,
+                                    style: const TextStyle(fontSize: 12.5))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: KukieAccent.violetTint,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${c.credits} Cr',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: KukieAccent.violet,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(Text(c.department,
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.grey.shade700))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'ENROLLED',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.green.shade900,
+                                          fontSize: 11),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: AppSpacing.xl),
+
+                  // ==========================================
+                  // 📚 SECTION 2: AVAILABLE COURSES CATALOG
+                  // ==========================================
                   Text(
-                    'Available Courses for Fall 2026',
+                    'Available Semester Courses Catalog (Fall 2026)',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                         ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -119,10 +266,12 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: enrolled ? Colors.green.shade100 : KukieAccent.violetTint,
+                              backgroundColor:
+                                  enrolled ? Colors.green.shade100 : KukieAccent.violetTint,
                               child: Icon(
                                 enrolled ? Icons.check_circle : Icons.book,
-                                color: enrolled ? Colors.green.shade800 : KukieAccent.violet,
+                                color:
+                                    enrolled ? Colors.green.shade800 : KukieAccent.violet,
                                 size: 20,
                               ),
                             ),
@@ -139,11 +288,17 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                                   const SizedBox(height: 2),
                                   Text(
                                     'Assigned Teacher: ${course.teacherName}',
-                                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                   Text(
                                     '${course.credits} Credit Hours · ${course.department}',
-                                    style: const TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.w700),
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: KukieAccent.violet,
+                                        fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),
@@ -151,8 +306,10 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                             ElevatedButton(
                               onPressed: enrolled ? null : () => _enroll(course),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: enrolled ? Colors.grey.shade300 : KukieAccent.violet,
-                                foregroundColor: enrolled ? Colors.grey.shade700 : Colors.white,
+                                backgroundColor:
+                                    enrolled ? Colors.grey.shade300 : KukieAccent.violet,
+                                foregroundColor:
+                                    enrolled ? Colors.grey.shade700 : Colors.white,
                               ),
                               child: Text(enrolled ? 'Enrolled' : 'Register'),
                             ),

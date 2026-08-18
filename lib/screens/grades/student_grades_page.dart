@@ -20,6 +20,7 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
   List<StudentCourseRegistration> _registrations = [];
   bool _loading = true;
   String _selectedTerm = 'Fall 2026';
+  bool _isTableView = true; // Toggle between Professional Table Matrix and Cards
 
   @override
   void initState() {
@@ -45,22 +46,24 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Official Grading Scale & GPA Points'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ScaleRow(grade: 'A+', range: '90% - 100%', points: '4.0'),
-            _ScaleRow(grade: 'A', range: '85% - 89%', points: '4.0'),
-            _ScaleRow(grade: 'A-', range: '80% - 84%', points: '3.75'),
-            _ScaleRow(grade: 'B+', range: '75% - 79%', points: '3.5'),
-            _ScaleRow(grade: 'B', range: '70% - 74%', points: '3.0'),
-            _ScaleRow(grade: 'B-', range: '65% - 69%', points: '2.75'),
-            _ScaleRow(grade: 'C+', range: '60% - 64%', points: '2.5'),
-            _ScaleRow(grade: 'C', range: '50% - 59%', points: '2.0'),
-            _ScaleRow(grade: 'C-', range: '45% - 49%', points: '1.75'),
-            _ScaleRow(grade: 'D', range: '40% - 44%', points: '1.0'),
-            _ScaleRow(grade: 'F (Fail)', range: '< 40%', points: '0.0'),
-          ],
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ScaleRow(grade: 'A+', range: '90% - 100%', points: '4.0'),
+              _ScaleRow(grade: 'A', range: '85% - 89%', points: '4.0'),
+              _ScaleRow(grade: 'A-', range: '80% - 84%', points: '3.75'),
+              _ScaleRow(grade: 'B+', range: '75% - 79%', points: '3.5'),
+              _ScaleRow(grade: 'B', range: '70% - 74%', points: '3.0'),
+              _ScaleRow(grade: 'B-', range: '65% - 69%', points: '2.75'),
+              _ScaleRow(grade: 'C+', range: '60% - 64%', points: '2.5'),
+              _ScaleRow(grade: 'C', range: '50% - 59%', points: '2.0'),
+              _ScaleRow(grade: 'C-', range: '45% - 49%', points: '1.75'),
+              _ScaleRow(grade: 'D', range: '40% - 44%', points: '1.0'),
+              _ScaleRow(grade: 'F (Fail)', range: '< 40%', points: '0.0'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -79,8 +82,13 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Semester Courses & GPA'),
+        title: const Text('My Grades & Coursework Matrix'),
         actions: [
+          IconButton(
+            icon: Icon(_isTableView ? Icons.grid_view : Icons.table_chart),
+            onPressed: () => setState(() => _isTableView = !_isTableView),
+            tooltip: _isTableView ? 'Switch to Card View' : 'Switch to Data Table Matrix View',
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showGradingScaleDialog,
@@ -112,17 +120,28 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
                           }
                         },
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          await Navigator.of(context).pushNamed(CourseRegistrationPage.routeName);
-                          _loadData();
-                        },
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Register Courses'),
+                      Row(
+                        children: [
+                          IconButton.filledTonal(
+                            onPressed: () => setState(() => _isTableView = !_isTableView),
+                            icon: Icon(_isTableView ? Icons.grid_view : Icons.table_chart, size: 18),
+                            tooltip: 'Toggle Table View',
+                          ),
+                          const SizedBox(width: 6),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              await Navigator.of(context).pushNamed(CourseRegistrationPage.routeName);
+                              _loadData();
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Register Courses'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
+
                   // --- Automated GPA Summary Banner ---
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.lg),
@@ -185,20 +204,32 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Student ID: ${widget.studentId} · Total Credits: ${totalCredits.toStringAsFixed(1)} Cr · ${_registrations.length} Enrolled Courses',
+                          'Student ID: ${widget.studentId} · Total Credits: ${totalCredits.toStringAsFixed(1)} Cr · ${_registrations.length} Registered Courses',
                           style: const TextStyle(color: Colors.white70, fontSize: 12.5),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Multi-Teacher Course Grade Matrix',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+
+                  // Header with View Toggle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Multi-Teacher Academic Matrix',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      Text(
+                        _isTableView ? 'Table Mode' : 'Card Mode',
+                        style: const TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
+
                   if (_registrations.isEmpty)
                     Card(
                       child: Padding(
@@ -219,7 +250,153 @@ class _StudentGradesPageState extends State<StudentGradesPage> {
                         ),
                       ),
                     )
+                  else if (_isTableView)
+                    // ==========================================
+                    // 🏛️ PROFESSIONAL UNIVERSITY DATA TABLE MATRIX
+                    // ==========================================
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+                        side: const BorderSide(color: KukieAccent.cardBorder),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 16,
+                          headingRowColor: WidgetStateProperty.all(KukieAccent.violetTint),
+                          columns: const [
+                            DataColumn(
+                                label: Text('Course Code & Title',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Instructor',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Credit Hours',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Assessment Breakdown',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Total Mark',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('Grade',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                            DataColumn(
+                                label: Text('GPA Pts',
+                                    style: TextStyle(fontWeight: FontWeight.w800))),
+                          ],
+                          rows: _registrations.map((reg) {
+                            final c = reg.course;
+                            final g = reg.gradeEntry;
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    '${c.code}: ${c.title}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700, fontSize: 13),
+                                  ),
+                                ),
+                                DataCell(Text(c.teacherName,
+                                    style: const TextStyle(fontSize: 12.5))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: KukieAccent.violetTint,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${c.credits} Cr',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: KukieAccent.violet,
+                                          fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  g != null && g.hasBreakdown
+                                      ? Row(
+                                          children: g.activeComponents
+                                              .map(
+                                                (comp) => Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(right: 4),
+                                                  child: Chip(
+                                                    materialTapTargetSize:
+                                                        MaterialTapTargetSize.shrinkWrap,
+                                                    padding: EdgeInsets.zero,
+                                                    labelPadding:
+                                                        const EdgeInsets.symmetric(
+                                                            horizontal: 6),
+                                                    label: Text(
+                                                      '${comp.name}: ${comp.score.toStringAsFixed(0)}/${comp.maxScore.toStringAsFixed(0)}',
+                                                      style: const TextStyle(
+                                                          fontSize: 10.5,
+                                                          fontWeight: FontWeight.w600),
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                        )
+                                      : const Text('-',
+                                          style: TextStyle(color: Colors.grey)),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Text(
+                                          '${g.score.toStringAsFixed(0)} / ${g.maxScore.toStringAsFixed(0)} (${g.percentage.toStringAsFixed(1)}%)',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13),
+                                        )
+                                      : const Text('Pending',
+                                          style: TextStyle(color: Colors.orange)),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: KukieAccent.violet,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            g.letterGrade,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                color: Colors.white,
+                                                fontSize: 13),
+                                          ),
+                                        )
+                                      : const Text('-'),
+                                ),
+                                DataCell(
+                                  g != null
+                                      ? Text(
+                                          '${g.gpaPoints.toStringAsFixed(2)} Pts',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: KukieAccent.violet,
+                                              fontSize: 12.5),
+                                        )
+                                      : const Text('-'),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    )
                   else
+                    // Cards View
                     ..._registrations.map((reg) => _StudentCourseCard(registration: reg)),
                 ],
               ),
