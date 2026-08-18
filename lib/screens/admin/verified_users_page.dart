@@ -9,10 +9,11 @@ import '../../theme/kukie_accent.dart';
 
 /// Admin's "Users" directory — every already-verified (ACTIVE) account,
 /// grouped by category with a tab each for Students, Teachers, and
-/// Parents. Backed by `GET /admin/{role}/active`
+/// Parents. Backed by `GET /admin/users/verified?role=...`
 /// (`AdminService.getActive`), which is separate from the pending-review
-/// queues on `PendingApprovalsPage` — this page is read-only browsing of
-/// clients who are already approved, not a decision queue.
+/// queues on `PendingApprovalsPage`. Unlike a purely read-only directory,
+/// each row also lets the admin permanently remove the account via
+/// `DELETE /admin/users/:id` (`AdminService.deleteUser`).
 class VerifiedUsersPage extends StatefulWidget {
   const VerifiedUsersPage({super.key});
 
@@ -70,6 +71,53 @@ class _VerifiedUsersPageState extends State<VerifiedUsersPage>
   }
 
   Future<void> _loadAll() => Future.wait(_roles.map(_load));
+
+  Future<void> _confirmAndDelete(UserRole role, User user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove user?'),
+        content: Text(
+          'This permanently deletes ${user.fullName}\'s (${user.email}) '
+          'account. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _adminService.deleteUser(user.id);
+      if (!mounted) return;
+      setState(() {
+        _users[role] = (_users[role] ?? const <User>[])
+            .where((u) => u.id != user.id)
+            .toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${user.fullName} removed.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not remove this user.')),
+      );
+    }
+  }
 
   List<User> _filtered(UserRole role) {
     final list = _users[role] ?? const <User>[];
@@ -192,16 +240,20 @@ class _VerifiedUsersPageState extends State<VerifiedUsersPage>
         padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: users.length,
         separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-        itemBuilder: (context, index) => _VerifiedUserCard(user: users[index]),
+        itemBuilder: (context, index) => _VerifiedUserCard(
+          user: users[index],
+          onDelete: () => _confirmAndDelete(role, users[index]),
+        ),
       ),
     );
   }
 }
 
 class _VerifiedUserCard extends StatelessWidget {
-  const _VerifiedUserCard({required this.user});
+  const _VerifiedUserCard({required this.user, required this.onDelete});
 
   final User user;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +317,12 @@ class _VerifiedUserCard extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            tooltip: 'Remove user',
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),

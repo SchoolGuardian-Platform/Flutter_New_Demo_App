@@ -7,6 +7,8 @@ import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/auth_text_field.dart';
+import 'pending_approval_page.dart';
+import 'verify_eamil_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.role});
@@ -57,8 +59,34 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      // `loginUser` in `auth.service.ts` returns a specific message for an
+      // unverified or still-pending account (both still 401s, same as a
+      // wrong password) -- previously this just showed the message with
+      // no way forward. Now it offers the matching next step instead of
+      // being a dead end.
+      final message = e.message.toLowerCase();
+      final isUnverified = message.contains('not verified');
+      final isPendingApproval = message.contains('pending admin approval');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+        SnackBar(
+          content: Text(e.message),
+          duration: const Duration(seconds: 6),
+          action: isUnverified
+              ? SnackBarAction(
+                  label: 'Verify Email',
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    VerifyEmailPage.routeName,
+                    arguments: {'email': _identifierController.text.trim()},
+                  ),
+                )
+              : isPendingApproval
+                  ? SnackBarAction(
+                      label: 'View Status',
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(PendingApprovalPage.routeName),
+                    )
+                  : null,
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);

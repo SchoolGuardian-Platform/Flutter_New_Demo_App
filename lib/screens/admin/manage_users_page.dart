@@ -6,18 +6,14 @@ import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'pending_approvals_page.dart';
 
-/// Admin's "Manage Users" hub.
+/// Admin's "Manage Users" hub -- reviewing and acting on every account/link
+/// waiting on a decision, grouped by category with live counts.
 ///
-/// HONEST SCOPE NOTE: the backend does not yet expose a "list every
-/// existing account" endpoint (only `GET /admin/{role}/pending`,
-/// `GET /admin/{role}/:id`, and the approve/reject actions are
-/// implemented -- see `SchoolGuardian_Final_OpenAPI.yaml`). So this hub
-/// currently focuses on what IS live today: reviewing and acting on every
-/// account/link waiting on a decision, grouped by category with live
-/// counts. A full searchable directory of active accounts can be added
-/// here as soon as a `GET /admin/users` (or similar) endpoint exists on
-/// the backend -- this page is structured so that's a new card, not a
-/// rewrite.
+/// This is deliberately separate from the "Users" tab (`VerifiedUsersPage`,
+/// reachable from the dashboard nav bar), which is the searchable directory
+/// of already-verified accounts backed by `GET /admin/users/verified` and
+/// supports removing an account. This hub stays focused on the pending
+/// queues; browsing/removing verified accounts lives on that other page.
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({super.key});
 

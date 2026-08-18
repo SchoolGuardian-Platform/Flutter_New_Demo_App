@@ -515,6 +515,7 @@ class _StatusBadge extends StatelessWidget {
     // assumed) since [status] is nullable and this card should still
     // render sensibly if that ever changes.
     final label = switch (status) {
+      AccountStatus.unverified => 'Unverified',
       AccountStatus.pending => 'Pending',
       AccountStatus.active => 'Approved',
       AccountStatus.rejected => 'Rejected',
@@ -522,6 +523,7 @@ class _StatusBadge extends StatelessWidget {
       null => 'Unknown',
     };
     final color = switch (status) {
+      AccountStatus.unverified => AppColors.outline,
       AccountStatus.pending => AppColors.warning,
       AccountStatus.active => AppColors.secondary,
       AccountStatus.rejected => AppColors.error,

@@ -25,17 +25,27 @@ class LinkStudentPage extends StatefulWidget {
 
 enum _LookupMode { studentId, email }
 
-// Backend (`relationship.validator.ts` / `relationship.service.ts`) only
-// accepts a UUID here and matches it against the student's *internal*
-// `User.id` -- NOT the human-readable `studentId` (e.g. "STU12345") shown
-// on the student's own profile page. Since those are two different values
-// and there's no endpoint to resolve one into the other, entering the
-// "Student ID" a parent would actually be given can never match. Email
-// defaults on and is called out as the reliable option; the ID field is
-// relabeled so it doesn't imply the profile-page value will work.
-final RegExp _uuidPattern = RegExp(
-  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-);
+// CORRECTED: the previous version of this screen assumed the backend
+// matched the `studentId` field against the student's *internal* `User.id`
+// (a UUID), so it forced the parent to enter a UUID here. That was wrong --
+// `requestParentStudentRelationship` in `relationship.service.ts` actually
+// queries `prisma.user.findFirst({ where: { studentId: input.studentId } })`,
+// which matches the human-readable Student ID (e.g. "SG-2026-000123", see
+// `generateStudentId` in `utils/date.ts`) that's shown on the student's own
+// profile page -- NOT their internal UUID. So this field now accepts that
+// format instead.
+//
+// ONE CAVEAT WE CAN'T FIX FROM THIS APP: `createRelationshipSchema` in
+// `relationship.validator.ts` still declares `studentId: z.string().uuid()`,
+// so the backend's own request validation will reject a non-UUID value
+// with a 400 before it ever reaches the lookup above -- i.e. ID-based
+// linking is currently broken server-side for any real Student ID. Email
+// lookup (`studentEmail`, validated as a plain email) does not have this
+// problem, which is why it's the default mode below. Fixing ID lookup for
+// real requires relaxing that `.uuid()` constraint on the backend to
+// `z.string().min(1)`. Until then this screen surfaces the backend's
+// rejection as a clear message rather than a generic error.
+final RegExp _studentIdPattern = RegExp(r'^[A-Za-z]{2,}-\d{4}-\d{4,}$');
 
 class _LinkStudentPageState extends State<LinkStudentPage> {
   final _parentService = ParentService();
@@ -91,7 +101,15 @@ class _LinkStudentPageState extends State<LinkStudentPage> {
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _submitError = e.message);
+      // A 400 in Student-ID mode most often means the server-side request
+      // validator rejected the value before the lookup ever ran (see the
+      // caveat above `_studentIdPattern`) -- nudge toward Email, which
+      // doesn't hit that validation gap, rather than showing a raw
+      // "bad request" message.
+      setState(() => _submitError = _mode == _LookupMode.studentId &&
+              e.statusCode == 400
+          ? "The server didn't accept that Student ID. Try Email instead."
+          : e.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -110,14 +128,9 @@ class _LinkStudentPageState extends State<LinkStudentPage> {
         return 'Enter a valid email address';
       }
     } else {
-      // The backend requires a UUID here -- it is NOT the "Student ID"
-      // shown on the student's profile page. Validating the format
-      // client-side surfaces that mismatch immediately instead of a
-      // generic "not found" error after a round trip to the server.
-      if (!_uuidPattern.hasMatch(trimmed)) {
-        return 'This must be the student\'s internal account ID (a long '
-            'ID like 8f14e2a1-...), not the Student ID on their profile. '
-            'If you don\'t have this, use Email instead.';
+      if (!_studentIdPattern.hasMatch(trimmed)) {
+        return 'Enter the Student ID shown on their profile, e.g. '
+            'SG-2026-000123.';
       }
     }
     return null;
@@ -148,9 +161,8 @@ class _LinkStudentPageState extends State<LinkStudentPage> {
                     child: Text(
                       'Requests go to the school admin for approval before '
                       'the link becomes active. Looking the student up by '
-                      'email is the reliable option -- Account ID only '
-                      'works if you already have their internal system ID, '
-                      'not the Student ID shown on their profile.',
+                      'email is the most reliable option right now -- if '
+                      'Student ID lookup is rejected, switch to Email.',
                       style: const TextStyle(
                           color: KukieAccent.ink, fontSize: 13, height: 1.4),
                     ),
@@ -166,8 +178,8 @@ class _LinkStudentPageState extends State<LinkStudentPage> {
               segments: const [
                 ButtonSegment(
                   value: _LookupMode.studentId,
-                  label: Text('Account ID'),
-                  icon: Icon(Icons.fingerprint_outlined),
+                  label: Text('Student ID'),
+                  icon: Icon(Icons.badge_outlined),
                 ),
                 ButtonSegment(
                   value: _LookupMode.email,
@@ -193,10 +205,10 @@ class _LinkStudentPageState extends State<LinkStudentPage> {
                   : TextInputType.text,
               decoration: InputDecoration(
                 labelText: _mode == _LookupMode.studentId
-                    ? 'Student account ID'
+                    ? 'Student ID'
                     : 'Student email',
                 hintText: _mode == _LookupMode.studentId
-                    ? 'Internal account ID -- not the Student ID on their profile'
+                    ? 'e.g. SG-2026-000123'
                     : 'e.g. student@school.edu',
                 filled: true,
                 fillColor: AppColors.surfaceContainerLow,

@@ -25,15 +25,21 @@ class LoginResult {
 ///
 /// Payload keys and requiredness intentionally mirror the Zod schemas
 /// exactly so the backend's 400 validation errors are avoided:
-/// - registerStudent: dateOfBirth + gender REQUIRED
-/// - registerParent: dateOfBirth NOT accepted, gender optional
-/// - registerTeacher: dateOfBirth + gender optional
+/// - registerStudent: dateOfBirth + gender + middleName + phoneNumber REQUIRED
+/// - registerParent: middleName + phoneNumber REQUIRED, gender optional,
+///   dateOfBirth NOT accepted
+/// - registerTeacher: middleName + phoneNumber REQUIRED, dateOfBirth +
+///   gender optional
 ///
-/// NOTE: the current sign-up screen (`screens/signup/signup_page.dart`)
-/// does not yet collect date of birth or gender, and it collects
-/// studentId/schoolCode/phone fields the backend register endpoints do not
-/// accept at all. That screen still needs to be reworked to match — see
-/// PROGRESS.md.
+/// CORRECTED: `registerStudentSchema` / `registerParentSchema` /
+/// `registerTeacherSchema` all declare `phoneNumber: z.string().min(1, ...)`
+/// (required) and `middleName: z.string().min(1, ...)` (also required, NOT
+/// optional despite what the old comment here said). Neither field was
+/// being sent at all -- `middleName` was only included when non-empty, and
+/// `phoneNumber` didn't exist anywhere in this service or the sign-up
+/// screen. That's what produced the backend's "Invalid input: expected
+/// string, received undefined" toast on submit (Zod's default message for
+/// a required string that arrives as `undefined`).
 class AuthService {
   AuthService({ApiClient? apiClient, TokenStorage? tokenStorage})
       : _apiClient = apiClient ?? ApiClient(),
@@ -58,25 +64,28 @@ class AuthService {
     return result;
   }
 
-  /// `POST /auth/register/student` — dateOfBirth (YYYY-MM-DD) and gender
-  /// are REQUIRED by the backend (`registerStudentSchema`).
+  /// `POST /auth/register/student` — dateOfBirth (YYYY-MM-DD), gender,
+  /// middleName, and phoneNumber are all REQUIRED by the backend
+  /// (`registerStudentSchema`).
   Future<User> registerStudent({
     required String firstName,
-    String? middleName,
+    required String middleName,
     required String lastName,
     required String dateOfBirth, // must be 'YYYY-MM-DD'
     required Gender gender,
     required String email,
+    required String phoneNumber,
     required String password,
     required String confirmPassword,
   }) async {
     final json = await _apiClient.post(ApiConfig.registerStudent, body: {
       'firstName': firstName,
-      if (middleName != null && middleName.isNotEmpty) 'middleName': middleName,
+      'middleName': middleName,
       'lastName': lastName,
       'dateOfBirth': dateOfBirth,
       'gender': gender.apiValue,
       'email': email,
+      'phoneNumber': phoneNumber,
       'password': password,
       'confirmPassword': confirmPassword,
     });
@@ -84,47 +93,52 @@ class AuthService {
   }
 
   /// `POST /auth/register/parent` — no dateOfBirth field on this endpoint;
-  /// gender is optional (`registerParentSchema`).
+  /// gender is optional, but middleName and phoneNumber are REQUIRED
+  /// (`registerParentSchema`).
   Future<User> registerParent({
     required String firstName,
-    String? middleName,
+    required String middleName,
     required String lastName,
     Gender? gender,
     required String email,
+    required String phoneNumber,
     required String password,
     required String confirmPassword,
   }) async {
     final json = await _apiClient.post(ApiConfig.registerParent, body: {
       'firstName': firstName,
-      if (middleName != null && middleName.isNotEmpty) 'middleName': middleName,
+      'middleName': middleName,
       'lastName': lastName,
       if (gender != null) 'gender': gender.apiValue,
       'email': email,
+      'phoneNumber': phoneNumber,
       'password': password,
       'confirmPassword': confirmPassword,
     });
     return User.fromJson(json);
   }
 
-  /// `POST /auth/register/teacher` — dateOfBirth and gender both optional
-  /// (`registerTeacherSchema`).
+  /// `POST /auth/register/teacher` — dateOfBirth and gender both optional,
+  /// but middleName and phoneNumber are REQUIRED (`registerTeacherSchema`).
   Future<User> registerTeacher({
     required String firstName,
-    String? middleName,
+    required String middleName,
     required String lastName,
     String? dateOfBirth,
     Gender? gender,
     required String email,
+    required String phoneNumber,
     required String password,
     required String confirmPassword,
   }) async {
     final json = await _apiClient.post(ApiConfig.registerTeacher, body: {
       'firstName': firstName,
-      if (middleName != null && middleName.isNotEmpty) 'middleName': middleName,
+      'middleName': middleName,
       'lastName': lastName,
       if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
       if (gender != null) 'gender': gender.apiValue,
       'email': email,
+      'phoneNumber': phoneNumber,
       'password': password,
       'confirmPassword': confirmPassword,
     });

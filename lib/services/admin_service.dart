@@ -86,7 +86,8 @@ class PendingSummary {
 /// approve/reject a given account.
 ///
 /// INTENTIONALLY SEPARATE FROM `core/api_client.dart`: that shared client
-/// only exposes GET/POST today, and these endpoints use PATCH. Rather than
+/// only exposes GET/POST today, and these endpoints use PATCH and DELETE.
+/// Rather than
 /// touch the shared API layer (risk of merge conflicts with whatever else
 /// is in flight on it), this makes its own `package:http` calls, reusing
 /// `ApiConfig.baseUrl` and `TokenStorage` read-only. It mirrors the same
@@ -119,12 +120,6 @@ class AdminService {
     UserRole.teacher: '/admin/teachers/pending',
   };
 
-  static const Map<UserRole, String> _activePaths = {
-    UserRole.student: '/admin/students/active',
-    UserRole.parent: '/admin/parents/active',
-    UserRole.teacher: '/admin/teachers/active',
-  };
-
   static const Map<UserRole, String> _resourceSegments = {
     UserRole.student: 'students',
     UserRole.parent: 'parents',
@@ -148,15 +143,23 @@ class AdminService {
         .toList();
   }
 
-  /// `GET /admin/{students|parents|teachers}/active` -- verified/approved
-  /// accounts for this role (AccountStatus.ACTIVE), for the "Users"
-  /// directory tab rather than the approvals queue.
+  /// `GET /admin/users/verified?role={ROLE}` -- verified/approved accounts
+  /// (`AccountStatus.ACTIVE`) for the "Users" directory tab, rather than
+  /// the approvals queue.
+  ///
+  /// CORRECTED: this used to call `/admin/{role}/active`, which does not
+  /// exist anywhere in `admin.routes.ts` (every request 404'd, so the
+  /// "Users" tab always rendered empty). The route that's actually
+  /// implemented is a single `GET /admin/users/verified` that takes the
+  /// role as a query parameter -- see `getVerifiedUsersController` /
+  /// `getVerifiedUsersByRole` in `admin.controller.ts` / `admin.service.ts`.
+  /// `UserRole.admin` has no verified-users listing (admins aren't shown
+  /// in this directory), so it throws same as before.
   Future<List<User>> getActive(UserRole role) async {
-    final path = _activePaths[role];
-    if (path == null) {
-      throw ArgumentError('No active-users endpoint for role: $role');
+    if (role == UserRole.admin) {
+      throw ArgumentError('No verified-users listing for role: $role');
     }
-    final decoded = await _get(path);
+    final decoded = await _get('/admin/users/verified?role=${role.apiValue}');
     final list = decoded['data'];
     if (list is! List) {
       throw ApiException.malformed(200);
@@ -165,6 +168,14 @@ class AdminService {
         .whereType<Map<String, dynamic>>()
         .map((json) => User.fromJson(json))
         .toList();
+  }
+
+  /// `DELETE /admin/users/:id` -- permanently removes a user account.
+  /// The backend refuses to delete an ADMIN account (`deleteUser` in
+  /// `admin.service.ts` throws `BadRequestError`), which surfaces here as
+  /// a normal `ApiException` for the caller to show.
+  Future<void> deleteUser(String userId) async {
+    await _delete('/admin/users/$userId');
   }
 
   /// `PATCH /admin/{students|parents|teachers}/:id/approve`
@@ -284,6 +295,31 @@ class AdminService {
       final streamed =
           await _httpClient.send(request).timeout(ApiConfig.requestTimeout);
       response = await http.Response.fromStream(streamed);
+    } on SocketException {
+      throw ApiException.network(
+          'Could not reach the server. Check your connection.');
+    } on HttpException {
+      throw ApiException.network('The server could not be reached.');
+    } catch (_) {
+      throw ApiException.network('The request timed out or failed.');
+    }
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> _delete(String path) async {
+    final token = await _tokenStorage.readAccessToken();
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    http.Response response;
+    try {
+      response = await _httpClient
+          .delete(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(ApiConfig.requestTimeout);
     } on SocketException {
       throw ApiException.network(
           'Could not reach the server. Check your connection.');
