@@ -10,6 +10,7 @@ import 'models/user_role.dart';
 import 'screens/account_rejected_page.dart';
 import 'screens/admin/admin_notifications_page.dart';
 import 'screens/admin/admin_profile_page.dart';
+import 'screens/admin/guardian_links_page.dart';
 import 'screens/admin/manage_users_page.dart';
 import 'screens/admin/pending_approvals_page.dart';
 import 'screens/dashboard/dashboard_page.dart';
@@ -242,6 +243,9 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case ManageUsersPage.routeName:
             return MaterialPageRoute(builder: (_) => const ManageUsersPage());
+
+          case GuardianLinksPage.routeName:
+            return MaterialPageRoute(builder: (_) => const GuardianLinksPage());
 
           case AdminProfilePage.routeName:
             final user = settings.arguments as User?;

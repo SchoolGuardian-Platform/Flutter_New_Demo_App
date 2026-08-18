@@ -11,6 +11,7 @@ import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
+import '../admin/guardian_links_page.dart';
 import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
@@ -516,6 +517,16 @@ class _RoleSections extends StatelessWidget {
             route: 'GET /admin/{role}/pending',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ManageUsersPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.family_restroom,
+            title: 'Guardian Links',
+            subtitle:
+                'Parent-student links awaiting your decision, plus ones '
+                'already approved or rejected.',
+            route: 'GET /admin/relationships',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GuardianLinksPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
