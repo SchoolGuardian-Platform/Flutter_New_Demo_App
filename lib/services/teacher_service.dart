@@ -18,10 +18,12 @@ class TeacherService {
       score: 91.0,
       maxScore: 100.0,
       term: 'Fall 2026',
-      attendanceScore: 7.0,   // out of 10
-      midtermScore: 27.0,     // out of 30
-      assignmentScore: 9.0,   // out of 10
-      finalScore: 48.0,       // out of 50
+      components: const [
+        AssessmentComponent(name: 'Attendance', score: 7.0, maxScore: 10.0),
+        AssessmentComponent(name: 'Midterm Exam', score: 27.0, maxScore: 30.0),
+        AssessmentComponent(name: 'Assignments', score: 9.0, maxScore: 10.0),
+        AssessmentComponent(name: 'Final Exam', score: 48.0, maxScore: 50.0),
+      ],
       parentRecommendation:
           'Alexander demonstrates exceptional analytical thinking in calculus. Highly recommend enrolling him in the Advanced Placement Math Club.',
       createdAt: DateTime.now().subtract(const Duration(days: 3)),
@@ -35,10 +37,12 @@ class TeacherService {
       score: 88.0,
       maxScore: 100.0,
       term: 'Fall 2026',
-      attendanceScore: 9.0,
-      midtermScore: 25.0,
-      assignmentScore: 10.0,
-      finalScore: 44.0,
+      components: const [
+        AssessmentComponent(name: 'Attendance', score: 9.0, maxScore: 10.0),
+        AssessmentComponent(name: 'Python Project', score: 18.0, maxScore: 20.0),
+        AssessmentComponent(name: 'Midterm Exam', score: 24.0, maxScore: 30.0),
+        AssessmentComponent(name: 'Final Exam', score: 37.0, maxScore: 40.0),
+      ],
       parentRecommendation:
           'Alexander completed a great Python project. Please encourage him to review data structures before the upcoming final exam.',
       createdAt: DateTime.now().subtract(const Duration(days: 7)),
@@ -52,10 +56,12 @@ class TeacherService {
       score: 76.0,
       maxScore: 100.0,
       term: 'Fall 2026',
-      attendanceScore: 8.0,
-      midtermScore: 21.0,
-      assignmentScore: 7.0,
-      finalScore: 40.0,
+      components: const [
+        AssessmentComponent(name: 'Attendance', score: 8.0, maxScore: 10.0),
+        AssessmentComponent(name: 'Midterm Exam', score: 21.0, maxScore: 30.0),
+        AssessmentComponent(name: 'Assignments', score: 7.0, maxScore: 10.0),
+        AssessmentComponent(name: 'Final Exam', score: 40.0, maxScore: 50.0),
+      ],
       parentRecommendation:
           'Sophia understands algebraic concepts well but rushed through quadratic equations. 15 minutes of guided homework review daily would boost her confidence.',
       createdAt: DateTime.now().subtract(const Duration(days: 5)),
@@ -98,6 +104,7 @@ class TeacherService {
     required double score,
     required double maxScore,
     required String term,
+    List<AssessmentComponent> components = const [],
     double? attendanceScore,
     double? midtermScore,
     double? assignmentScore,
@@ -113,6 +120,7 @@ class TeacherService {
       score: score,
       maxScore: maxScore,
       term: term,
+      components: components,
       attendanceScore: attendanceScore,
       midtermScore: midtermScore,
       assignmentScore: assignmentScore,

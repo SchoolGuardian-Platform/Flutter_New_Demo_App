@@ -21,7 +21,7 @@ extension AssessmentTypeX on AssessmentType {
       case AssessmentType.project:
         return 'Project';
       case AssessmentType.composite:
-        return 'Composite Evaluation (100)';
+        return 'Composite Evaluation';
     }
   }
 
@@ -63,6 +63,34 @@ extension AssessmentTypeX on AssessmentType {
   }
 }
 
+class AssessmentComponent {
+  const AssessmentComponent({
+    required this.name,
+    required this.score,
+    required this.maxScore,
+  });
+
+  final String name;
+  final double score;
+  final double maxScore;
+
+  double get percentage => maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'score': score,
+        'maxScore': maxScore,
+      };
+
+  factory AssessmentComponent.fromJson(Map<String, dynamic> json) {
+    return AssessmentComponent(
+      name: json['name'] as String,
+      score: (json['score'] as num).toDouble(),
+      maxScore: (json['maxScore'] as num).toDouble(),
+    );
+  }
+}
+
 class GradeEntry {
   const GradeEntry({
     required this.id,
@@ -73,6 +101,7 @@ class GradeEntry {
     required this.score,
     required this.maxScore,
     required this.term,
+    this.components = const [],
     this.attendanceScore,
     this.midtermScore,
     this.assignmentScore,
@@ -90,8 +119,10 @@ class GradeEntry {
   final double maxScore;
   final String term;
 
-  // Breakdown Component Marks out of 100 total:
-  // Attendance (max 10), Midterm (max 30), Assignment (max 10), Final (max 50)
+  /// Dynamic list of chosen assessment sections (Midterm, Attendance, Project, etc.)
+  final List<AssessmentComponent> components;
+
+  // Legacy Breakdown Component Marks out of 100 total
   final double? attendanceScore;
   final double? midtermScore;
   final double? assignmentScore;
@@ -102,17 +133,46 @@ class GradeEntry {
   final String? parentRecommendation;
   final DateTime createdAt;
 
-  bool get hasBreakdown =>
-      attendanceScore != null ||
-      midtermScore != null ||
-      assignmentScore != null ||
-      finalScore != null;
+  List<AssessmentComponent> get activeComponents {
+    if (components.isNotEmpty) return components;
+    final list = <AssessmentComponent>[];
+    if (attendanceScore != null) {
+      list.add(AssessmentComponent(
+          name: 'Attendance', score: attendanceScore!, maxScore: 10));
+    }
+    if (midtermScore != null) {
+      list.add(AssessmentComponent(
+          name: 'Midterm Exam', score: midtermScore!, maxScore: 30));
+    }
+    if (assignmentScore != null) {
+      list.add(AssessmentComponent(
+          name: 'Assignments', score: assignmentScore!, maxScore: 10));
+    }
+    if (finalScore != null) {
+      list.add(AssessmentComponent(
+          name: 'Final Exam', score: finalScore!, maxScore: 50));
+    }
+    return list;
+  }
 
-  double get calculatedTotal =>
-      (attendanceScore ?? 0) +
-      (midtermScore ?? 0) +
-      (assignmentScore ?? 0) +
-      (finalScore ?? 0);
+  bool get hasBreakdown => activeComponents.isNotEmpty;
+
+  double get calculatedTotalEarned {
+    if (components.isNotEmpty) {
+      return components.fold(0.0, (sum, c) => sum + c.score);
+    }
+    return (attendanceScore ?? 0) +
+        (midtermScore ?? 0) +
+        (assignmentScore ?? 0) +
+        (finalScore ?? 0);
+  }
+
+  double get calculatedTotalMax {
+    if (components.isNotEmpty) {
+      return components.fold(0.0, (sum, c) => sum + c.maxScore);
+    }
+    return maxScore > 0 ? maxScore : 100.0;
+  }
 
   double get percentage => maxScore > 0 ? (score / maxScore) * 100 : 0;
 
@@ -134,6 +194,7 @@ class GradeEntry {
         'score': score,
         'maxScore': maxScore,
         'term': term,
+        'components': components.map((c) => c.toJson()).toList(),
         'attendanceScore': attendanceScore,
         'midtermScore': midtermScore,
         'assignmentScore': assignmentScore,
@@ -143,6 +204,13 @@ class GradeEntry {
       };
 
   factory GradeEntry.fromJson(Map<String, dynamic> json) {
+    final rawComponents = json['components'] as List<dynamic>?;
+    final parsedComponents = rawComponents != null
+        ? rawComponents
+            .map((c) => AssessmentComponent.fromJson(c as Map<String, dynamic>))
+            .toList()
+        : <AssessmentComponent>[];
+
     return GradeEntry(
       id: json['id'] as String,
       studentId: json['studentId'] as String,
@@ -152,6 +220,7 @@ class GradeEntry {
       score: (json['score'] as num).toDouble(),
       maxScore: (json['maxScore'] as num).toDouble(),
       term: json['term'] as String,
+      components: parsedComponents,
       attendanceScore: json['attendanceScore'] != null
           ? (json['attendanceScore'] as num).toDouble()
           : null,

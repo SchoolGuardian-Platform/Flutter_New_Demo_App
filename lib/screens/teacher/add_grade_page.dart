@@ -14,6 +14,26 @@ class AddGradePage extends StatefulWidget {
   State<AddGradePage> createState() => _AddGradePageState();
 }
 
+class _ComponentInputRow {
+  _ComponentInputRow({
+    required String name,
+    required double score,
+    required double maxScore,
+  })  : nameController = TextEditingController(text: name),
+        scoreController = TextEditingController(text: score.toStringAsFixed(0)),
+        maxScoreController = TextEditingController(text: maxScore.toStringAsFixed(0));
+
+  final TextEditingController nameController;
+  final TextEditingController scoreController;
+  final TextEditingController maxScoreController;
+
+  void dispose() {
+    nameController.dispose();
+    scoreController.dispose();
+    maxScoreController.dispose();
+  }
+}
+
 class _AddGradePageState extends State<AddGradePage> {
   final _formKey = GlobalKey<FormState>();
   final _teacherService = TeacherService();
@@ -22,19 +42,23 @@ class _AddGradePageState extends State<AddGradePage> {
   late final TextEditingController _studentNameController;
   late final TextEditingController _subjectController;
   late final TextEditingController _termController;
-
-  // Component Marks out of 100 total
-  late final TextEditingController _attendanceController;  // out of 10
-  late final TextEditingController _midtermController;     // out of 30
-  late final TextEditingController _assignmentController;  // out of 10
-  late final TextEditingController _finalController;       // out of 50
-
   late final TextEditingController _recommendationController;
+
+  final List<_ComponentInputRow> _componentRows = [];
 
   AssessmentType _assessmentType = AssessmentType.composite;
   bool _submitting = false;
 
   bool get _isEditing => widget.existingEntry != null;
+
+  static const List<Map<String, dynamic>> _presetAssessments = [
+    {'name': 'Attendance & Participation', 'defaultMax': 10.0},
+    {'name': 'Midterm Exam', 'defaultMax': 30.0},
+    {'name': 'Assignments & Tasks', 'defaultMax': 10.0},
+    {'name': 'Final Exam', 'defaultMax': 50.0},
+    {'name': 'Project & Practical', 'defaultMax': 20.0},
+    {'name': 'Quizzes & Short Tests', 'defaultMax': 10.0},
+  ];
 
   @override
   void initState() {
@@ -45,27 +69,70 @@ class _AddGradePageState extends State<AddGradePage> {
     _studentNameController = TextEditingController(text: entry?.studentName ?? 'Alexander Hayes');
     _subjectController = TextEditingController(text: entry?.subject ?? 'Advanced Mathematics');
     _termController = TextEditingController(text: entry?.term ?? 'Fall 2026');
-
-    _attendanceController = TextEditingController(
-        text: entry?.attendanceScore?.toStringAsFixed(0) ?? '7');
-    _midtermController = TextEditingController(
-        text: entry?.midtermScore?.toStringAsFixed(0) ?? '27');
-    _assignmentController = TextEditingController(
-        text: entry?.assignmentScore?.toStringAsFixed(0) ?? '9');
-    _finalController = TextEditingController(
-        text: entry?.finalScore?.toStringAsFixed(0) ?? '48');
-
-    _recommendationController =
-        TextEditingController(text: entry?.parentRecommendation ?? '');
+    _recommendationController = TextEditingController(text: entry?.parentRecommendation ?? '');
 
     if (entry != null) {
       _assessmentType = entry.assessmentType;
+      final active = entry.activeComponents;
+      if (active.isNotEmpty) {
+        for (final c in active) {
+          _addComponentRow(name: c.name, score: c.score, maxScore: c.maxScore);
+        }
+      } else {
+        _loadStandardPreset();
+      }
+    } else {
+      _loadStandardPreset();
     }
+  }
 
-    _attendanceController.addListener(_updateSummation);
-    _midtermController.addListener(_updateSummation);
-    _assignmentController.addListener(_updateSummation);
-    _finalController.addListener(_updateSummation);
+  void _loadStandardPreset() {
+    _clearComponentRows();
+    _addComponentRow(name: 'Attendance', score: 7, maxScore: 10);
+    _addComponentRow(name: 'Midterm Exam', score: 27, maxScore: 30);
+    _addComponentRow(name: 'Assignments', score: 9, maxScore: 10);
+    _addComponentRow(name: 'Final Exam', score: 48, maxScore: 50);
+  }
+
+  void _loadProjectPreset() {
+    _clearComponentRows();
+    _addComponentRow(name: 'Attendance', score: 9, maxScore: 10);
+    _addComponentRow(name: 'Project & Practical', score: 18, maxScore: 20);
+    _addComponentRow(name: 'Midterm Exam', score: 25, maxScore: 30);
+    _addComponentRow(name: 'Final Exam', score: 38, maxScore: 40);
+  }
+
+  void _loadMidtermFinalPreset() {
+    _clearComponentRows();
+    _addComponentRow(name: 'Midterm Exam', score: 42, maxScore: 50);
+    _addComponentRow(name: 'Final Exam', score: 46, maxScore: 50);
+  }
+
+  void _clearComponentRows() {
+    for (final row in _componentRows) {
+      row.dispose();
+    }
+    setState(() => _componentRows.clear());
+  }
+
+  void _addComponentRow({required String name, required double score, required double maxScore}) {
+    final row = _ComponentInputRow(name: name, score: score, maxScore: maxScore);
+    row.scoreController.addListener(_updateSummation);
+    row.maxScoreController.addListener(_updateSummation);
+    row.nameController.addListener(_updateSummation);
+    setState(() => _componentRows.add(row));
+  }
+
+  void _removeComponentRow(int index) {
+    if (_componentRows.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('At least one assessment section is required.')),
+      );
+      return;
+    }
+    final row = _componentRows.removeAt(index);
+    row.dispose();
+    setState(() {});
   }
 
   void _updateSummation() {
@@ -78,28 +145,37 @@ class _AddGradePageState extends State<AddGradePage> {
     _studentNameController.dispose();
     _subjectController.dispose();
     _termController.dispose();
-    _attendanceController.dispose();
-    _midtermController.dispose();
-    _assignmentController.dispose();
-    _finalController.dispose();
     _recommendationController.dispose();
+    for (final row in _componentRows) {
+      row.dispose();
+    }
     super.dispose();
   }
 
-  double get _totalSum {
-    final att = double.tryParse(_attendanceController.text.trim()) ?? 0;
-    final mid = double.tryParse(_midtermController.text.trim()) ?? 0;
-    final ass = double.tryParse(_assignmentController.text.trim()) ?? 0;
-    final fin = double.tryParse(_finalController.text.trim()) ?? 0;
-    return att + mid + ass + fin;
+  double get _totalEarned {
+    double total = 0;
+    for (final row in _componentRows) {
+      total += double.tryParse(row.scoreController.text.trim()) ?? 0;
+    }
+    return total;
   }
 
+  double get _totalMax {
+    double total = 0;
+    for (final row in _componentRows) {
+      total += double.tryParse(row.maxScoreController.text.trim()) ?? 0;
+    }
+    return total > 0 ? total : 100;
+  }
+
+  double get _percentage => (_totalEarned / _totalMax) * 100;
+
   String get _computedGrade {
-    final total = _totalSum;
-    if (total >= 90) return 'A';
-    if (total >= 80) return 'B';
-    if (total >= 70) return 'C';
-    if (total >= 60) return 'D';
+    final p = _percentage;
+    if (p >= 90) return 'A';
+    if (p >= 80) return 'B';
+    if (p >= 70) return 'C';
+    if (p >= 60) return 'D';
     return 'F';
   }
 
@@ -108,12 +184,18 @@ class _AddGradePageState extends State<AddGradePage> {
     setState(() => _submitting = true);
 
     try {
-      final attendance = double.tryParse(_attendanceController.text.trim()) ?? 0;
-      final midterm = double.tryParse(_midtermController.text.trim()) ?? 0;
-      final assignment = double.tryParse(_assignmentController.text.trim()) ?? 0;
-      final finalScore = double.tryParse(_finalController.text.trim()) ?? 0;
+      final components = <AssessmentComponent>[];
+      for (final row in _componentRows) {
+        final name = row.nameController.text.trim().isNotEmpty
+            ? row.nameController.text.trim()
+            : 'Assessment';
+        final score = double.tryParse(row.scoreController.text.trim()) ?? 0;
+        final maxScore = double.tryParse(row.maxScoreController.text.trim()) ?? 10;
+        components.add(AssessmentComponent(name: name, score: score, maxScore: maxScore));
+      }
 
-      final totalScore = attendance + midterm + assignment + finalScore;
+      final totalScore = _totalEarned;
+      final maxScoreTotal = _totalMax;
 
       if (_isEditing) {
         final updated = GradeEntry(
@@ -123,12 +205,9 @@ class _AddGradePageState extends State<AddGradePage> {
           subject: _subjectController.text.trim(),
           assessmentType: _assessmentType,
           score: totalScore,
-          maxScore: 100.0,
+          maxScore: maxScoreTotal,
           term: _termController.text.trim(),
-          attendanceScore: attendance,
-          midtermScore: midterm,
-          assignmentScore: assignment,
-          finalScore: finalScore,
+          components: components,
           parentRecommendation: _recommendationController.text.trim().isNotEmpty
               ? _recommendationController.text.trim()
               : null,
@@ -142,12 +221,9 @@ class _AddGradePageState extends State<AddGradePage> {
           subject: _subjectController.text.trim(),
           assessmentType: _assessmentType,
           score: totalScore,
-          maxScore: 100.0,
+          maxScore: maxScoreTotal,
           term: _termController.text.trim(),
-          attendanceScore: attendance,
-          midtermScore: midterm,
-          assignmentScore: assignment,
-          finalScore: finalScore,
+          components: components,
           parentRecommendation: _recommendationController.text.trim().isNotEmpty
               ? _recommendationController.text.trim()
               : null,
@@ -159,8 +235,8 @@ class _AddGradePageState extends State<AddGradePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_isEditing
-              ? 'Student record updated in-place successfully!'
-              : 'New student assessment saved successfully!'),
+              ? 'Student record updated (${totalScore.toStringAsFixed(0)}/${maxScoreTotal.toStringAsFixed(0)} · $_computedGrade)!'
+              : 'New assessment saved (${totalScore.toStringAsFixed(0)}/${maxScoreTotal.toStringAsFixed(0)} · $_computedGrade)!'),
           backgroundColor: KukieAccent.success,
         ),
       );
@@ -177,12 +253,13 @@ class _AddGradePageState extends State<AddGradePage> {
 
   @override
   Widget build(BuildContext context) {
-    final total = _totalSum;
+    final earned = _totalEarned;
+    final maxTotal = _totalMax;
     final letterGrade = _computedGrade;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Student Grade & Guidance' : 'New Composite Assessment'),
+        title: Text(_isEditing ? 'Edit Student Grade & Guidance' : 'Manage Student Assessments'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -200,14 +277,11 @@ class _AddGradePageState extends State<AddGradePage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(_isEditing ? Icons.edit_note : Icons.school,
-                        color: KukieAccent.violet),
+                    Icon(_isEditing ? Icons.edit_note : Icons.tune, color: KukieAccent.violet),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        _isEditing
-                            ? 'Editing existing student record directly in place (no duplicate list entry created).'
-                            : 'Input component marks out of 100 (Attendance 10, Midterm 30, Assignments 10, Final 50). The API will automatically sum the total.',
+                        'Choose any assessment sections (Midterm, Attendance, Project, Quiz, Final) and enter scores. Total score is calculated automatically.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: KukieAccent.ink,
                               fontWeight: FontWeight.w500,
@@ -219,7 +293,7 @@ class _AddGradePageState extends State<AddGradePage> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Student & Course Information',
+                'Student & Course Details',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -248,112 +322,206 @@ class _AddGradePageState extends State<AddGradePage> {
                     : null,
               ),
               const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _subjectController,
-                decoration: const InputDecoration(
-                  labelText: 'Subject / Course *',
-                  hintText: 'e.g. Advanced Mathematics',
-                  prefixIcon: Icon(Icons.book_outlined),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Subject is required'
-                    : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _termController,
-                decoration: const InputDecoration(
-                  labelText: 'Term / Academic Period *',
-                  hintText: 'Fall 2026',
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Term is required' : null,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _subjectController,
+                      decoration: const InputDecoration(
+                        labelText: 'Subject / Course *',
+                        hintText: 'e.g. Advanced Mathematics',
+                        prefixIcon: Icon(Icons.book_outlined),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Subject is required'
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _termController,
+                      decoration: const InputDecoration(
+                        labelText: 'Academic Term *',
+                        hintText: 'Fall 2026',
+                        prefixIcon: Icon(Icons.calendar_today_outlined),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Term is required' : null,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Assessment Component Breakdown (Out of 100 Total)',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+              // Preset Shortcuts
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Assessment Sections',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  PopupMenuButton<VoidCallback>(
+                    onSelected: (action) => action(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: KukieAccent.violetTint,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.flash_on, size: 14, color: KukieAccent.violet),
+                          SizedBox(width: 4),
+                          Text('Presets',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: KukieAccent.violet)),
+                        ],
+                      ),
                     ),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: _loadStandardPreset,
+                        child: const Text('Standard (Att + Mid + Assig + Final)'),
+                      ),
+                      PopupMenuItem(
+                        value: _loadProjectPreset,
+                        child: const Text('Project Emphasis (Att + Proj + Mid + Final)'),
+                      ),
+                      PopupMenuItem(
+                        value: _loadMidtermFinalPreset,
+                        child: const Text('Exams Only (Midterm 50 + Final 50)'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _attendanceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Attendance (/10)',
-                        hintText: '7',
-                        prefixIcon: Icon(Icons.event_available),
-                      ),
-                      validator: (v) {
-                        final val = double.tryParse(v ?? '');
-                        if (val == null || val < 0 || val > 10) return '0-10';
-                        return null;
-                      },
+              // Dynamic Section Rows
+              ...List.generate(_componentRows.length, (index) {
+                final row = _componentRows[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: PopupMenuButton<String>(
+                                initialValue: row.nameController.text,
+                                onSelected: (val) {
+                                  row.nameController.text = val;
+                                  // Update default max score if known
+                                  final found = _presetAssessments.firstWhere(
+                                      (p) => p['name'] == val,
+                                      orElse: () => {});
+                                  if (found.isNotEmpty) {
+                                    row.maxScoreController.text =
+                                        (found['defaultMax'] as double)
+                                            .toStringAsFixed(0);
+                                  }
+                                  _updateSummation();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        row.nameController.text.isNotEmpty
+                                            ? row.nameController.text
+                                            : 'Select Assessment',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13.5),
+                                      ),
+                                      const Icon(Icons.arrow_drop_down, size: 18),
+                                    ],
+                                  ),
+                                ),
+                                itemBuilder: (context) => [
+                                  for (final preset in _presetAssessments)
+                                    PopupMenuItem(
+                                      value: preset['name'] as String,
+                                      child: Text(preset['name'] as String),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  color: Colors.red, size: 20),
+                              onPressed: () => _removeComponentRow(index),
+                              tooltip: 'Remove section',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: row.scoreController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Score Earned *',
+                                  hintText: 'e.g. 27',
+                                  prefixIcon: Icon(Icons.check_circle_outline),
+                                ),
+                                validator: (v) {
+                                  final score = double.tryParse(v ?? '');
+                                  if (score == null || score < 0) return 'Invalid';
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: TextFormField(
+                                controller: row.maxScoreController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Max Score *',
+                                  hintText: 'e.g. 30',
+                                  prefixIcon: Icon(Icons.score),
+                                ),
+                                validator: (v) {
+                                  final maxScore = double.tryParse(v ?? '');
+                                  if (maxScore == null || maxScore <= 0) {
+                                    return 'Invalid';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _midtermController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Midterm (/30)',
-                        hintText: '27',
-                        prefixIcon: Icon(Icons.assignment),
-                      ),
-                      validator: (v) {
-                        final val = double.tryParse(v ?? '');
-                        if (val == null || val < 0 || val > 30) return '0-30';
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
+                );
+              }),
+              const SizedBox(height: AppSpacing.xs),
+              OutlinedButton.icon(
+                onPressed: () => _addComponentRow(
+                    name: 'Quiz / Task', score: 8, maxScore: 10),
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Add Custom Assessment Section'),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _assignmentController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Assignments (/10)',
-                        hintText: '9',
-                        prefixIcon: Icon(Icons.task),
-                      ),
-                      validator: (v) {
-                        final val = double.tryParse(v ?? '');
-                        if (val == null || val < 0 || val > 10) return '0-10';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _finalController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Final Exam (/50)',
-                        hintText: '48',
-                        prefixIcon: Icon(Icons.grade),
-                      ),
-                      validator: (v) {
-                        final val = double.tryParse(v ?? '');
-                        if (val == null || val < 0 || val > 50) return '0-50';
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
               // --- Live Automatic Summation Box ---
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -374,12 +542,16 @@ class _AddGradePageState extends State<AddGradePage> {
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                         Text(
-                          '${total.toStringAsFixed(0)} / 100 Marks',
+                          '${earned.toStringAsFixed(0)} / ${maxTotal.toStringAsFixed(0)} Marks',
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                           ),
+                        ),
+                        Text(
+                          'Overall: ${_percentage.toStringAsFixed(1)}%',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),
@@ -463,8 +635,8 @@ class _AddGradePageState extends State<AddGradePage> {
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : Icon(_isEditing ? Icons.save_outlined : Icons.check),
                 label: Text(_isEditing
-                    ? 'Update Record (${total.toStringAsFixed(0)}/100)'
-                    : 'Save Total Score (${total.toStringAsFixed(0)}/100) & Guidance'),
+                    ? 'Update Student Record (${earned.toStringAsFixed(0)}/${maxTotal.toStringAsFixed(0)})'
+                    : 'Save Student Mark (${earned.toStringAsFixed(0)}/${maxTotal.toStringAsFixed(0)}) & Guidance'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),

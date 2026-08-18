@@ -178,14 +178,10 @@ class _StudentGradeItem extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  if (grade.attendanceScore != null)
-                    _ComponentBadge(label: 'Att: ${grade.attendanceScore!.toStringAsFixed(0)}/10'),
-                  if (grade.midtermScore != null)
-                    _ComponentBadge(label: 'Mid: ${grade.midtermScore!.toStringAsFixed(0)}/30'),
-                  if (grade.assignmentScore != null)
-                    _ComponentBadge(label: 'Assig: ${grade.assignmentScore!.toStringAsFixed(0)}/10'),
-                  if (grade.finalScore != null)
-                    _ComponentBadge(label: 'Final: ${grade.finalScore!.toStringAsFixed(0)}/50'),
+                  for (final c in grade.activeComponents)
+                    _ComponentBadge(
+                        label:
+                            '${c.name}: ${c.score.toStringAsFixed(0)}/${c.maxScore.toStringAsFixed(0)}'),
                 ],
               ),
             ],
