@@ -138,12 +138,12 @@ class _CourseRegistrationPageState extends State<CourseRegistrationPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Teacher: ${course.teacherName} · ${course.credits} Credits',
-                                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                                    'Assigned Teacher: ${course.teacherName}',
+                                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
                                   ),
                                   Text(
-                                    course.department,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    '${course.credits} Credit Hours · ${course.department}',
+                                    style: const TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),

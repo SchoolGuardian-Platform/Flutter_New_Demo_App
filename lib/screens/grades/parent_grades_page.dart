@@ -186,8 +186,12 @@ class _ParentCourseCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        'Teacher: ${course.teacherName} · ${course.credits} Credits',
-                        style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                        'Assigned Teacher: ${course.teacherName}',
+                        style: TextStyle(fontSize: 12.5, color: Colors.grey.shade800),
+                      ),
+                      Text(
+                        '${course.credits} Credit Hours (GPA Weighted)',
+                        style: const TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
