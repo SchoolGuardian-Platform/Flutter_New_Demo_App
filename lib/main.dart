@@ -20,6 +20,7 @@ import 'screens/grades/student_grades_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
+import 'screens/parent/linked_students_page.dart';
 import 'screens/pending_approval_page.dart';
 import 'screens/reports/academic_report_page.dart';
 import 'screens/reports/attendance_report_page.dart';
@@ -29,6 +30,7 @@ import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
 import 'screens/student/course_registration_page.dart';
+import 'screens/student/linked_guardians_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
@@ -275,6 +277,14 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case CourseRegistrationPage.routeName:
             return MaterialPageRoute(builder: (_) => const CourseRegistrationPage());
+
+          case LinkedGuardiansPage.routeName:
+            final studentId = settings.arguments as String? ?? 'STU-1001';
+            return MaterialPageRoute(
+                builder: (_) => LinkedGuardiansPage(studentId: studentId));
+
+          case LinkedStudentsPage.routeName:
+            return MaterialPageRoute(builder: (_) => const LinkedStudentsPage());
 
           case TeacherPortalPage.routeName:
             return MaterialPageRoute(builder: (_) => const TeacherPortalPage());

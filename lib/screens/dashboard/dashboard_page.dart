@@ -16,8 +16,10 @@ import '../admin/manage_users_page.dart';
 import '../grades/parent_grades_page.dart';
 import '../grades/student_grades_page.dart';
 import '../landing_page.dart';
+import '../parent/linked_students_page.dart';
 import '../reports/reports_page.dart';
 import '../student/course_registration_page.dart';
+import '../student/linked_guardians_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -379,11 +381,13 @@ class _RoleSections extends StatelessWidget {
                 builder: (_) => ParentGradesPage(
                     studentId: user.studentId ?? 'STU-1001'))),
           ),
-          const _SectionSpec(
+          _SectionSpec(
             icon: Icons.link,
             title: 'Linked Students',
             subtitle: 'View and manage students linked to your account.',
             route: 'GET /parents/my-students',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LinkedStudentsPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -420,11 +424,14 @@ class _RoleSections extends StatelessWidget {
             subtitle: 'Student ID, school, and enrollment details.',
             route: 'GET /auth/me',
           ),
-          const _SectionSpec(
+          _SectionSpec(
             icon: Icons.family_restroom,
             title: 'Linked Guardians',
             subtitle: 'Parents/guardians connected to your account.',
             route: 'GET /students/my-guardians',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => LinkedGuardiansPage(
+                    studentId: user.studentId ?? 'STU-1001'))),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
