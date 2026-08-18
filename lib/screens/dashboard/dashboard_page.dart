@@ -11,11 +11,14 @@ import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
+import '../admin/manage_courses_page.dart';
 import '../admin/manage_users_page.dart';
+import '../admin/pending_approvals_page.dart';
 import '../grades/parent_grades_page.dart';
 import '../grades/student_grades_page.dart';
 import '../landing_page.dart';
 import '../reports/reports_page.dart';
+import '../student/course_registration_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -395,6 +398,15 @@ class _RoleSections extends StatelessWidget {
       case UserRole.student:
         return [
           _SectionSpec(
+            icon: Icons.how_to_reg_outlined,
+            title: 'Course Registration',
+            subtitle: 'Enroll in Director-approved courses for the semester.',
+            route: 'POST /students/register-courses',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => CourseRegistrationPage(
+                    studentId: user.studentId ?? 'STU-1001'))),
+          ),
+          _SectionSpec(
             icon: Icons.school_outlined,
             title: 'My Grades & Coursework',
             subtitle: 'View your assessment scores, quizzes, and project results.',
@@ -461,6 +473,14 @@ class _RoleSections extends StatelessWidget {
             route: 'GET /admin/{role}/pending, /admin/relationships/pending',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => const AdminNotificationsPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.auto_stories_outlined,
+            title: 'Director Course Management',
+            subtitle: 'Create semester courses, set credit hours, assign teachers.',
+            route: 'POST /admin/courses',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ManageCoursesPage())),
           ),
           _SectionSpec(
             icon: Icons.manage_accounts_outlined,

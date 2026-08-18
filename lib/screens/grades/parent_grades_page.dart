@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../models/grade_entry.dart';
-import '../../services/teacher_service.dart';
+import '../../models/student_course_registration.dart';
+import '../../services/course_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
@@ -15,96 +15,130 @@ class ParentGradesPage extends StatefulWidget {
 }
 
 class _ParentGradesPageState extends State<ParentGradesPage> {
-  final _teacherService = TeacherService();
-  List<GradeEntry> _grades = [];
+  final _courseService = CourseService();
+  List<StudentCourseRegistration> _registrations = [];
   bool _loading = true;
+  String _selectedTerm = 'Fall 2026';
 
   @override
   void initState() {
     super.initState();
-    _loadGrades();
+    _loadData();
   }
 
-  Future<void> _loadGrades() async {
+  Future<void> _loadData() async {
     setState(() => _loading = true);
-    final grades = await _teacherService.getGradesForStudent(widget.studentId);
+    final regs = await _courseService.getStudentRegistrations(
+      widget.studentId,
+      term: _selectedTerm,
+    );
     if (!mounted) return;
     setState(() {
-      _grades = grades;
+      _registrations = regs;
       _loading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final gpa = _courseService.calculateGPA(_registrations);
+    final totalCredits = _courseService.calculateTotalCredits(_registrations);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Child Performance & Guidance'),
+        title: const Text('Child Semester Performance & Guidance'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadGrades,
+              onRefresh: _loadData,
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      DropdownButton<String>(
+                        value: _selectedTerm,
+                        items: const [
+                          DropdownMenuItem(value: 'Fall 2026', child: Text('Fall 2026 Semester')),
+                          DropdownMenuItem(value: 'Spring 2027', child: Text('Spring 2027 Semester')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedTerm = val);
+                            _loadData();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  // --- Automated GPA Summary Banner ---
                   Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
                     decoration: BoxDecoration(
-                      color: KukieAccent.violetTint,
+                      gradient: LinearGradient(
+                        colors: [KukieAccent.violet, KukieAccent.violet.withValues(alpha: 0.85)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-                      border: Border.all(color: KukieAccent.cardBorder),
+                      boxShadow: AppColors.cardShadow,
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.family_restroom,
-                            size: 28, color: KukieAccent.violet),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Student: Alexander Hayes (${widget.studentId})',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: KukieAccent.ink,
-                                ),
+                        const Text(
+                          'Child\'s Semester GPA',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              gpa.toStringAsFixed(2),
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Includes confidential teacher recommendations for parent guidance.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: KukieAccent.bodyGray,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const Text(
+                              ' / 4.0 GPA',
+                              style: TextStyle(fontSize: 16, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Alexander Hayes (${widget.studentId}) · Total Credits: ${totalCredits.toStringAsFixed(1)} Cr',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12.5),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Academic Assessments & Teacher Notes',
+                    'Multi-Teacher Academic Matrix & Parent Notes',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  if (_grades.isEmpty)
+                  if (_registrations.isEmpty)
                     const Card(
                       child: Padding(
                         padding: EdgeInsets.all(AppSpacing.xl),
                         child: Center(
-                          child: Text('No grades posted yet for this student.'),
+                          child: Text('No courses registered for this semester.'),
                         ),
                       ),
                     )
                   else
-                    ..._grades.map((grade) => _ParentGradeItem(grade: grade)),
+                    ..._registrations.map((reg) => _ParentCourseCard(registration: reg)),
                 ],
               ),
             ),
@@ -112,13 +146,16 @@ class _ParentGradesPageState extends State<ParentGradesPage> {
   }
 }
 
-class _ParentGradeItem extends StatelessWidget {
-  const _ParentGradeItem({required this.grade});
+class _ParentCourseCard extends StatelessWidget {
+  const _ParentCourseCard({required this.registration});
 
-  final GradeEntry grade;
+  final StudentCourseRegistration registration;
 
   @override
   Widget build(BuildContext context) {
+    final course = registration.course;
+    final grade = registration.gradeEntry;
+
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Padding(
@@ -129,12 +166,13 @@ class _ParentGradeItem extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: KukieAccent.violetTint,
+                  backgroundColor: grade != null ? KukieAccent.violetTint : Colors.grey.shade200,
                   child: Text(
-                    grade.letterGrade,
-                    style: const TextStyle(
+                    grade != null ? grade.letterGrade : 'Pending',
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: KukieAccent.violet,
+                      color: grade != null ? KukieAccent.violet : Colors.grey.shade700,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -144,36 +182,44 @@ class _ParentGradeItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        grade.subject,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700),
+                        '${course.code}: ${course.title}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        '${grade.assessmentType.label} · ${grade.term}',
+                        'Teacher: ${course.teacherName} · ${course.credits} Credits',
                         style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: KukieAccent.violetTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${grade.score.toStringAsFixed(1)} / ${grade.maxScore.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: KukieAccent.violet,
-                      fontSize: 14,
+                if (grade != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: KukieAccent.violetTint,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${grade.score.toStringAsFixed(0)} / ${grade.maxScore.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: KukieAccent.violet,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          '${grade.gpaPoints.toStringAsFixed(1)} GPA Pts',
+                          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700),
+                        ),
+                      ],
                     ),
                   ),
-                ),
               ],
             ),
-            if (grade.hasBreakdown) ...[
+            if (grade != null && grade.hasBreakdown) ...[
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
@@ -186,7 +232,7 @@ class _ParentGradeItem extends StatelessWidget {
                 ],
               ),
             ],
-            if (grade.parentRecommendation != null) ...[
+            if (grade != null && grade.parentRecommendation != null) ...[
               const SizedBox(height: AppSpacing.md),
               Container(
                 width: double.infinity,
@@ -204,12 +250,14 @@ class _ParentGradeItem extends StatelessWidget {
                         Icon(Icons.lock_person,
                             size: 16, color: Colors.amber.shade900),
                         const SizedBox(width: 6),
-                        Text(
-                          'Confidential Teacher Recommendation for Parents',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.amber.shade900,
+                        Expanded(
+                          child: Text(
+                            'Confidential Teacher Recommendation (${course.teacherName})',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.amber.shade900,
+                            ),
                           ),
                         ),
                       ],

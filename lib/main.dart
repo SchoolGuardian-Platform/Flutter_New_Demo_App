@@ -10,6 +10,7 @@ import 'models/user_role.dart';
 import 'screens/account_rejected_page.dart';
 import 'screens/admin/admin_notifications_page.dart';
 import 'screens/admin/admin_profile_page.dart';
+import 'screens/admin/manage_courses_page.dart';
 import 'screens/admin/manage_users_page.dart';
 import 'screens/admin/pending_approvals_page.dart';
 import 'screens/dashboard/dashboard_page.dart';
@@ -27,6 +28,7 @@ import 'screens/reports/wellbeing_report_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/student/course_registration_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
@@ -267,6 +269,12 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case WellbeingReportPage.routeName:
             return MaterialPageRoute(builder: (_) => const WellbeingReportPage());
+
+          case ManageCoursesPage.routeName:
+            return MaterialPageRoute(builder: (_) => const ManageCoursesPage());
+
+          case CourseRegistrationPage.routeName:
+            return MaterialPageRoute(builder: (_) => const CourseRegistrationPage());
 
           case TeacherPortalPage.routeName:
             return MaterialPageRoute(builder: (_) => const TeacherPortalPage());

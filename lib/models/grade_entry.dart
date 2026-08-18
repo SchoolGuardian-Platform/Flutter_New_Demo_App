@@ -178,11 +178,24 @@ class GradeEntry {
 
   String get letterGrade {
     final p = percentage;
-    if (p >= 90) return 'A';
-    if (p >= 80) return 'B';
-    if (p >= 70) return 'C';
-    if (p >= 60) return 'D';
+    if (p >= 86) return 'A';
+    if (p >= 76) return 'B+';
+    if (p >= 66) return 'B';
+    if (p >= 56) return 'C+';
+    if (p >= 46) return 'C';
+    if (p >= 40) return 'D';
     return 'F';
+  }
+
+  double get gpaPoints {
+    final p = percentage;
+    if (p >= 86) return 4.0;
+    if (p >= 76) return 3.5;
+    if (p >= 66) return 3.0;
+    if (p >= 56) return 2.5;
+    if (p >= 46) return 2.0;
+    if (p >= 40) return 1.0;
+    return 0.0;
   }
 
   Map<String, dynamic> toJson() => {
