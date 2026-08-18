@@ -18,11 +18,11 @@ import '../../theme/app_theme.dart';
 /// "dashboard stats" endpoint, only the four `GET .../pending` queues
 /// that already power `AdminService.getPendingSummary()`. So "Total
 /// Pending" and the per-category chart below are real, live numbers from
-/// those queues. "Approved" is shown as a session counter
-/// (`AdminService.sessionApprovals`) rather than an all-time total, since
-/// there's no backend endpoint yet for historical approval counts --
-/// it's labelled accordingly rather than implying it's something it
-/// isn't.
+/// those queues. "Total Approved" is still `AdminService.sessionApprovals`
+/// under the hood -- a local, in-memory counter that resets on app
+/// restart -- since there's no backend endpoint yet for a real all-time
+/// approval count. The label says "Total" per product request, but it is
+/// NOT a true historical total; a real one needs a backend change.
 class AdminOverviewTab extends StatefulWidget {
   const AdminOverviewTab({super.key});
 
@@ -115,7 +115,13 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.check_circle_outline,
-                    label: 'Approved this session',
+                    // NOTE: there's no backend endpoint for an all-time
+                    // approved count (only the four `.../pending` queues
+                    // exist) -- this is still
+                    // `AdminService.sessionApprovals` under the hood, so
+                    // it resets whenever the app restarts, despite the
+                    // "Total" label. A real total needs a backend change.
+                    label: 'Total Approved',
                     value: '${AdminService.sessionApprovals}',
                     color: AppColors.secondary,
                     background: AppColors.secondaryContainer.withValues(alpha: 0.4),
@@ -163,31 +169,44 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  )),
-          const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
+    return SizedBox(
+      // Fixed, explicit height for BOTH cards -- not measured from text
+      // metrics, which can vary slightly by device/font and was still
+      // leaving them visibly uneven. This guarantees identical boxes
+      // regardless of label length or platform.
+      height: 132,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.outlineVariant),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            Text(value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    )),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }
