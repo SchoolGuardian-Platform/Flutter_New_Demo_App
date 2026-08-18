@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../models/grade_entry.dart';
+import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'add_grade_page.dart';
@@ -13,6 +15,7 @@ class MyClassesPage extends StatefulWidget {
 }
 
 class _MyClassesPageState extends State<MyClassesPage> {
+  final _teacherService = TeacherService();
   int _selectedClassIndex = 0;
 
   final List<Map<String, dynamic>> _classes = [
@@ -53,6 +56,43 @@ class _MyClassesPageState extends State<MyClassesPage> {
       ]
     },
   ];
+
+  Future<void> _editStudentGrade(String studentId, String studentName) async {
+    final grades = await _teacherService.getGradesForStudent(studentId);
+    GradeEntry? existing;
+    if (grades.isNotEmpty) {
+      existing = grades.first;
+    }
+
+    if (!mounted) return;
+
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddGradePage(
+          existingEntry: existing ??
+              GradeEntry(
+                id: 'ge-${DateTime.now().millisecondsSinceEpoch}',
+                studentId: studentId,
+                studentName: studentName,
+                subject: _classes[_selectedClassIndex]['title'] as String,
+                assessmentType: AssessmentType.composite,
+                score: 90.0,
+                maxScore: 100.0,
+                term: 'Fall 2026',
+                attendanceScore: 8.0,
+                midtermScore: 26.0,
+                assignmentScore: 8.0,
+                finalScore: 48.0,
+                createdAt: DateTime.now(),
+              ),
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +208,10 @@ class _MyClassesPageState extends State<MyClassesPage> {
                       onToggleStatus: (newStatus) {
                         setState(() => student['status'] = newStatus);
                       },
+                      onEditGrade: () => _editStudentGrade(
+                        student['id'] as String,
+                        student['name'] as String,
+                      ),
                     )),
               ],
             ),
@@ -182,10 +226,12 @@ class _StudentRosterCard extends StatelessWidget {
   const _StudentRosterCard({
     required this.student,
     required this.onToggleStatus,
+    required this.onEditGrade,
   });
 
   final Map<String, dynamic> student;
   final ValueChanged<String> onToggleStatus;
+  final VoidCallback onEditGrade;
 
   @override
   Widget build(BuildContext context) {
@@ -232,11 +278,16 @@ class _StudentRosterCard extends StatelessWidget {
                 ],
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20, color: KukieAccent.violet),
+              onPressed: onEditGrade,
+              tooltip: 'Edit Student Grade & Recommendation in-place',
+            ),
             PopupMenuButton<String>(
               initialValue: status,
               onSelected: onToggleStatus,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -247,12 +298,12 @@ class _StudentRosterCard extends StatelessWidget {
                     Text(
                       status,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         color: statusColor,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                     Icon(Icons.arrow_drop_down, size: 16, color: statusColor),
                   ],
                 ),

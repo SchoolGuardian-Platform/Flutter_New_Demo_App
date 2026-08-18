@@ -5,9 +5,10 @@ import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
 class AddGradePage extends StatefulWidget {
-  const AddGradePage({super.key});
+  const AddGradePage({super.key, this.existingEntry});
 
   static const routeName = '/teacher/add-grade';
+  final GradeEntry? existingEntry;
 
   @override
   State<AddGradePage> createState() => _AddGradePageState();
@@ -17,25 +18,50 @@ class _AddGradePageState extends State<AddGradePage> {
   final _formKey = GlobalKey<FormState>();
   final _teacherService = TeacherService();
 
-  final _studentIdController = TextEditingController(text: 'STU-1001');
-  final _studentNameController = TextEditingController(text: 'Alexander Hayes');
-  final _subjectController = TextEditingController(text: 'Advanced Mathematics');
-  final _termController = TextEditingController(text: 'Fall 2026');
+  late final TextEditingController _studentIdController;
+  late final TextEditingController _studentNameController;
+  late final TextEditingController _subjectController;
+  late final TextEditingController _termController;
 
   // Component Marks out of 100 total
-  final _attendanceController = TextEditingController(text: '7');  // out of 10
-  final _midtermController = TextEditingController(text: '27');    // out of 30
-  final _assignmentController = TextEditingController(text: '9');   // out of 10
-  final _finalController = TextEditingController(text: '48');        // out of 50
+  late final TextEditingController _attendanceController;  // out of 10
+  late final TextEditingController _midtermController;     // out of 30
+  late final TextEditingController _assignmentController;  // out of 10
+  late final TextEditingController _finalController;       // out of 50
 
-  final _recommendationController = TextEditingController();
+  late final TextEditingController _recommendationController;
 
   AssessmentType _assessmentType = AssessmentType.composite;
   bool _submitting = false;
 
+  bool get _isEditing => widget.existingEntry != null;
+
   @override
   void initState() {
     super.initState();
+    final entry = widget.existingEntry;
+
+    _studentIdController = TextEditingController(text: entry?.studentId ?? 'STU-1001');
+    _studentNameController = TextEditingController(text: entry?.studentName ?? 'Alexander Hayes');
+    _subjectController = TextEditingController(text: entry?.subject ?? 'Advanced Mathematics');
+    _termController = TextEditingController(text: entry?.term ?? 'Fall 2026');
+
+    _attendanceController = TextEditingController(
+        text: entry?.attendanceScore?.toStringAsFixed(0) ?? '7');
+    _midtermController = TextEditingController(
+        text: entry?.midtermScore?.toStringAsFixed(0) ?? '27');
+    _assignmentController = TextEditingController(
+        text: entry?.assignmentScore?.toStringAsFixed(0) ?? '9');
+    _finalController = TextEditingController(
+        text: entry?.finalScore?.toStringAsFixed(0) ?? '48');
+
+    _recommendationController =
+        TextEditingController(text: entry?.parentRecommendation ?? '');
+
+    if (entry != null) {
+      _assessmentType = entry.assessmentType;
+    }
+
     _attendanceController.addListener(_updateSummation);
     _midtermController.addListener(_updateSummation);
     _assignmentController.addListener(_updateSummation);
@@ -89,29 +115,52 @@ class _AddGradePageState extends State<AddGradePage> {
 
       final totalScore = attendance + midterm + assignment + finalScore;
 
-      await _teacherService.addGradeEntry(
-        studentId: _studentIdController.text.trim(),
-        studentName: _studentNameController.text.trim(),
-        subject: _subjectController.text.trim(),
-        assessmentType: _assessmentType,
-        score: totalScore,
-        maxScore: 100.0,
-        term: _termController.text.trim(),
-        attendanceScore: attendance,
-        midtermScore: midterm,
-        assignmentScore: assignment,
-        finalScore: finalScore,
-        parentRecommendation: _recommendationController.text.trim().isNotEmpty
-            ? _recommendationController.text.trim()
-            : null,
-      );
+      if (_isEditing) {
+        final updated = GradeEntry(
+          id: widget.existingEntry!.id,
+          studentId: _studentIdController.text.trim(),
+          studentName: _studentNameController.text.trim(),
+          subject: _subjectController.text.trim(),
+          assessmentType: _assessmentType,
+          score: totalScore,
+          maxScore: 100.0,
+          term: _termController.text.trim(),
+          attendanceScore: attendance,
+          midtermScore: midterm,
+          assignmentScore: assignment,
+          finalScore: finalScore,
+          parentRecommendation: _recommendationController.text.trim().isNotEmpty
+              ? _recommendationController.text.trim()
+              : null,
+          createdAt: widget.existingEntry!.createdAt,
+        );
+        await _teacherService.updateGradeEntry(updated);
+      } else {
+        await _teacherService.addGradeEntry(
+          studentId: _studentIdController.text.trim(),
+          studentName: _studentNameController.text.trim(),
+          subject: _subjectController.text.trim(),
+          assessmentType: _assessmentType,
+          score: totalScore,
+          maxScore: 100.0,
+          term: _termController.text.trim(),
+          attendanceScore: attendance,
+          midtermScore: midterm,
+          assignmentScore: assignment,
+          finalScore: finalScore,
+          parentRecommendation: _recommendationController.text.trim().isNotEmpty
+              ? _recommendationController.text.trim()
+              : null,
+        );
+      }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Grade (${totalScore.toStringAsFixed(0)}/100 · $_computedGrade) & confidential recommendation saved!'),
+          content: Text(_isEditing
+              ? 'Student record updated in-place successfully!'
+              : 'New student assessment saved successfully!'),
           backgroundColor: KukieAccent.success,
         ),
       );
@@ -133,7 +182,7 @@ class _AddGradePageState extends State<AddGradePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Composite Assessment'),
+        title: Text(_isEditing ? 'Edit Student Grade & Guidance' : 'New Composite Assessment'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -151,11 +200,14 @@ class _AddGradePageState extends State<AddGradePage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.school, color: KukieAccent.violet),
+                    Icon(_isEditing ? Icons.edit_note : Icons.school,
+                        color: KukieAccent.violet),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Input component marks out of 100 (Attendance 10, Midterm 30, Assignments 10, Final 50). The API will automatically sum the total.',
+                        _isEditing
+                            ? 'Editing existing student record directly in place (no duplicate list entry created).'
+                            : 'Input component marks out of 100 (Attendance 10, Midterm 30, Assignments 10, Final 50). The API will automatically sum the total.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: KukieAccent.ink,
                               fontWeight: FontWeight.w500,
@@ -409,8 +461,10 @@ class _AddGradePageState extends State<AddGradePage> {
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.check),
-                label: Text('Save Total Score (${total.toStringAsFixed(0)}/100) & Guidance'),
+                    : Icon(_isEditing ? Icons.save_outlined : Icons.check),
+                label: Text(_isEditing
+                    ? 'Update Record (${total.toStringAsFixed(0)}/100)'
+                    : 'Save Total Score (${total.toStringAsFixed(0)}/100) & Guidance'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),

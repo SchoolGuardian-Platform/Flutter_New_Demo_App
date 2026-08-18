@@ -124,4 +124,18 @@ class TeacherService {
     _entries.insert(0, entry);
     return entry;
   }
+
+  Future<GradeEntry> updateGradeEntry(GradeEntry updatedEntry) async {
+    final index = _entries.indexWhere((e) => e.id == updatedEntry.id);
+    if (index != -1) {
+      _entries[index] = updatedEntry;
+    } else {
+      _entries.insert(0, updatedEntry);
+    }
+    return updatedEntry;
+  }
+
+  Future<void> deleteGradeEntry(String id) async {
+    _entries.removeWhere((e) => e.id == id);
+  }
 }

@@ -48,6 +48,41 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
     }
   }
 
+  Future<void> _openEditGrade(GradeEntry entry) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => AddGradePage(existingEntry: entry)),
+    );
+    if (updated == true) {
+      _loadData();
+    }
+  }
+
+  Future<void> _deleteGrade(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Student Grade?'),
+        content: const Text('Are you sure you want to delete this grade record?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _teacherService.deleteGradeEntry(id);
+      _loadData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,7 +109,10 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
               child: ListView(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
-                  _TeacherHeaderCard(profile: _profile!),
+                  _TeacherHeaderCard(
+                    profile: _profile!,
+                    onProfileUpdated: _loadData,
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   _StatsRow(gradesCount: _grades.length),
                   const SizedBox(height: AppSpacing.lg),
@@ -105,7 +143,13 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                       ),
                     )
                   else
-                    ..._grades.map((g) => _TeacherGradeCard(grade: g)),
+                    ..._grades.map(
+                      (g) => _TeacherGradeCard(
+                        grade: g,
+                        onEdit: () => _openEditGrade(g),
+                        onDelete: () => _deleteGrade(g.id),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -114,9 +158,48 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
 }
 
 class _TeacherHeaderCard extends StatelessWidget {
-  const _TeacherHeaderCard({required this.profile});
+  const _TeacherHeaderCard({
+    required this.profile,
+    required this.onProfileUpdated,
+  });
 
   final TeacherProfile profile;
+  final VoidCallback onProfileUpdated;
+
+  void _editMajorField(BuildContext context) {
+    final controller = TextEditingController(text: profile.majorField);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Major Field of Study'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Major Field of Study',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await TeacherService().updateMajorField(controller.text.trim());
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  onProfileUpdated();
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,23 +264,12 @@ class _TeacherHeaderCard extends StatelessWidget {
                   ),
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18, color: Colors.amberAccent),
+                onPressed: () => _editMajorField(context),
+                tooltip: 'Edit Major Field of Study',
+              ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: profile.assignedClasses
-                .map((cls) => Chip(
-                      label: Text(
-                        cls,
-                        style: const TextStyle(fontSize: 11, color: Colors.white),
-                      ),
-                      backgroundColor: Colors.white.withValues(alpha: 0.15),
-                      padding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ))
-                .toList(),
           ),
         ],
       ),
@@ -216,17 +288,7 @@ class _StatsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _StatBox(
-            title: 'Submitted',
-            value: '$gradesCount',
-            subtitle: 'Grades recorded',
-            icon: Icons.assignment_turned_in,
-            color: Colors.blue.shade700,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatBox(
-            title: 'Classes',
+            title: 'Assigned Classes',
             value: '3',
             subtitle: 'Active rosters',
             icon: Icons.class_outlined,
@@ -278,12 +340,12 @@ class _StatBox extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 20, color: color),
+              Icon(icon, color: color, size: 22),
               Text(
                 value,
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   color: color,
                 ),
               ),
@@ -302,9 +364,15 @@ class _StatBox extends StatelessWidget {
 }
 
 class _TeacherGradeCard extends StatelessWidget {
-  const _TeacherGradeCard({required this.grade});
+  const _TeacherGradeCard({
+    required this.grade,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final GradeEntry grade;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +428,34 @@ class _TeacherGradeCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                PopupMenuButton<String>(
+                  onSelected: (val) {
+                    if (val == 'edit') onEdit();
+                    if (val == 'delete') onDelete();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Edit Student Grade'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete Record', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -375,6 +471,15 @@ class _TeacherGradeCard extends StatelessWidget {
                 Text(
                   grade.term,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text('Edit Grade'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ],
             ),
