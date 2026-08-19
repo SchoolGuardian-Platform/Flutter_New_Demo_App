@@ -880,7 +880,6 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
         )
       ];
     }
-
     User? selectedTeacher = activeTeachers.isNotEmpty ? activeTeachers.first : null;
     Subject? selectedSubject = _subjects.isNotEmpty ? _subjects.first : null;
 

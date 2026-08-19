@@ -524,7 +524,6 @@ class SchoolManagementService {
     );
 
     await _persistClasses();
-
     return newEnrollment;
   }
 
