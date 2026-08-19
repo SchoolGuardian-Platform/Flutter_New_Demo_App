@@ -6,7 +6,6 @@ import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
 import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
@@ -17,10 +16,16 @@ import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
 import '../parent/my_students_page.dart';
+import '../communication/private_communication_page.dart';
 import '../reports/reports_page.dart';
 import '../student/guardians_page.dart';
 import '../student/student_overview_tab.dart';
+import '../student/student_portal_dashboard_page.dart';
 import '../student/student_profile_page.dart';
+import '../analytics/academic_gpa_progression_page.dart';
+import '../biometrics/biometric_health_overview_page.dart';
+import '../biometrics/stress_level_dashboard_page.dart';
+import '../nutrition/calorie_nutrition_dashboard_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -304,14 +309,22 @@ class _DashboardPageState extends State<DashboardPage> {
               : RefreshIndicator(
                   onRefresh: _refreshProfile,
                   child: ListView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
                       _WelcomeCard(user: _user),
                       const SizedBox(height: AppSpacing.lg),
-                      Text('Overview',
-                          style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Overview & Primary Actions',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF0F172A),
+                            ),
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       _RoleSections(role: _user.role, user: _user),
+                      const SizedBox(height: AppSpacing.xl),
+                      _QuickFeatureLaunchHub(user: _user),
                     ],
                   ),
                 ),
@@ -455,6 +468,15 @@ class _RoleSections extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const MyStudentsPage())),
           ),
           _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Confidential messaging with class teachers & school admin.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
+          ),
+          _SectionSpec(
             icon: Icons.description_outlined,
             title: 'Reports',
             subtitle: 'Academic, attendance, and wellbeing reports.',
@@ -505,6 +527,15 @@ class _RoleSections extends StatelessWidget {
                 .push(MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Direct confidential messaging with parents & admin.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
+          ),
+          _SectionSpec(
             icon: Icons.description_outlined,
             title: 'Reports',
             subtitle: 'Generate reports for your students.',
@@ -549,6 +580,15 @@ class _RoleSections extends StatelessWidget {
             route: 'GET /admin/relationships',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GuardianLinksPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Confidential guardian inquiries & staff announcements.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -603,79 +643,467 @@ class _SectionSpec {
   final VoidCallback? onTap;
 }
 
-class _SectionCard extends StatelessWidget {
+class _SectionCard extends StatefulWidget {
   const _SectionCard({required this.spec});
 
   final _SectionSpec spec;
 
   @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final tappable = spec.onTap != null;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: spec.onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: tappable
-                  ? KukieAccent.violet.withValues(alpha: 0.25)
-                  : AppColors.outlineVariant,
-            ),
-            boxShadow: tappable ? AppColors.cardShadow : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: tappable
-                      ? KukieAccent.violetTint
-                      : AppColors.surfaceContainerHigh,
-                  shape: BoxShape.circle,
+    final tappable = widget.spec.onTap != null;
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: tappable ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: tappable ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel: tappable ? () => setState(() => _isPressed = false) : null,
+        onTap: widget.spec.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: tappable
+                    ? const Color(0xFFC7D2FE)
+                    : const Color(0xFFE2E8F0),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                child: Icon(
-                  spec.icon,
-                  color: tappable ? KukieAccent.violet : AppColors.onSurfaceVariant,
-                  size: 20,
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: tappable
+                        ? const Color(0xFFEEF2FF)
+                        : const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.spec.icon,
+                    color: tappable ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.spec.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.spec.subtitle,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                      if (!tappable) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.spec.route,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (tappable)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickFeatureLaunchHub extends StatelessWidget {
+  const _QuickFeatureLaunchHub({required this.user});
+
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text(
+              'Feature Dashboards Hub',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            Text(
+              '5 Modules Available',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Student Portal Dashboard Launcher
+        _StylishLauncherCard(
+          title: 'Student Portal Dashboard',
+          subtitle: 'Classes, tasks, announcements & schedule matrix',
+          badgeText: '🎓 ACADEMIC PORTAL',
+          badgeColor: Colors.white,
+          badgeBgColor: Colors.white24,
+          gradientColors: const [Color(0xFF6366F1), Color(0xFF7C3AED)],
+          icon: Icons.dashboard_customize_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            StudentPortalDashboardPage.routeName,
+            arguments: user,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // GPA Progression & Analytics Launcher
+        _StylishLauncherCard(
+          title: 'GPA Progression & Analytics',
+          subtitle: 'Semester trajectory, grades & target track',
+          badgeText: '3.84 GPA • Top 5%',
+          badgeColor: const Color(0xFF065F46),
+          badgeBgColor: const Color(0xFFA7F3D0),
+          gradientColors: const [Color(0xFF0F172A), Color(0xFF1E293B)],
+          icon: Icons.auto_graph_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            AcademicGpaProgressionPage.routeName,
+            arguments: user,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2x2 Grid for Health & Biometrics
+        Row(
+          children: [
+            Expanded(
+              child: _StylishTile(
+                title: 'Calorie Tracker',
+                subtitle: 'Radial dial & macros',
+                badgeText: '🔥 1,232 kcal left',
+                accentColor: const Color(0xFF0D9488),
+                bgColor: const Color(0xFFCCFBF1),
+                icon: Icons.local_fire_department_rounded,
+                onTap: () => Navigator.of(context).pushNamed(
+                  CalorieNutritionDashboardPage.routeName,
+                  arguments: user,
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(spec.title, style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 2),
-                    Text(spec.subtitle, style: Theme.of(context).textTheme.bodySmall),
-                    if (!tappable) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        spec.route,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.outline,
-                              fontStyle: FontStyle.italic,
-                            ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StylishTile(
+                title: 'Stress Level',
+                subtitle: 'Spline & equalizer',
+                badgeText: '🛡️ Manageable • 46',
+                accentColor: const Color(0xFFF97316),
+                bgColor: const Color(0xFFFFEDD5),
+                icon: Icons.monitor_heart_rounded,
+                onTap: () => Navigator.of(context).pushNamed(
+                  StressLevelDashboardPage.routeName,
+                  arguments: user,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Full-width Health Overview Tile
+        _StylishTile(
+          title: 'Biometric Health Overview',
+          subtitle: 'Multi-sensor sleep, pulse rate & HRV vitals preview',
+          badgeText: '🌙 Sleep 6h 52m • ❤️ 74 bpm • ⚡ HRV 56 ms',
+          accentColor: const Color(0xFF7C3AED),
+          bgColor: const Color(0xFFEDE9FE),
+          icon: Icons.health_and_safety_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            BiometricHealthOverviewPage.routeName,
+            arguments: user,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StylishLauncherCard extends StatefulWidget {
+  const _StylishLauncherCard({
+    required this.title,
+    required this.subtitle,
+    required this.badgeText,
+    required this.badgeColor,
+    required this.badgeBgColor,
+    required this.gradientColors,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badgeText;
+  final Color badgeColor;
+  final Color badgeBgColor;
+  final List<Color> gradientColors;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_StylishLauncherCard> createState() => _StylishLauncherCardState();
+}
+
+class _StylishLauncherCardState extends State<_StylishLauncherCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: widget.gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.gradientColors.first.withValues(alpha: 0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.white24,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(widget.icon, color: Colors.white, size: 20),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: widget.badgeBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          widget.badgeText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: widget.badgeColor,
+                          ),
+                        ),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.subtitle,
+                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ],
               ),
-              if (tappable)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Icon(Icons.arrow_forward_ios,
-                      size: 14, color: AppColors.outline),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StylishTile extends StatefulWidget {
+  const _StylishTile({
+    required this.title,
+    required this.subtitle,
+    required this.badgeText,
+    required this.accentColor,
+    required this.bgColor,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badgeText;
+  final Color accentColor;
+  final Color bgColor;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_StylishTile> createState() => _StylishTileState();
+}
+
+class _StylishTileState extends State<_StylishTile> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-            ],
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: widget.bgColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(widget.icon, color: widget.accentColor, size: 18),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFFCBD5E1)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: widget.bgColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      widget.badgeText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: widget.accentColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

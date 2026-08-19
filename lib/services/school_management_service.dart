@@ -501,7 +501,7 @@ class SchoolManagementService {
           body: jsonEncode({
             'studentId': studentId,
             'classId': classId,
-            if (academicYear != null) 'academicYear': academicYear,
+            'academicYear': ?academicYear,
           }),
         ).timeout(ApiConfig.requestTimeout);
 
@@ -624,7 +624,7 @@ class SchoolManagementService {
             'teacherId': realTeacherId,
             'classId': realClassId,
             'subjectId': realSubjectId,
-            if (academicYear != null) 'academicYear': academicYear,
+            'academicYear': ?academicYear,
           }),
         ).timeout(ApiConfig.requestTimeout);
 

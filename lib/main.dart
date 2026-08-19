@@ -17,12 +17,18 @@ import 'screens/dashboard/dashboard_page.dart';
 import 'screens/forgot_password_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
+import 'screens/analytics/academic_gpa_progression_page.dart';
+import 'screens/communication/private_communication_page.dart';
+import 'screens/biometrics/biometric_health_overview_page.dart';
+import 'screens/biometrics/stress_level_dashboard_page.dart';
+import 'screens/nutrition/calorie_nutrition_dashboard_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
 import 'screens/pending_approval_page.dart';
 import 'screens/reports/reports_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/student/student_portal_dashboard_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
@@ -191,6 +197,30 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case DashboardPage.routeName:
             final user = settings.arguments as User;
             return MaterialPageRoute(builder: (_) => DashboardPage(user: user));
+
+          case StudentPortalDashboardPage.routeName:
+            final user = settings.arguments as User;
+            return MaterialPageRoute(builder: (_) => StudentPortalDashboardPage(user: user));
+
+          case CalorieNutritionDashboardPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => CalorieNutritionDashboardPage(user: user));
+
+          case StressLevelDashboardPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => StressLevelDashboardPage(user: user));
+
+          case BiometricHealthOverviewPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => BiometricHealthOverviewPage(user: user));
+
+          case AcademicGpaProgressionPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => AcademicGpaProgressionPage(user: user));
+
+          case PrivateCommunicationPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => PrivateCommunicationPage(user: user!));
 
           case LoginPage.routeName:
             final role = settings.arguments as UserRole?;

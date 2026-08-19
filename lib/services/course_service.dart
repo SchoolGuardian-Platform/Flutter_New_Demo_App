@@ -4,11 +4,122 @@ import '../models/student_course_registration.dart';
 
 class CourseService {
   factory CourseService() => _instance;
-  CourseService._internal();
+  CourseService._internal() {
+    _initInitialData();
+  }
   static final CourseService _instance = CourseService._internal();
 
   final List<CourseOffering> _offerings = [];
   final List<StudentCourseRegistration> _registrations = [];
+
+  void _initInitialData() {
+    if (_offerings.isNotEmpty) return;
+
+    final cs101 = CourseOffering(
+      id: 'co-cs101',
+      code: 'CS101',
+      title: 'Introduction to Computer Science',
+      credits: 3.0,
+      teacherId: 'TEA-101',
+      teacherName: 'Alex Morgan (teacher1@gmail.com)',
+      department: 'Computer Science',
+      term: 'Fall 2026',
+    );
+
+    final math201 = CourseOffering(
+      id: 'co-math201',
+      code: 'MATH201',
+      title: 'Advanced Algebra & Geometry',
+      credits: 4.0,
+      teacherId: 'TEA-102',
+      teacherName: 'Sarah Taylor (teacher2@gmail.com)',
+      department: 'Mathematics',
+      term: 'Fall 2026',
+    );
+
+    final sci102 = CourseOffering(
+      id: 'co-sci102',
+      code: 'SCI102',
+      title: 'General Physics & Chemistry',
+      credits: 3.5,
+      teacherId: 'TEA-101',
+      teacherName: 'Alex Morgan (teacher1@gmail.com)',
+      department: 'Natural Sciences',
+      term: 'Fall 2026',
+    );
+
+    final eng101 = CourseOffering(
+      id: 'co-eng101',
+      code: 'ENG101',
+      title: 'Academic English & Composition',
+      credits: 3.0,
+      teacherId: 'TEA-102',
+      teacherName: 'Sarah Taylor (teacher2@gmail.com)',
+      department: 'Humanities',
+      term: 'Fall 2026',
+    );
+
+    _offerings.addAll([cs101, math201, sci102, eng101]);
+
+    _registrations.addAll([
+      StudentCourseRegistration(
+        id: 'reg-s1-cs101',
+        studentId: 'SG-2026-000001',
+        studentName: 'Child One (student1@gmail.com)',
+        course: cs101,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s1-math201',
+        studentId: 'SG-2026-000001',
+        studentName: 'Child One (student1@gmail.com)',
+        course: math201,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s2-sci102',
+        studentId: 'SG-2026-000002',
+        studentName: 'Child Two (student2@gmail.com)',
+        course: sci102,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s2-eng101',
+        studentId: 'SG-2026-000002',
+        studentName: 'Child Two (student2@gmail.com)',
+        course: eng101,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s3-cs101',
+        studentId: 'SG-2026-000003',
+        studentName: 'Child Three (student3@gmail.com)',
+        course: cs101,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s3-eng101',
+        studentId: 'SG-2026-000003',
+        studentName: 'Child Three (student3@gmail.com)',
+        course: eng101,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s4-math201',
+        studentId: 'SG-2026-000004',
+        studentName: 'Child Four (student4@gmail.com)',
+        course: math201,
+        registeredAt: DateTime.now(),
+      ),
+      StudentCourseRegistration(
+        id: 'reg-s4-sci102',
+        studentId: 'SG-2026-000004',
+        studentName: 'Child Four (student4@gmail.com)',
+        course: sci102,
+        registeredAt: DateTime.now(),
+      ),
+    ]);
+  }
 
   Future<List<CourseOffering>> getAvailableOfferings({String term = 'Fall 2026'}) async {
     final searchTerm = term.trim().toLowerCase();

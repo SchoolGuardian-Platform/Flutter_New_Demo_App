@@ -211,7 +211,7 @@ class AuthService {
       'firstName': firstName,
       'middleName': middleName,
       'lastName': lastName,
-      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+      'dateOfBirth': ?dateOfBirth,
       if (gender != null) 'gender': gender.apiValue,
       'email': email,
       'phoneNumber': phoneNumber,
