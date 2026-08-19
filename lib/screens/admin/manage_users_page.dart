@@ -4,20 +4,17 @@ import '../../core/api_exception.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
+import 'class_section_management_page.dart';
 import 'pending_approvals_page.dart';
 
-/// Admin's "Manage Users" hub.
+/// Admin's "Manage Users" hub -- reviewing and acting on every account/link
+/// waiting on a decision, grouped by category with live counts.
 ///
-/// HONEST SCOPE NOTE: the backend does not yet expose a "list every
-/// existing account" endpoint (only `GET /admin/{role}/pending`,
-/// `GET /admin/{role}/:id`, and the approve/reject actions are
-/// implemented -- see `SchoolGuardian_Final_OpenAPI.yaml`). So this hub
-/// currently focuses on what IS live today: reviewing and acting on every
-/// account/link waiting on a decision, grouped by category with live
-/// counts. A full searchable directory of active accounts can be added
-/// here as soon as a `GET /admin/users` (or similar) endpoint exists on
-/// the backend -- this page is structured so that's a new card, not a
-/// rewrite.
+/// This is deliberately separate from the "Users" tab (`VerifiedUsersPage`,
+/// reachable from the dashboard nav bar), which is the searchable directory
+/// of already-verified accounts backed by `GET /admin/users/verified` and
+/// supports removing an account. This hub stays focused on the pending
+/// queues; browsing/removing verified accounts lives on that other page.
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({super.key});
 
@@ -143,6 +140,39 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
               title: 'Guardian Links',
               count: summary?.relationships.length ?? 0,
               onTap: () => _openTab(3),
+            ),
+            const Divider(height: 24),
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: KukieAccent.violet.withValues(alpha: 0.3)),
+                boxShadow: AppColors.cardShadow,
+              ),
+              child: ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ClassSectionManagementPage()),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.class_outlined, color: KukieAccent.violet),
+                ),
+                title: Text('Class & Section Registration',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text(
+                  'Manage classes, sections, rooms, student rosters & teacher assignments.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: KukieAccent.violet),
+              ),
             ),
           ],
         ),

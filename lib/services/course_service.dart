@@ -7,189 +7,8 @@ class CourseService {
   CourseService._internal();
   static final CourseService _instance = CourseService._internal();
 
-  final List<CourseOffering> _offerings = [
-    const CourseOffering(
-      id: 'co-101',
-      code: 'CS-101',
-      title: 'Intro to Computer Science',
-      credits: 3.0,
-      teacherId: 'TEA-801',
-      teacherName: 'Dr. Elizabeth Vance',
-      department: 'Computer Science & Software',
-      term: 'Fall 2026',
-    ),
-    const CourseOffering(
-      id: 'co-202',
-      code: 'MATH-202',
-      title: 'Advanced Algebra & Calculus',
-      credits: 4.0,
-      teacherId: 'TEA-802',
-      teacherName: 'Prof. Marcus Miller',
-      department: 'Mathematics & Statistics',
-      term: 'Fall 2026',
-    ),
-    const CourseOffering(
-      id: 'co-305',
-      code: 'STEM-305',
-      title: 'Robotics & Embedded Systems',
-      credits: 3.0,
-      teacherId: 'TEA-803',
-      teacherName: 'Dr. Aris Thorne',
-      department: 'Engineering & Technology',
-      term: 'Fall 2026',
-    ),
-    const CourseOffering(
-      id: 'co-401',
-      code: 'ENG-105',
-      title: 'Technical Communication & Logic',
-      credits: 2.0,
-      teacherId: 'TEA-804',
-      teacherName: 'Prof. Clara Oswald',
-      department: 'Humanities & Arts',
-      term: 'Fall 2026',
-    ),
-  ];
-
-  final List<StudentCourseRegistration> _registrations = [
-    StudentCourseRegistration(
-      id: 'reg-1',
-      studentId: 'STU-1001',
-      studentName: 'Alexander Hayes',
-      course: const CourseOffering(
-        id: 'co-101',
-        code: 'CS-101',
-        title: 'Intro to Computer Science',
-        credits: 3.0,
-        teacherId: 'TEA-801',
-        teacherName: 'Dr. Elizabeth Vance',
-        department: 'Computer Science & Software',
-        term: 'Fall 2026',
-      ),
-      gradeEntry: GradeEntry(
-        id: 'ge-101',
-        studentId: 'STU-1001',
-        studentName: 'Alexander Hayes',
-        subject: 'Intro to Computer Science',
-        assessmentType: AssessmentType.composite,
-        score: 91.0,
-        maxScore: 100.0,
-        term: 'Fall 2026',
-        components: const [
-          AssessmentComponent(name: 'Attendance', score: 9.0, maxScore: 10.0),
-          AssessmentComponent(name: 'Python Project', score: 18.0, maxScore: 20.0),
-          AssessmentComponent(name: 'Midterm Exam', score: 26.0, maxScore: 30.0),
-          AssessmentComponent(name: 'Final Exam', score: 38.0, maxScore: 40.0),
-        ],
-        parentRecommendation:
-            'Alexander completed an outstanding Python project. Strongly encourage him to join the Robotics & Coding Club.',
-        createdAt: DateTime.now().subtract(const Duration(days: 4)),
-      ),
-      registeredAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-    StudentCourseRegistration(
-      id: 'reg-2',
-      studentId: 'STU-1001',
-      studentName: 'Alexander Hayes',
-      course: const CourseOffering(
-        id: 'co-202',
-        code: 'MATH-202',
-        title: 'Advanced Algebra & Calculus',
-        credits: 4.0,
-        teacherId: 'TEA-802',
-        teacherName: 'Prof. Marcus Miller',
-        department: 'Mathematics & Statistics',
-        term: 'Fall 2026',
-      ),
-      gradeEntry: GradeEntry(
-        id: 'ge-202',
-        studentId: 'STU-1001',
-        studentName: 'Alexander Hayes',
-        subject: 'Advanced Algebra & Calculus',
-        assessmentType: AssessmentType.composite,
-        score: 78.0,
-        maxScore: 100.0,
-        term: 'Fall 2026',
-        components: const [
-          AssessmentComponent(name: 'Attendance', score: 7.0, maxScore: 10.0),
-          AssessmentComponent(name: 'Midterm Exam', score: 24.0, maxScore: 30.0),
-          AssessmentComponent(name: 'Assignments', score: 8.0, maxScore: 10.0),
-          AssessmentComponent(name: 'Final Exam', score: 39.0, maxScore: 50.0),
-        ],
-        parentRecommendation:
-            'Alexander demonstrates solid calculus fundamentals but rushed through integration formulas. Daily 15-min guided review is recommended.',
-        createdAt: DateTime.now().subtract(const Duration(days: 6)),
-      ),
-      registeredAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-    StudentCourseRegistration(
-      id: 'reg-3',
-      studentId: 'STU-1001',
-      studentName: 'Alexander Hayes',
-      course: const CourseOffering(
-        id: 'co-305',
-        code: 'STEM-305',
-        title: 'Robotics & Embedded Systems',
-        credits: 3.0,
-        teacherId: 'TEA-803',
-        teacherName: 'Dr. Aris Thorne',
-        department: 'Engineering & Technology',
-        term: 'Fall 2026',
-      ),
-      gradeEntry: GradeEntry(
-        id: 'ge-305',
-        studentId: 'STU-1001',
-        studentName: 'Alexander Hayes',
-        subject: 'Robotics & Embedded Systems',
-        assessmentType: AssessmentType.composite,
-        score: 82.0,
-        maxScore: 100.0,
-        term: 'Fall 2026',
-        components: const [
-          AssessmentComponent(name: 'Attendance', score: 9.0, maxScore: 10.0),
-          AssessmentComponent(name: 'Hardware Lab', score: 25.0, maxScore: 30.0),
-          AssessmentComponent(name: 'Final Demo', score: 48.0, maxScore: 60.0),
-        ],
-        parentRecommendation:
-            'Great effort on the autonomous robot lab demo. Has strong technical intuition.',
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      registeredAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-    StudentCourseRegistration(
-      id: 'reg-4',
-      studentId: 'STU-1001',
-      studentName: 'Alexander Hayes',
-      course: const CourseOffering(
-        id: 'co-401',
-        code: 'ENG-105',
-        title: 'Technical Communication & Logic',
-        credits: 2.0,
-        teacherId: 'TEA-804',
-        teacherName: 'Prof. Clara Oswald',
-        department: 'Humanities & Arts',
-        term: 'Fall 2026',
-      ),
-      gradeEntry: GradeEntry(
-        id: 'ge-401',
-        studentId: 'STU-1001',
-        studentName: 'Alexander Hayes',
-        subject: 'Technical Communication & Logic',
-        assessmentType: AssessmentType.composite,
-        score: 62.0,
-        maxScore: 100.0,
-        term: 'Fall 2026',
-        components: const [
-          AssessmentComponent(name: 'Attendance', score: 6.0, maxScore: 10.0),
-          AssessmentComponent(name: 'Essays', score: 18.0, maxScore: 30.0),
-          AssessmentComponent(name: 'Final Presentation', score: 38.0, maxScore: 60.0),
-        ],
-        parentRecommendation:
-            'Alexander needs to spend more time drafting technical documentation. Extra writing lab sessions are suggested.',
-        createdAt: DateTime.now().subtract(const Duration(days: 5)),
-      ),
-      registeredAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-  ];
+  final List<CourseOffering> _offerings = [];
+  final List<StudentCourseRegistration> _registrations = [];
 
   Future<List<CourseOffering>> getAvailableOfferings({String term = 'Fall 2026'}) async {
     final searchTerm = term.trim().toLowerCase();
@@ -225,12 +44,11 @@ class CourseService {
     String term = 'Fall 2026',
   }) async {
     final sId = studentId.trim().toUpperCase();
-    final isDemoStudent = sId.isEmpty || sId == 'STU-1001' || sId.contains('STUDENT');
     final searchTerm = term.trim().toLowerCase();
 
     return _registrations
         .where((r) =>
-            (isDemoStudent || r.studentId.trim().toUpperCase() == sId) &&
+            (sId.isEmpty || r.studentId.trim().toUpperCase() == sId) &&
             (searchTerm.isEmpty || r.course.term.trim().toLowerCase() == searchTerm))
         .toList();
   }
@@ -240,10 +58,10 @@ class CourseService {
     required String studentName,
     required CourseOffering course,
   }) async {
-    final sId = studentId.trim().isEmpty ? 'STU-1001' : studentId.trim();
+    final sId = studentId.trim();
 
     final existing = _registrations.any(
-        (r) => (r.studentId == sId || r.studentId == 'STU-1001') && r.course.id == course.id);
+        (r) => r.studentId == sId && r.course.id == course.id);
     if (existing) {
       throw Exception('Already registered for ${course.code}: ${course.title}');
     }
@@ -256,20 +74,6 @@ class CourseService {
       registeredAt: DateTime.now(),
     );
     _registrations.add(reg);
-
-    // Also register under default demo ID STU-1001 if different
-    if (sId != 'STU-1001') {
-      _registrations.add(
-        StudentCourseRegistration(
-          id: 'reg-${DateTime.now().millisecondsSinceEpoch}-demo',
-          studentId: 'STU-1001',
-          studentName: studentName,
-          course: course,
-          registeredAt: DateTime.now(),
-        ),
-      );
-    }
-
     return reg;
   }
 
@@ -297,8 +101,6 @@ class CourseService {
     }
   }
 
-  /// Automated GPA calculation formula:
-  /// GPA = sum(gpaPoints * credits) / sum(credits)
   double calculateGPA(List<StudentCourseRegistration> registrations) {
     double totalWeightedPoints = 0;
     double totalCredits = 0;

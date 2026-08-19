@@ -14,14 +14,23 @@
 /// If nothing is passed, it falls back to the local-dev Android-emulator
 /// address below (10.0.2.2 maps to the host machine's localhost — use your
 /// machine's LAN IP for a physical device).
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   ApiConfig._();
 
-  static const String _fallbackBaseUrl = 'http://localhost:3000/api';
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: _fallbackBaseUrl,
-  );
+  static String get _fallbackBaseUrl {
+    if (kIsWeb) return 'http://localhost:3000/api';
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
+    } catch (_) {}
+    return 'http://localhost:3000/api';
+  }
+
+  static final String baseUrl = const String.fromEnvironment('API_BASE_URL').isNotEmpty
+      ? const String.fromEnvironment('API_BASE_URL')
+      : _fallbackBaseUrl;
 
   static const Duration requestTimeout = Duration(seconds: 15);
 

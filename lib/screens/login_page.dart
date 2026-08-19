@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/api_exception.dart';
-import '../models/account_status.dart';
-import '../models/user.dart';
 import '../models/user_role.dart';
 import '../screens/dashboard/dashboard_page.dart';
 import '../services/auth_service.dart';
@@ -9,6 +7,8 @@ import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/auth_text_field.dart';
+import 'pending_approval_page.dart';
+import 'verify_eamil_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.role});
@@ -38,37 +38,14 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _demoLogin({
-    required String email,
-    required UserRole role,
-    required String firstName,
-    required String lastName,
-  }) {
-    final demoUser = User(
-      id: 'demo-${role.name}',
-      email: email,
-      firstName: firstName,
-      lastName: lastName,
-      role: role,
-      status: AccountStatus.active,
-      studentId: role == UserRole.student ? 'STU-1001' : null,
-    );
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      DashboardPage.routeName,
-      (route) => false,
-      arguments: demoUser,
-    );
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
-      // POST /auth/login (email + password only — the backend has no
-      // phone-based login, see auth.validator.ts `loginSchema`).
       final result = await _authService.login(
         email: _identifierController.text.trim(),
         password: _passwordController.text,
+        role: _role,
       );
       if (!mounted) return;
       // Login only ever succeeds for ACTIVE accounts (PENDING/REJECTED/
@@ -81,8 +58,34 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      // `loginUser` in `auth.service.ts` returns a specific message for an
+      // unverified or still-pending account (both still 401s, same as a
+      // wrong password) -- previously this just showed the message with
+      // no way forward. Now it offers the matching next step instead of
+      // being a dead end.
+      final message = e.message.toLowerCase();
+      final isUnverified = message.contains('not verified');
+      final isPendingApproval = message.contains('pending admin approval');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+        SnackBar(
+          content: Text(e.message),
+          duration: const Duration(seconds: 6),
+          action: isUnverified
+              ? SnackBarAction(
+                  label: 'Verify Email',
+                  onPressed: () => Navigator.of(context).pushNamed(
+                    VerifyEmailPage.routeName,
+                    arguments: {'email': _identifierController.text.trim()},
+                  ),
+                )
+              : isPendingApproval
+                  ? SnackBarAction(
+                      label: 'View Status',
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(PendingApprovalPage.routeName),
+                    )
+                  : null,
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -98,7 +101,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             const AppLogoBadge(),
             const SizedBox(height: AppSpacing.md),
-            Text('SchoolGuardian',
+            Text('School Guard',
                 style: Theme.of(context).textTheme.headlineLarge,
                 textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.sm),
@@ -183,79 +186,6 @@ class _LoginPageState extends State<LoginPage> {
                         : const Text('Log In'),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: Border.all(color: AppColors.outlineVariant),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          '⚡ Quick Dev / Demo Login',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            _DemoChip(
-                              label: 'Teacher',
-                              icon: Icons.menu_book_outlined,
-                              color: Colors.blue.shade700,
-                              onTap: () => _demoLogin(
-                                email: 'teacher@schoolguardian.app',
-                                role: UserRole.teacher,
-                                firstName: 'Elizabeth',
-                                lastName: 'Vance',
-                              ),
-                            ),
-                            _DemoChip(
-                              label: 'Admin',
-                              icon: Icons.admin_panel_settings_outlined,
-                              color: Colors.purple.shade700,
-                              onTap: () => _demoLogin(
-                                email: 'admin@gmail.com',
-                                role: UserRole.admin,
-                                firstName: 'Admin',
-                                lastName: 'System',
-                              ),
-                            ),
-                            _DemoChip(
-                              label: 'Parent',
-                              icon: Icons.family_restroom,
-                              color: Colors.teal.shade700,
-                              onTap: () => _demoLogin(
-                                email: 'parent@example.com',
-                                role: UserRole.parent,
-                                firstName: 'Marcus',
-                                lastName: 'Hayes',
-                              ),
-                            ),
-                            _DemoChip(
-                              label: 'Student',
-                              icon: Icons.school_outlined,
-                              color: Colors.orange.shade800,
-                              onTap: () => _demoLogin(
-                                email: 'student@example.com',
-                                role: UserRole.student,
-                                firstName: 'Alexander',
-                                lastName: 'Hayes',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
                   if (_role.hasSignUp)
                     Center(
                       child: Wrap(
@@ -294,35 +224,6 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DemoChip extends StatelessWidget {
-  const _DemoChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 14, color: color),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600),
-      ),
-      padding: EdgeInsets.zero,
-      backgroundColor: color.withValues(alpha: 0.08),
-      side: BorderSide(color: color.withValues(alpha: 0.2)),
-      onPressed: onTap,
     );
   }
 }

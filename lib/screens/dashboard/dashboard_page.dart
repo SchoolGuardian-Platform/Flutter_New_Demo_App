@@ -11,15 +11,15 @@ import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
-import '../admin/manage_courses_page.dart';
+import '../admin/class_section_management_page.dart';
+import '../admin/guardian_links_page.dart';
 import '../admin/manage_users_page.dart';
-import '../grades/parent_grades_page.dart';
-import '../grades/student_grades_page.dart';
+import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
-import '../parent/linked_students_page.dart';
+import '../parent/my_students_page.dart';
 import '../reports/reports_page.dart';
-import '../student/course_registration_page.dart';
-import '../student/linked_guardians_page.dart';
+import '../student/guardians_page.dart';
+import '../student/student_overview_tab.dart';
 import '../student/student_profile_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
@@ -54,9 +54,10 @@ class _DashboardPageState extends State<DashboardPage> {
   int _pendingCount = 0;
 
   /// Admin-only bottom nav. "Overview" (index 0) renders inline; the other
-  /// two are shortcuts that push the existing full-screen admin pages
-  /// and then return here, refreshing Overview's stats so numbers don't
-  /// go stale after an approve/reject. See `_onAdminTabTapped`.
+  /// three ("Manage", "Users", "Profile") are shortcuts that push the
+  /// existing full-screen admin pages and then return here, refreshing
+  /// Overview's stats so numbers don't go stale after an approve/reject.
+  /// See `_onAdminTabTapped`.
   ///
   /// There used to be a dedicated "Approvals" tab here, but approving or
   /// rejecting is already fully doable from the Notifications bell (see
@@ -65,6 +66,14 @@ class _DashboardPageState extends State<DashboardPage> {
   /// with the "Manage Users" section. Removed rather than kept as a
   /// second way to do the same thing.
   final _overviewKey = GlobalKey<AdminOverviewTabState>();
+
+  /// Student-only bottom nav, same shape as the admin one above:
+  /// "Overview" (index 0) renders inline via [StudentOverviewTab]; "My
+  /// Profile", "Guardians", and "Reports" are shortcuts that push their
+  /// existing full-screen pages and return here, refreshing Overview's
+  /// live guardian count in case it changed (a new guardian got linked,
+  /// etc). See `_onStudentTabTapped`.
+  final _studentOverviewKey = GlobalKey<StudentOverviewTabState>();
 
   @override
   void initState() {
@@ -157,6 +166,11 @@ class _DashboardPageState extends State<DashboardPage> {
         break;
       case 2:
         await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const VerifiedUsersPage(),
+        ));
+        break;
+      case 3:
+        await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => AdminProfilePage(initialUser: _user),
         ));
         break;
@@ -167,9 +181,35 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadPendingCount();
   }
 
+  Future<void> _onStudentTabTapped(int index) async {
+    switch (index) {
+      case 0:
+        return; // Overview renders inline; nothing to navigate to.
+      case 1:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => StudentProfilePage(initialUser: _user),
+        ));
+        break;
+      case 2:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const GuardiansPage(),
+        ));
+        break;
+      case 3:
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ReportsPage(),
+        ));
+        break;
+    }
+    // Returning here could follow a guardian-link change, so refresh
+    // Overview's live count.
+    _studentOverviewKey.currentState?.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAdmin = _user.role == UserRole.admin;
+    final isStudent = _user.role == UserRole.student;
     return Scaffold(
       appBar: AppBar(
         title: const AppWordmark(),
@@ -259,19 +299,22 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       body: isAdmin
           ? AdminOverviewTab(key: _overviewKey)
-          : RefreshIndicator(
-              onRefresh: _refreshProfile,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  _WelcomeCard(user: _user),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('Overview', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: AppSpacing.sm),
-                  _RoleSections(role: _user.role, user: _user),
-                ],
-              ),
-            ),
+          : isStudent
+              ? StudentOverviewTab(key: _studentOverviewKey, user: _user)
+              : RefreshIndicator(
+                  onRefresh: _refreshProfile,
+                  child: ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      _WelcomeCard(user: _user),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('Overview',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      _RoleSections(role: _user.role, user: _user),
+                    ],
+                  ),
+                ),
       bottomNavigationBar: isAdmin
           ? BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
@@ -289,12 +332,42 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: 'Manage',
                 ),
                 BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_outlined),
+                  label: 'Users',
+                ),
+                BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),
                   label: 'Profile',
                 ),
               ],
             )
-          : null,
+          : isStudent
+              ? BottomNavigationBar(
+                  type: BottomNavigationBarType.fixed,
+                  currentIndex: 0,
+                  selectedItemColor: AppColors.primary,
+                  unselectedItemColor: AppColors.outline,
+                  onTap: _onStudentTabTapped,
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.dashboard_outlined),
+                      label: 'Overview',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.badge_outlined),
+                      label: 'My Profile',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.family_restroom),
+                      label: 'Guardians',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.description_outlined),
+                      label: 'Reports',
+                    ),
+                  ],
+                )
+              : null,
     );
   }
 }
@@ -374,21 +447,12 @@ class _RoleSections extends StatelessWidget {
       case UserRole.parent:
         return [
           _SectionSpec(
-            icon: Icons.grade_outlined,
-            title: 'Child Grades & Recommendations',
-            subtitle: 'View grades, assessment scores, and confidential teacher notes.',
-            route: 'GET /parents/grades',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ParentGradesPage(
-                    studentId: user.studentId ?? 'STU-1001'))),
-          ),
-          _SectionSpec(
             icon: Icons.link,
             title: 'Linked Students',
             subtitle: 'View and manage students linked to your account.',
             route: 'GET /parents/my-students',
             onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LinkedStudentsPage())),
+                MaterialPageRoute(builder: (_) => const MyStudentsPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -401,40 +465,17 @@ class _RoleSections extends StatelessWidget {
         ];
       case UserRole.student:
         return [
-          _SectionSpec(
-            icon: Icons.how_to_reg_outlined,
-            title: 'Course Registration',
-            subtitle: 'Enroll in Director-approved courses for the semester.',
-            route: 'POST /students/register-courses',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => CourseRegistrationPage(
-                    studentId: user.studentId ?? 'STU-1001'))),
-          ),
-          _SectionSpec(
-            icon: Icons.school_outlined,
-            title: 'My Grades & Coursework',
-            subtitle: 'View your assessment scores, quizzes, and project results.',
-            route: 'GET /students/grades',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => StudentGradesPage(
-                    studentId: user.studentId ?? 'STU-1001'))),
-          ),
-          _SectionSpec(
+          const _SectionSpec(
             icon: Icons.badge_outlined,
             title: 'My Profile',
             subtitle: 'Student ID, school, and enrollment details.',
             route: 'GET /auth/me',
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => StudentProfilePage(user: user))),
           ),
-          _SectionSpec(
+          const _SectionSpec(
             icon: Icons.family_restroom,
             title: 'Linked Guardians',
             subtitle: 'Parents/guardians connected to your account.',
             route: 'GET /students/my-guardians',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => LinkedGuardiansPage(
-                    studentId: user.studentId ?? 'STU-1001'))),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -448,21 +489,20 @@ class _RoleSections extends StatelessWidget {
       case UserRole.teacher:
         return [
           _SectionSpec(
-            icon: Icons.psychology_outlined,
-            title: 'Teacher Professional Portal',
-            subtitle:
-                'Manage major field of study, input student grades & parent notes.',
-            route: 'POST /teacher/grades',
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TeacherPortalPage())),
+            icon: Icons.psychology,
+            title: 'Teacher Portal',
+            subtitle: 'Record student results, guidance & custom subject bars.',
+            route: 'Teacher Portal',
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const TeacherPortalPage())),
           ),
           _SectionSpec(
             icon: Icons.groups_outlined,
-            title: 'My Classes',
-            subtitle: 'Class rosters, attendance, and student performance.',
-            route: 'GET /teacher/classes',
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const MyClassesPage())),
+            title: 'My Classes & Rosters',
+            subtitle: 'Manage class rosters and student attendance.',
+            route: 'My Classes',
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -484,20 +524,31 @@ class _RoleSections extends StatelessWidget {
                 builder: (_) => const AdminNotificationsPage())),
           ),
           _SectionSpec(
-            icon: Icons.auto_stories_outlined,
-            title: 'Director Course Management',
-            subtitle: 'Create semester courses, set credit hours, assign teachers.',
-            route: 'POST /admin/courses',
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageCoursesPage())),
-          ),
-          _SectionSpec(
             icon: Icons.manage_accounts_outlined,
             title: 'Manage Users',
             subtitle: 'All account categories, grouped with live counts.',
             route: 'GET /admin/{role}/pending',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ManageUsersPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.class_outlined,
+            title: 'Class & Section Registration',
+            subtitle:
+                'Register classes, sections, rooms, student rosters & teacher assignments.',
+            route: 'GET /school-management/classes',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ClassSectionManagementPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.family_restroom,
+            title: 'Guardian Links',
+            subtitle:
+                'Parent-student links awaiting your decision, plus ones '
+                'already approved or rejected.',
+            route: 'GET /admin/relationships',
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GuardianLinksPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
 import '../../models/teacher_profile.dart';
+import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
@@ -21,11 +22,7 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
   List<GradeEntry> _grades = [];
   bool _loading = true;
   String _selectedSubject = 'ALL';
-  final List<String> _customSubjects = [
-    'Intro to Computer Science',
-    'Advanced Algebra & Calculus',
-    'Robotics & Embedded Systems',
-  ];
+  final List<String> _customSubjects = [];
 
   @override
   void initState() {
@@ -37,46 +34,61 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
     setState(() => _loading = true);
     final profile = await _teacherService.getTeacherProfile();
     final grades = await _teacherService.getGradeEntries();
+
+    List<String> dbSubjectNames = [];
+    try {
+      final dbSubjects = await SchoolManagementService().getSubjects();
+      dbSubjectNames = dbSubjects.map((s) => s.name).toList();
+    } catch (_) {}
+
     if (!mounted) return;
 
-    // Collect all unique subjects from existing grades
-    final uniqueSubjectsFromGrades = grades.map((g) => g.subject).toSet();
-    for (final s in uniqueSubjectsFromGrades) {
-      if (!_customSubjects.contains(s)) {
-        _customSubjects.add(s);
+    final subjectList = List<String>.from(profile.assignedSubjects);
+    for (final s in dbSubjectNames) {
+      if (s.isNotEmpty && !subjectList.contains(s)) {
+        subjectList.add(s);
+      }
+    }
+    for (final g in grades) {
+      if (g.subject.isNotEmpty && !subjectList.contains(g.subject)) {
+        subjectList.add(g.subject);
       }
     }
 
     setState(() {
       _profile = profile;
       _grades = grades;
+      _customSubjects.clear();
+      _customSubjects.addAll(subjectList);
       _loading = false;
     });
   }
 
   Future<void> _showAddSubjectBarDialog() async {
-    final controller = TextEditingController(text: 'General Physics II');
+    final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Teaching Subject / Course Bar'),
+        title: const Text('Assign Teaching Subject'),
         content: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Add a new subject bar to organize and manage your student grades separately per course.',
+                'Assign a new subject to your teaching profile. It will be saved to the database and displayed across all portal forms.',
                 style: TextStyle(fontSize: 12.5, color: Colors.black87),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: controller,
                 decoration: const InputDecoration(
-                  labelText: 'Subject / Course Title *',
-                  hintText: 'e.g. PHYS-301: General Physics II',
+                  labelText: 'Subject Name *',
+                  hintText: 'e.g. Maths, Science, History',
+                  prefixIcon: Icon(Icons.book_outlined),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
@@ -89,25 +101,27 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (formKey.currentState!.validate()) {
                 final newSub = controller.text.trim();
-                if (!_customSubjects.contains(newSub)) {
-                  setState(() {
-                    _customSubjects.add(newSub);
-                    _selectedSubject = newSub;
-                  });
+                await _teacherService.addAssignedSubject(newSub);
+                try {
+                  await SchoolManagementService().createSubject(name: newSub);
+                } catch (_) {}
+
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  _loadData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Assigned subject "$newSub" to database & profile!'),
+                      backgroundColor: KukieAccent.success,
+                    ),
+                  );
                 }
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Added subject bar for "$newSub"!'),
-                    backgroundColor: KukieAccent.success,
-                  ),
-                );
               }
             },
-            child: const Text('Add Subject Bar'),
+            child: const Text('Assign Subject'),
           ),
         ],
       ),
@@ -162,7 +176,7 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Professional Teacher Portal'),
+        title: const Text('Teacher Portal'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -194,18 +208,19 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
 
                   // --- Subject / Course Teaching Bars ---
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'My Teaching Subject Bars',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                      Expanded(
+                        child: Text(
+                          'My Teaching Subjects',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
                       ),
                       TextButton.icon(
                         onPressed: _showAddSubjectBarDialog,
                         icon: const Icon(Icons.add_card, size: 16),
-                        label: const Text('+ Add Subject Bar'),
+                        label: const Text('+ Assign Subject'),
                       ),
                     ],
                   ),
@@ -243,11 +258,6 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                             ),
                           );
                         }),
-                        ActionChip(
-                          avatar: const Icon(Icons.add, size: 16, color: KukieAccent.violet),
-                          label: const Text('Add Subject'),
-                          onPressed: _showAddSubjectBarDialog,
-                        ),
                       ],
                     ),
                   ),
@@ -288,8 +298,8 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                             padding: const EdgeInsets.all(AppSpacing.xl),
                             child: Center(
                               child: Text(_selectedSubject == 'ALL'
-                                  ? 'No student grades recorded yet.'
-                                  : 'No students enrolled/graded for "$_selectedSubject" yet.'),
+                                  ? 'No student grades recorded yet. Click "+ Add Grade & Guidance" to add the first result!'
+                                  : 'No students graded for "$_selectedSubject" yet.'),
                             ),
                           ),
                         );
@@ -447,8 +457,8 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatBox(
             title: 'Assigned Classes',
-            value: '3',
-            subtitle: 'Active rosters',
+            value: 'Active',
+            subtitle: 'Class management',
             icon: Icons.class_outlined,
             color: Colors.purple.shade700,
           ),
@@ -502,7 +512,7 @@ class _StatBox extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: color,
                 ),
@@ -561,18 +571,23 @@ class _TeacherGradeCard extends StatelessWidget {
                       Text(
                         grade.studentName,
                         style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700),
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                       Text(
                         'ID: ${grade.studentId} · ${grade.subject}',
-                        style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 4),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: KukieAccent.violetTint,
                     borderRadius: BorderRadius.circular(12),
@@ -582,7 +597,7 @@ class _TeacherGradeCard extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: KukieAccent.violet,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -626,15 +641,18 @@ class _TeacherGradeCard extends StatelessWidget {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  grade.term,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                Expanded(
+                  child: Text(
+                    grade.term,
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit, size: 14),
-                  label: const Text('Edit Grade'),
+                  label: const Text('Edit'),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
@@ -654,7 +672,7 @@ class _TeacherGradeCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (grade.parentRecommendation != null) ...[
+            if (grade.parentRecommendation != null && grade.parentRecommendation!.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),

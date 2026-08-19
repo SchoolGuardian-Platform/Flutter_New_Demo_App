@@ -99,7 +99,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           children: [
             const AppLogoBadge(filled: true, shape: BoxShape.circle),
             const SizedBox(height: AppSpacing.md),
-            Text('SchoolGuardian',
+            Text('School Guard',
                 style: Theme.of(context)
                     .textTheme
                     .headlineLarge

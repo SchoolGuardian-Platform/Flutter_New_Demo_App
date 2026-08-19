@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_exception.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
-import 'manage_courses_page.dart';
 
 /// Bottom-nav "Overview" tab for the admin dashboard.
 ///
@@ -20,11 +18,11 @@ import 'manage_courses_page.dart';
 /// "dashboard stats" endpoint, only the four `GET .../pending` queues
 /// that already power `AdminService.getPendingSummary()`. So "Total
 /// Pending" and the per-category chart below are real, live numbers from
-/// those queues. "Approved" is shown as a session counter
-/// (`AdminService.sessionApprovals`) rather than an all-time total, since
-/// there's no backend endpoint yet for historical approval counts --
-/// it's labelled accordingly rather than implying it's something it
-/// isn't.
+/// those queues. "Total Approved" is still `AdminService.sessionApprovals`
+/// under the hood -- a local, in-memory counter that resets on app
+/// restart -- since there's no backend endpoint yet for a real all-time
+/// approval count. The label says "Total" per product request, but it is
+/// NOT a true historical total; a real one needs a backend change.
 class AdminOverviewTab extends StatefulWidget {
   const AdminOverviewTab({super.key});
 
@@ -35,6 +33,7 @@ class AdminOverviewTab extends StatefulWidget {
 class AdminOverviewTabState extends State<AdminOverviewTab> {
   final _adminService = AdminService();
   PendingSummary? _summary;
+  int _approvedTotalCount = 0;
   bool _loading = true;
   String? _error;
 
@@ -56,8 +55,12 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
     });
     try {
       final summary = await _adminService.getPendingSummary();
+      final approvedCount = await _adminService.getTotalApprovedCount();
       if (!mounted) return;
-      setState(() => _summary = summary);
+      setState(() {
+        _summary = summary;
+        _approvedTotalCount = approvedCount;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -83,28 +86,6 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                 .textTheme
                 .bodySmall
                 ?.copyWith(color: AppColors.outline),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Card(
-            color: KukieAccent.violetTint,
-            child: ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: KukieAccent.violet,
-                child: Icon(Icons.how_to_reg, color: Colors.white, size: 20),
-              ),
-              title: const Text(
-                'Generate & Publish Course Registration',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-              ),
-              subtitle: const Text(
-                'Create semester course offerings, assign credit hours & publish for students.',
-                style: TextStyle(fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: KukieAccent.violet),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageCoursesPage()),
-              ),
-            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (_loading && summary == null)
@@ -139,8 +120,14 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.check_circle_outline,
-                    label: 'Approved this session',
-                    value: '${AdminService.sessionApprovals}',
+                    // NOTE: there's no backend endpoint for an all-time
+                    // approved count (only the four `.../pending` queues
+                    // exist) -- this is still
+                    // `AdminService.sessionApprovals` under the hood, so
+                    // it resets whenever the app restarts, despite the
+                    // "Total" label. A real total needs a backend change.
+                    label: 'Total Approved',
+                    value: '$_approvedTotalCount',
                     color: AppColors.secondary,
                     background: AppColors.secondaryContainer.withValues(alpha: 0.4),
                   ),
@@ -187,31 +174,44 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  )),
-          const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
+    return SizedBox(
+      // Fixed, explicit height for BOTH cards -- not measured from text
+      // metrics, which can vary slightly by device/font and was still
+      // leaving them visibly uneven. This guarantees identical boxes
+      // regardless of label length or platform.
+      height: 132,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.outlineVariant),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            Text(value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    )),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

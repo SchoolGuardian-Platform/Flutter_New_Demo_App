@@ -10,28 +10,19 @@ import 'models/user_role.dart';
 import 'screens/account_rejected_page.dart';
 import 'screens/admin/admin_notifications_page.dart';
 import 'screens/admin/admin_profile_page.dart';
-import 'screens/admin/manage_courses_page.dart';
+import 'screens/admin/guardian_links_page.dart';
 import 'screens/admin/manage_users_page.dart';
 import 'screens/admin/pending_approvals_page.dart';
 import 'screens/dashboard/dashboard_page.dart';
 import 'screens/forgot_password_page.dart';
-import 'screens/grades/parent_grades_page.dart';
-import 'screens/grades/student_grades_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
-import 'screens/parent/linked_students_page.dart';
 import 'screens/pending_approval_page.dart';
-import 'screens/reports/academic_report_page.dart';
-import 'screens/reports/attendance_report_page.dart';
 import 'screens/reports/reports_page.dart';
-import 'screens/reports/wellbeing_report_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
-import 'screens/student/course_registration_page.dart';
-import 'screens/student/linked_guardians_page.dart';
-import 'screens/student/student_profile_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
@@ -170,7 +161,7 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SchoolGuardian',
+      title: 'School Guard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       // Every launch starts at SessionCheckPage, which decides between
@@ -256,6 +247,9 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case ManageUsersPage.routeName:
             return MaterialPageRoute(builder: (_) => const ManageUsersPage());
 
+          case GuardianLinksPage.routeName:
+            return MaterialPageRoute(builder: (_) => const GuardianLinksPage());
+
           case AdminProfilePage.routeName:
             final user = settings.arguments as User?;
             return MaterialPageRoute(
@@ -264,52 +258,14 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case ReportsPage.routeName:
             return MaterialPageRoute(builder: (_) => const ReportsPage());
 
-          case AcademicReportPage.routeName:
-            return MaterialPageRoute(builder: (_) => const AcademicReportPage());
-
-          case AttendanceReportPage.routeName:
-            return MaterialPageRoute(builder: (_) => const AttendanceReportPage());
-
-          case WellbeingReportPage.routeName:
-            return MaterialPageRoute(builder: (_) => const WellbeingReportPage());
-
-          case ManageCoursesPage.routeName:
-            return MaterialPageRoute(builder: (_) => const ManageCoursesPage());
-
-          case CourseRegistrationPage.routeName:
-            return MaterialPageRoute(builder: (_) => const CourseRegistrationPage());
-
-          case LinkedGuardiansPage.routeName:
-            final studentId = settings.arguments as String? ?? 'STU-1001';
-            return MaterialPageRoute(
-                builder: (_) => LinkedGuardiansPage(studentId: studentId));
-
-          case LinkedStudentsPage.routeName:
-            return MaterialPageRoute(builder: (_) => const LinkedStudentsPage());
-
-          case StudentProfilePage.routeName:
-            final user = settings.arguments as User?;
-            return MaterialPageRoute(
-                builder: (_) => StudentProfilePage(user: user));
-
           case TeacherPortalPage.routeName:
             return MaterialPageRoute(builder: (_) => const TeacherPortalPage());
-
-          case MyClassesPage.routeName:
-            return MaterialPageRoute(builder: (_) => const MyClassesPage());
 
           case AddGradePage.routeName:
             return MaterialPageRoute(builder: (_) => const AddGradePage());
 
-          case ParentGradesPage.routeName:
-            final studentId = settings.arguments as String? ?? 'STU-1001';
-            return MaterialPageRoute(
-                builder: (_) => ParentGradesPage(studentId: studentId));
-
-          case StudentGradesPage.routeName:
-            final studentId = settings.arguments as String? ?? 'STU-1001';
-            return MaterialPageRoute(
-                builder: (_) => StudentGradesPage(studentId: studentId));
+          case MyClassesPage.routeName:
+            return MaterialPageRoute(builder: (_) => const MyClassesPage());
 
           case AccountRejectedPage.routeName:
             final reason = settings.arguments as String?;

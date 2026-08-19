@@ -15,17 +15,28 @@ import '../../widgets/password_strength_meter.dart';
 /// different fields, but share the same Guardian Core visual language.
 ///
 /// Field set per role is dictated by `src/validators/auth.validator.ts`:
-/// - Student: firstName, lastName, dateOfBirth (REQUIRED), gender
-///   (REQUIRED), email, password, confirmPassword.
-/// - Parent: firstName, lastName, gender (optional) — NO dateOfBirth field
-///   at all — email, password, confirmPassword.
-/// - Teacher: firstName, lastName, dateOfBirth (optional), gender
-///   (optional), email, password, confirmPassword.
+/// - Student: firstName, middleName, lastName, dateOfBirth (REQUIRED),
+///   gender (REQUIRED), email, phoneNumber (REQUIRED), password,
+///   confirmPassword.
+/// - Parent: firstName, middleName, lastName, gender (optional) — NO
+///   dateOfBirth field at all — email, phoneNumber (REQUIRED), password,
+///   confirmPassword.
+/// - Teacher: firstName, middleName, lastName, dateOfBirth (optional),
+///   gender (optional), email, phoneNumber (REQUIRED), password,
+///   confirmPassword.
 ///
-/// There is no "Student ID" / "Employee ID" / "School Code" / "Phone"
-/// field on any register endpoint — the backend does not accept them at
-/// sign-up (see `registration.service.ts`), so those inputs have been
-/// removed rather than silently dropped from the submitted payload.
+/// CORRECTED: middleName and phoneNumber are REQUIRED on every one of
+/// these schemas -- middleName was previously collected but sent only
+/// when non-empty, and phoneNumber wasn't collected at all. Submitting
+/// without a phone number is what produced the backend's "Invalid input:
+/// expected string, received undefined" toast (Zod's default message for
+/// a required field that arrives `undefined`). Both are now required
+/// fields on this form for every role.
+///
+/// There is no "Student ID" / "Employee ID" / "School Code" field on any
+/// register endpoint — the backend does not accept them at sign-up (see
+/// `registration.service.ts`), so those inputs have been removed rather
+/// than silently dropped from the submitted payload.
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key, required this.role});
 
@@ -43,6 +54,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _middleName = TextEditingController();
   final _lastName = TextEditingController();
   final _email = TextEditingController();
+  final _phoneNumber = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
 
@@ -65,6 +77,7 @@ class _SignUpPageState extends State<SignUpPage> {
     _middleName.dispose();
     _lastName.dispose();
     _email.dispose();
+    _phoneNumber.dispose();
     _password.dispose();
     _confirmPassword.dispose();
     super.dispose();
@@ -162,8 +175,8 @@ class _SignUpPageState extends State<SignUpPage> {
 
     setState(() => _submitting = true);
     try {
-      final middleName =
-          _middleName.text.trim().isEmpty ? null : _middleName.text.trim();
+      final middleName = _middleName.text.trim();
+      final phoneNumber = _phoneNumber.text.trim();
 
       switch (widget.role) {
         case UserRole.student:
@@ -174,6 +187,7 @@ class _SignUpPageState extends State<SignUpPage> {
             dateOfBirth: _formatDate(_dateOfBirth!),
             gender: _gender!,
             email: _email.text.trim(),
+            phoneNumber: phoneNumber,
             password: _password.text,
             confirmPassword: _confirmPassword.text,
           );
@@ -185,6 +199,7 @@ class _SignUpPageState extends State<SignUpPage> {
             lastName: _lastName.text.trim(),
             gender: _gender,
             email: _email.text.trim(),
+            phoneNumber: phoneNumber,
             password: _password.text,
             confirmPassword: _confirmPassword.text,
           );
@@ -197,6 +212,7 @@ class _SignUpPageState extends State<SignUpPage> {
             dateOfBirth: _dateOfBirth != null ? _formatDate(_dateOfBirth!) : null,
             gender: _gender,
             email: _email.text.trim(),
+            phoneNumber: phoneNumber,
             password: _password.text,
             confirmPassword: _confirmPassword.text,
           );
@@ -229,6 +245,24 @@ class _SignUpPageState extends State<SignUpPage> {
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
+      );
+    } catch (e) {
+      // Defensive fallback: this is what silently swallowed a *successful*
+      // registration before (see AccountStatus.unverified fix in
+      // `models/account_status.dart`) -- the account and verification
+      // email were created server-side, but parsing the response threw
+      // something that isn't an ApiException, so this catch never ran and
+      // the screen just sat there with no navigation and no error. If
+      // that ever happens again for a different reason, still route to
+      // VerifyEmailPage rather than leaving the user stuck: the account
+      // was very likely created regardless of what went wrong parsing the
+      // response.
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        VerifyEmailPage.routeName,
+        (r) => false,
+        arguments: {'email': _email.text.trim()},
       );
     }
   }
@@ -316,12 +350,18 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  // Optional on every role's backend schema.
+                  // Required on every role's backend schema, despite the
+                  // field's name -- `registerStudentSchema` /
+                  // `registerParentSchema` / `registerTeacherSchema` all
+                  // declare `middleName: z.string().min(1, ...)`.
                   AuthTextField(
-                    label: 'Middle Name (optional)',
+                    label: 'Middle Name',
                     hint: 'e.g. Ann',
                     controller: _middleName,
                     textInputAction: TextInputAction.next,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Required'
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
 
@@ -362,6 +402,24 @@ class _SignUpPageState extends State<SignUpPage> {
                       if (!v.contains('@')) return 'Enter a valid email address';
                       return null;
                     },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Required on every role's backend schema
+                  // (`phoneNumber: z.string().min(1, ...)`) -- previously
+                  // missing from this form entirely, which is what caused
+                  // the "Invalid input: expected string, received
+                  // undefined" error on submit.
+                  AuthTextField(
+                    label: 'Phone Number',
+                    hint: 'e.g. +1 555 123 4567',
+                    controller: _phoneNumber,
+                    prefixIcon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Required'
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
 

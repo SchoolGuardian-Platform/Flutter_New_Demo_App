@@ -7,6 +7,7 @@ class TeacherProfile {
     required this.department,
     required this.employeeId,
     required this.assignedClasses,
+    required this.assignedSubjects,
   });
 
   final String id;
@@ -16,19 +17,21 @@ class TeacherProfile {
   final String department; // e.g. "STEM & Advanced Analytics"
   final String employeeId; // e.g. "TCH-8802"
   final List<String> assignedClasses;
+  final List<String> assignedSubjects;
 
   factory TeacherProfile.sample() {
     return const TeacherProfile(
       id: 'tch-001',
-      fullName: 'Dr. Elizabeth Vance',
+      fullName: 'Teacher Account',
       email: 'teacher@schoolguardian.app',
-      majorField: 'Computer Science & Applied Mathematics',
-      department: 'Department of STEM Education',
+      majorField: 'Computer Science & Mathematics',
+      department: 'STEM & Advanced Education',
       employeeId: 'TCH-9042',
       assignedClasses: [
-        'CS-101: Intro to Computer Science',
-        'MATH-202: Advanced Algebra & Calculus',
-        'STEM-305: Robotics & Problem Solving',
+        'Grade 9 - Section A',
+      ],
+      assignedSubjects: [
+        'Maths',
       ],
     );
   }

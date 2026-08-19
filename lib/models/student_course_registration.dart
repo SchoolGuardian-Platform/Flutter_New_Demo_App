@@ -17,28 +17,4 @@ class StudentCourseRegistration {
   final CourseOffering course;
   final GradeEntry? gradeEntry;
   final DateTime registeredAt;
-
-  bool get isGraded => gradeEntry != null;
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'studentId': studentId,
-        'studentName': studentName,
-        'course': course.toJson(),
-        'gradeEntry': gradeEntry?.toJson(),
-        'registeredAt': registeredAt.toIso8601String(),
-      };
-
-  factory StudentCourseRegistration.fromJson(Map<String, dynamic> json) {
-    return StudentCourseRegistration(
-      id: json['id'] as String,
-      studentId: json['studentId'] as String,
-      studentName: json['studentName'] as String,
-      course: CourseOffering.fromJson(json['course'] as Map<String, dynamic>),
-      gradeEntry: json['gradeEntry'] != null
-          ? GradeEntry.fromJson(json['gradeEntry'] as Map<String, dynamic>)
-          : null,
-      registeredAt: DateTime.parse(json['registeredAt'] as String),
-    );
-  }
 }

@@ -1,349 +1,261 @@
 import 'package:flutter/material.dart';
-import '../../models/user.dart';
-import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
-import 'linked_guardians_page.dart';
+import 'package:schoolguardian_app/models/user_role.dart';
 
+import '../../core/api_exception.dart';
+import '../../models/account_status.dart';
+import '../../models/user.dart';
+import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/app_logo.dart';
+
+import '../../models/school_class.dart';
+import '../../services/school_management_service.dart';
+
+/// Student's "My Profile" tab.
 class StudentProfilePage extends StatefulWidget {
-  const StudentProfilePage({super.key, this.user});
+  const StudentProfilePage({super.key, this.initialUser});
 
   static const routeName = '/student/profile';
-  final User? user;
+
+  final User? initialUser;
 
   @override
   State<StudentProfilePage> createState() => _StudentProfilePageState();
 }
 
 class _StudentProfilePageState extends State<StudentProfilePage> {
-  late String _fullName;
-  late String _email;
-  late String _studentId;
-  late String _schoolCode;
-  String _phone = '+1 (555) 432-8765';
-  String _dateOfBirth = 'May 18, 2010';
-  String _major = 'Computer Science & STEM';
-  String _gradeLevel = 'Grade 10';
+  final _authService = AuthService();
+  final _schoolService = SchoolManagementService();
+  User? _user;
+  SchoolClass? _assignedClass;
+  bool _loading = true;
+  String? _error;
+  bool _sendingReset = false;
 
   @override
   void initState() {
     super.initState();
-    _fullName = widget.user?.fullName ?? 'Alexander Hayes';
-    _email = widget.user?.email ?? 'alexander.hayes@student.com';
-    _studentId = widget.user?.studentId ?? 'STU-1001';
-    _schoolCode = widget.user?.schoolCode ?? 'SCH-2026';
+    _user = widget.initialUser;
+    _load();
   }
 
-  Future<void> _showEditProfileDialog() async {
-    final nameController = TextEditingController(text: _fullName);
-    final phoneController = TextEditingController(text: _phone);
-    final majorController = TextEditingController(text: _major);
-    final formKey = GlobalKey<FormState>();
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Student Profile'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Full Name'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone Number'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: majorController,
-                  decoration: const InputDecoration(labelText: 'Major / Field of Study'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                setState(() {
-                  _fullName = nameController.text.trim();
-                  _phone = phoneController.text.trim();
-                  _major = majorController.text.trim();
-                });
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile updated successfully!'),
-                    backgroundColor: KukieAccent.success,
-                  ),
-                );
-              }
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final user = await _authService.getMe();
+      final cls = await _schoolService.getStudentClass(user.id, studentCode: user.studentId);
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _assignedClass = cls;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _user;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Student Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: _showEditProfileDialog,
-            tooltip: 'Edit Profile',
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          // Header Card
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [KukieAccent.violet, KukieAccent.violet.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-              boxShadow: AppColors.cardShadow,
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: Colors.white24,
-                  child: Text(
-                    _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'S',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('My Profile')),
+      body: user == null
+          ? Center(
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : Text(_error ?? 'Could not load profile.'),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        const AppLogoBadge(size: 88),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(user.fullName,
+                            style: Theme.of(context).textTheme.headlineSmall),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryFixed,
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                          ),
+                          child: Text(
+                            user.role.label,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _fullName,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.greenAccent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'VERIFIED',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
+                  const SizedBox(height: AppSpacing.xl),
+                  _ProfileCard(children: [
+                    _ProfileRow(
+                      icon: Icons.meeting_room_outlined,
+                      label: 'Class & Section',
+                      value: _assignedClass != null
+                          ? '${_assignedClass!.displayName} (${_assignedClass!.academicYear})'
+                          : 'Not Assigned Yet',
+                    ),
+                    if (user.studentId != null && user.studentId!.isNotEmpty)
+                      _ProfileRow(
+                        icon: Icons.badge_outlined,
+                        label: 'Student ID',
+                        value: user.studentId!,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Student ID: $_studentId · School Code: $_schoolCode',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                    if (user.schoolCode != null && user.schoolCode!.isNotEmpty)
+                      _ProfileRow(
+                        icon: Icons.apartment_outlined,
+                        label: 'School Code',
+                        value: user.schoolCode!,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _email,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    _ProfileRow(
+                        icon: Icons.mail_outline,
+                        label: 'Email',
+                        value: user.email),
+                    if (user.status != null)
+                      _ProfileRow(
+                        icon: Icons.verified_user_outlined,
+                        label: 'Account status',
+                        value: user.status == AccountStatus.active
+                            ? 'Active'
+                            : user.status!.name,
                       ),
-                    ],
+                    if (user.createdAt != null)
+                      _ProfileRow(
+                        icon: Icons.event_outlined,
+                        label: 'Student since',
+                        value: _formatDate(user.createdAt!),
+                      ),
+                  ]),
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: _sendingReset ? null : _changePassword,
+                    icon: _sendingReset
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock_outline),
+                    label: Text(
+                        _sendingReset ? 'Sending…' : 'Change Password'),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // Academic Overview Summary Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _StatTile(label: 'Semester GPA', value: '3.84 / 4.0'),
-                  const SizedBox(
-                    height: 32,
-                    child: VerticalDivider(),
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit profile (coming soon)'),
                   ),
-                  _StatTile(label: 'Enrolled Credits', value: '12.0 Cr'),
-                  const SizedBox(
-                    height: 32,
-                    child: VerticalDivider(),
-                  ),
-                  _StatTile(label: 'Class Rank', value: 'Top 5%'),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+    );
+  }
 
-          // Personal Information Section
-          Text(
-            'Personal & Account Information',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.person_outline, color: KukieAccent.violet),
-                  title: const Text('Full Name'),
-                  subtitle: Text(_fullName),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    onPressed: _showEditProfileDialog,
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.email_outlined, color: KukieAccent.violet),
-                  title: const Text('Email Address'),
-                  subtitle: Text(_email),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.phone_outlined, color: KukieAccent.violet),
-                  title: const Text('Phone Number'),
-                  subtitle: Text(_phone),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.cake_outlined, color: KukieAccent.violet),
-                  title: const Text('Date of Birth'),
-                  subtitle: Text(_dateOfBirth),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+  String _formatDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-          // Enrollment Information Section
-          Text(
-            'School & Enrollment Details',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.badge_outlined, color: KukieAccent.violet),
-                  title: const Text('Student ID'),
-                  subtitle: Text(_studentId),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.school_outlined, color: KukieAccent.violet),
-                  title: const Text('School Code'),
-                  subtitle: Text(_schoolCode),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.grade_outlined, color: KukieAccent.violet),
-                  title: const Text('Grade Level'),
-                  subtitle: Text(_gradeLevel),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.biotech_outlined, color: KukieAccent.violet),
-                  title: const Text('Major / Field of Study'),
-                  subtitle: Text(_major),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
+  /// Sends a password-reset email to the student's own address, reusing
+  /// `POST /auth/forgot-password` -- same approach as
+  /// `AdminProfilePage._changePassword`; there is no separate "change
+  /// password while logged in" endpoint on the backend.
+  Future<void> _changePassword() async {
+    final user = _user;
+    if (user == null || _sendingReset) return;
 
-          // Linked Guardians Quick Access Card
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.family_restroom, color: KukieAccent.violet),
-              title: const Text('Linked Parents & Guardians'),
-              subtitle: const Text('Eleanor Hayes (Mother), Robert Hayes (Father)'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => LinkedGuardiansPage(studentId: _studentId),
-                  ),
-                );
-              },
-            ),
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change password?'),
+        content: Text(
+          "We'll email a password reset link to ${user.email}. "
+          'Follow that link to set a new password.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
           ),
-          const SizedBox(height: AppSpacing.xl),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Send Link'),
+          ),
         ],
       ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _sendingReset = true);
+    try {
+      await _authService.forgotPassword(user.email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reset link sent to ${user.email}.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _sendingReset = false);
+    }
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(children: children),
     );
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value});
+class _ProfileRow extends StatelessWidget {
+  const _ProfileRow({required this.icon, required this.label, required this.value});
 
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            color: KukieAccent.violet,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-        ),
-      ],
+    return ListTile(
+      leading: Icon(icon, color: AppColors.primary),
+      title: Text(label, style: Theme.of(context).textTheme.bodySmall),
+      subtitle: Text(value,
+          style: Theme.of(context)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.w600)),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
+import '../../models/school_class.dart';
+import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
@@ -20,8 +22,8 @@ class _ComponentInputRow {
     required double score,
     required double maxScore,
   })  : nameController = TextEditingController(text: name),
-        scoreController = TextEditingController(text: score.toStringAsFixed(0)),
-        maxScoreController = TextEditingController(text: maxScore.toStringAsFixed(0));
+        scoreController = TextEditingController(text: score > 0 ? score.toStringAsFixed(0) : ''),
+        maxScoreController = TextEditingController(text: maxScore > 0 ? maxScore.toStringAsFixed(0) : '');
 
   final TextEditingController nameController;
   final TextEditingController scoreController;
@@ -49,6 +51,16 @@ class _AddGradePageState extends State<AddGradePage> {
   AssessmentType _assessmentType = AssessmentType.composite;
   bool _submitting = false;
 
+  List<String> _teacherSubjects = [];
+  String _selectedYear = '2025/2026';
+  String _selectedSemester = 'Semester 1';
+
+  List<SchoolClass> _assignedClasses = [];
+  SchoolClass? _selectedClass;
+  bool _isTeacherAssigned = true;
+
+  final Map<String, String> _knownStudents = {};
+
   bool get _isEditing => widget.existingEntry != null;
 
   static const List<Map<String, dynamic>> _presetAssessments = [
@@ -65,11 +77,31 @@ class _AddGradePageState extends State<AddGradePage> {
     super.initState();
     final entry = widget.existingEntry;
 
-    _studentIdController = TextEditingController(text: entry?.studentId ?? 'STU-1001');
-    _studentNameController = TextEditingController(text: entry?.studentName ?? 'Alexander Hayes');
-    _subjectController = TextEditingController(text: entry?.subject ?? 'Advanced Mathematics');
-    _termController = TextEditingController(text: entry?.term ?? 'Fall 2026');
+    if (entry != null && entry.term.isNotEmpty) {
+      if (entry.term.contains('Semester 2')) {
+        _selectedSemester = 'Semester 2';
+      } else {
+        _selectedSemester = 'Semester 1';
+      }
+      final parts = entry.term.split(' - ');
+      if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
+        final candidateYear = parts[0].trim();
+        if (['2024/2025', '2025/2026', '2026/2027', '2027/2028'].contains(candidateYear)) {
+          _selectedYear = candidateYear;
+        }
+      }
+    }
+
+    final initialTerm = '$_selectedYear - $_selectedSemester';
+
+    _studentIdController = TextEditingController(text: entry?.studentId ?? '');
+    _studentNameController = TextEditingController(text: entry?.studentName ?? '');
+    _subjectController = TextEditingController(text: entry?.subject ?? '');
+    _termController = TextEditingController(text: entry?.term.isNotEmpty == true ? entry!.term : initialTerm);
     _recommendationController = TextEditingController(text: entry?.parentRecommendation ?? '');
+
+    _studentIdController.addListener(_onStudentIdChanged);
+    _loadTeacherSubjectsAndStudents();
 
     if (entry != null) {
       _assessmentType = entry.assessmentType;
@@ -86,26 +118,106 @@ class _AddGradePageState extends State<AddGradePage> {
     }
   }
 
+  Future<void> _loadTeacherSubjectsAndStudents() async {
+    final profile = await _teacherService.getTeacherProfile();
+    final subjectList = List<String>.from(profile.assignedSubjects);
+
+    try {
+      final dbSubjects = await SchoolManagementService().getSubjects();
+      for (final s in dbSubjects) {
+        if (s.name.isNotEmpty && !subjectList.contains(s.name)) {
+          subjectList.add(s.name);
+        }
+      }
+    } catch (_) {}
+
+    List<SchoolClass> allSchoolClasses = [];
+    try {
+      allSchoolClasses = await SchoolManagementService().getClasses();
+    } catch (_) {}
+
+    // Filter classes to ONLY those where this teacher is explicitly assigned by the Admin
+    final teacherAssignedClasses = allSchoolClasses.where((sc) {
+      final isTeacherInClassList = sc.teachers.any((t) =>
+          (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
+          (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase()));
+      final isClassInProfileList = profile.assignedClasses.any((ac) {
+        final cleanAc = ac.trim().toLowerCase();
+        return cleanAc == sc.displayName.trim().toLowerCase() ||
+               cleanAc == sc.id.trim().toLowerCase() ||
+               cleanAc == sc.shortLabel.trim().toLowerCase();
+      });
+      return isTeacherInClassList || isClassInProfileList;
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _teacherSubjects = subjectList;
+        _assignedClasses = teacherAssignedClasses;
+        _isTeacherAssigned = teacherAssignedClasses.isNotEmpty;
+        if (teacherAssignedClasses.isNotEmpty && _selectedClass == null) {
+          _selectedClass = teacherAssignedClasses.first;
+        } else if (teacherAssignedClasses.isEmpty) {
+          _selectedClass = null;
+        }
+        _updateKnownStudents();
+      });
+
+      _onStudentIdChanged();
+    }
+  }
+
+  void _updateKnownStudents() {
+    _knownStudents.clear();
+    if (_selectedClass != null) {
+      for (final s in _selectedClass!.students) {
+        if (s.studentId.isNotEmpty) {
+          _knownStudents[s.studentId.trim().toUpperCase()] = s.studentName;
+        }
+        final code = s.studentCode;
+        if (code != null && code.isNotEmpty) {
+          _knownStudents[code.trim().toUpperCase()] = s.studentName;
+        }
+      }
+    }
+  }
+
+  void _onStudentIdChanged() {
+    final query = _studentIdController.text.trim().toUpperCase();
+    if (query.isEmpty) return;
+
+    if (_knownStudents.containsKey(query)) {
+      final matchedName = _knownStudents[query]!;
+      if (_studentNameController.text.trim() != matchedName) {
+        _studentNameController.text = matchedName;
+      }
+    }
+  }
+
+  void _updateTermText() {
+    _termController.text = '$_selectedYear - $_selectedSemester';
+  }
+
   void _loadStandardPreset() {
     _clearComponentRows();
-    _addComponentRow(name: 'Attendance', score: 7, maxScore: 10);
-    _addComponentRow(name: 'Midterm Exam', score: 27, maxScore: 30);
-    _addComponentRow(name: 'Assignments', score: 9, maxScore: 10);
-    _addComponentRow(name: 'Final Exam', score: 48, maxScore: 50);
+    _addComponentRow(name: 'Attendance', score: 0, maxScore: 10);
+    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 30);
+    _addComponentRow(name: 'Assignments', score: 0, maxScore: 10);
+    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 50);
   }
 
   void _loadProjectPreset() {
     _clearComponentRows();
-    _addComponentRow(name: 'Attendance', score: 9, maxScore: 10);
-    _addComponentRow(name: 'Project & Practical', score: 18, maxScore: 20);
-    _addComponentRow(name: 'Midterm Exam', score: 25, maxScore: 30);
-    _addComponentRow(name: 'Final Exam', score: 38, maxScore: 40);
+    _addComponentRow(name: 'Attendance', score: 0, maxScore: 10);
+    _addComponentRow(name: 'Project & Practical', score: 0, maxScore: 20);
+    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 30);
+    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 40);
   }
 
   void _loadMidtermFinalPreset() {
     _clearComponentRows();
-    _addComponentRow(name: 'Midterm Exam', score: 42, maxScore: 50);
-    _addComponentRow(name: 'Final Exam', score: 46, maxScore: 50);
+    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 50);
+    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 50);
   }
 
   void _clearComponentRows() {
@@ -187,6 +299,32 @@ class _AddGradePageState extends State<AddGradePage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_isTeacherAssigned || _selectedClass == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Access Restricted: You are not assigned to any class by the administrator.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final inputId = _studentIdController.text.trim().toUpperCase();
+    final isStudentInSelectedClass = _selectedClass!.students.any((s) =>
+        s.studentId.trim().toUpperCase() == inputId ||
+        (s.studentCode != null && s.studentCode!.trim().toUpperCase() == inputId));
+
+    if (!isStudentInSelectedClass && _selectedClass!.students.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Access Restricted: Student "$inputId" is NOT enrolled in ${_selectedClass!.displayName}. You can only add results for students in your assigned class.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
 
     try {
@@ -305,12 +443,154 @@ class _AddGradePageState extends State<AddGradePage> {
                     ),
               ),
               const SizedBox(height: AppSpacing.sm),
+              if (!_isTeacherAssigned) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_person_outlined, color: Colors.amber.shade900, size: 26),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Class Access Restricted',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'The Admin has not assigned you to any class yet. You cannot search students or record grades until an Admin assigns you to a class.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              DropdownButtonFormField<SchoolClass>(
+                initialValue: _selectedClass,
+                isExpanded: true,
+                isDense: true,
+                borderRadius: BorderRadius.circular(12),
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
+                decoration: InputDecoration(
+                  labelText: 'Assigned Class / Section *',
+                  hintText: 'Select assigned class',
+                  prefixIcon: const Icon(Icons.class_outlined, size: 18),
+                  fillColor: Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                ),
+                items: _assignedClasses.map((sc) {
+                  return DropdownMenuItem<SchoolClass>(
+                    value: sc,
+                    child: Text(
+                      '${sc.displayName} (${sc.students.length} students)',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: !_isTeacherAssigned
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedClass = val;
+                            _updateKnownStudents();
+                            _studentIdController.clear();
+                            _studentNameController.clear();
+                          });
+                        }
+                      },
+                validator: (v) => (v == null && _isTeacherAssigned) ? 'Please select an assigned class' : null,
+              ),
+              const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _studentIdController,
-                decoration: const InputDecoration(
-                  labelText: 'Student ID *',
-                  hintText: 'e.g. STU-1001',
-                  prefixIcon: Icon(Icons.badge_outlined),
+                enabled: _isTeacherAssigned,
+                decoration: InputDecoration(
+                  labelText: 'Student ID * (Type or Select)',
+                  hintText: 'e.g. SG-2026-000001',
+                  prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  suffixIcon: PopupMenuButton<String>(
+                    enabled: _isTeacherAssigned,
+                    icon: const Icon(Icons.person_search_outlined, color: KukieAccent.violet, size: 20),
+                    tooltip: 'Select registered student from class',
+                    onSelected: (id) {
+                      if (id != '__EMPTY__') {
+                        _studentIdController.text = id;
+                        _onStudentIdChanged();
+                      }
+                    },
+                    itemBuilder: (context) {
+                      if (!_isTeacherAssigned) {
+                        return [
+                          const PopupMenuItem<String>(
+                            value: '__EMPTY__',
+                            enabled: false,
+                            child: Text(
+                              'Admin must assign you to a class first',
+                              style: TextStyle(fontSize: 12, color: Colors.amber),
+                            ),
+                          ),
+                        ];
+                      }
+                      if (_knownStudents.isEmpty) {
+                        return [
+                          const PopupMenuItem<String>(
+                            value: '__EMPTY__',
+                            enabled: false,
+                            child: Text(
+                              'No registered students in this class',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                        ];
+                      }
+                      return [
+                        for (final entry in _knownStudents.entries)
+                          PopupMenuItem<String>(
+                            value: entry.key,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 220),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.person, size: 16, color: KukieAccent.violet),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${entry.key} · ${entry.value}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ];
+                    },
+                  ),
                 ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Student ID is required' : null,
@@ -318,42 +598,142 @@ class _AddGradePageState extends State<AddGradePage> {
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _studentNameController,
+                enabled: _isTeacherAssigned,
                 decoration: const InputDecoration(
-                  labelText: 'Student Full Name *',
-                  hintText: 'e.g. Alexander Hayes',
-                  prefixIcon: Icon(Icons.person_outline),
+                  labelText: 'Student Full Name * (Auto-filled on ID match)',
+                  hintText: 'e.g. Abebe Bikila',
+                  prefixIcon: Icon(Icons.person_outline, size: 18),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Student name is required'
                     : null,
               ),
               const SizedBox(height: AppSpacing.md),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _subjectController,
+                    enabled: _isTeacherAssigned,
+                    decoration: const InputDecoration(
+                      labelText: 'Subject / Course *',
+                      hintText: 'e.g. Mathematics',
+                      prefixIcon: Icon(Icons.book_outlined, size: 18),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Subject is required'
+                        : null,
+                  ),
+                  if (_teacherSubjects.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Suggest from your assigned teaching subjects:',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: _teacherSubjects.map((subject) {
+                        final isSelected = _subjectController.text.trim().toLowerCase() ==
+                            subject.trim().toLowerCase();
+                        return ChoiceChip(
+                          label: Text(
+                            subject,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isSelected ? KukieAccent.violet : Colors.black87,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          selected: isSelected,
+                          onSelected: !_isTeacherAssigned
+                              ? null
+                              : (selected) {
+                                  if (selected) {
+                                    setState(() {
+                                      _subjectController.text = subject;
+                                    });
+                                  }
+                                },
+                          selectedColor: KukieAccent.violetTint,
+                          backgroundColor: Colors.grey.shade100,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _subjectController,
-                      decoration: const InputDecoration(
-                        labelText: 'Subject / Course *',
-                        hintText: 'e.g. Advanced Mathematics',
-                        prefixIcon: Icon(Icons.book_outlined),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedYear,
+                      isExpanded: true,
+                      isDense: true,
+                      borderRadius: BorderRadius.circular(12),
+                      dropdownColor: Colors.white,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
+                      decoration: InputDecoration(
+                        labelText: 'Academic Year *',
+                        prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+                        fillColor: Colors.grey.shade50,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Subject is required'
-                          : null,
+                      items: const [
+                        DropdownMenuItem(value: '2024/2025', child: Text('2024/2025', style: TextStyle(fontSize: 12.5))),
+                        DropdownMenuItem(value: '2025/2026', child: Text('2025/2026', style: TextStyle(fontSize: 12.5))),
+                        DropdownMenuItem(value: '2026/2027', child: Text('2026/2027', style: TextStyle(fontSize: 12.5))),
+                        DropdownMenuItem(value: '2027/2028', child: Text('2027/2028', style: TextStyle(fontSize: 12.5))),
+                      ],
+                      onChanged: !_isTeacherAssigned
+                          ? null
+                          : (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedYear = val;
+                                  _updateTermText();
+                                });
+                              }
+                            },
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: TextFormField(
-                      controller: _termController,
-                      decoration: const InputDecoration(
-                        labelText: 'Academic Term *',
-                        hintText: 'Fall 2026',
-                        prefixIcon: Icon(Icons.calendar_today_outlined),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedSemester,
+                      isExpanded: true,
+                      isDense: true,
+                      borderRadius: BorderRadius.circular(12),
+                      dropdownColor: Colors.white,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
+                      decoration: InputDecoration(
+                        labelText: 'Semester *',
+                        prefixIcon: const Icon(Icons.school_outlined, size: 18),
+                        fillColor: Colors.grey.shade50,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Term is required' : null,
+                      items: const [
+                        DropdownMenuItem(value: 'Semester 1', child: Text('Semester 1', style: TextStyle(fontSize: 12.5))),
+                        DropdownMenuItem(value: 'Semester 2', child: Text('Semester 2', style: TextStyle(fontSize: 12.5))),
+                      ],
+                      onChanged: !_isTeacherAssigned
+                          ? null
+                          : (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedSemester = val;
+                                  _updateTermText();
+                                });
+                              }
+                            },
                     ),
                   ),
                 ],
@@ -523,7 +903,7 @@ class _AddGradePageState extends State<AddGradePage> {
               const SizedBox(height: AppSpacing.xs),
               OutlinedButton.icon(
                 onPressed: () => _addComponentRow(
-                    name: 'Quiz / Task', score: 8, maxScore: 10),
+                    name: 'Quiz / Task', score: 0, maxScore: 10),
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text('Add Custom Assessment Section'),
               ),
@@ -622,7 +1002,7 @@ class _AddGradePageState extends State<AddGradePage> {
                       maxLines: 3,
                       decoration: const InputDecoration(
                         hintText:
-                            'Write professional feedback for the parents (e.g. "Alexander understands calculus well but needs 15 mins daily practice at home on quadratic equations.")',
+                            'Write professional feedback for the parents (e.g. "Student understands concepts well but needs 15 mins daily practice at home.")',
                         border: OutlineInputBorder(),
                         filled: true,
                         fillColor: Colors.white,
@@ -633,7 +1013,7 @@ class _AddGradePageState extends State<AddGradePage> {
               ),
               const SizedBox(height: AppSpacing.xl),
               ElevatedButton.icon(
-                onPressed: _submitting ? null : _submit,
+                onPressed: (_submitting || !_isTeacherAssigned) ? null : _submit,
                 icon: _submitting
                     ? const SizedBox(
                         height: 20,

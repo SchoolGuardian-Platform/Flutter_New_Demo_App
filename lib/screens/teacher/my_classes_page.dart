@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
+import '../../models/school_class.dart';
+import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
@@ -16,48 +18,50 @@ class MyClassesPage extends StatefulWidget {
 
 class _MyClassesPageState extends State<MyClassesPage> {
   final _teacherService = TeacherService();
+  final _schoolService = SchoolManagementService();
+
+  bool _loading = true;
+  List<SchoolClass> _assignedClasses = [];
   int _selectedClassIndex = 0;
 
-  final List<Map<String, dynamic>> _classes = [
-    {
-      'code': 'CS-101',
-      'title': 'Intro to Computer Science',
-      'schedule': 'Mon, Wed, Fri · 9:00 AM - 10:30 AM',
-      'room': 'Lab 4B',
-      'studentsCount': 24,
-      'students': [
-        {'id': 'STU-1001', 'name': 'Alexander Hayes', 'status': 'Present', 'grade': '91% (A)'},
-        {'id': 'STU-1002', 'name': 'Sophia Rodriguez', 'status': 'Present', 'grade': '76% (C)'},
-        {'id': 'STU-1003', 'name': 'Liam Chen', 'status': 'Late', 'grade': '88% (B)'},
-        {'id': 'STU-1004', 'name': 'Emma Watson', 'status': 'Present', 'grade': '95% (A)'},
-      ]
-    },
-    {
-      'code': 'MATH-202',
-      'title': 'Advanced Algebra & Calculus',
-      'schedule': 'Tue, Thu · 11:00 AM - 12:30 PM',
-      'room': 'Hall 2A',
-      'studentsCount': 28,
-      'students': [
-        {'id': 'STU-1001', 'name': 'Alexander Hayes', 'status': 'Present', 'grade': '94% (A)'},
-        {'id': 'STU-1005', 'name': 'Noah Miller', 'status': 'Present', 'grade': '82% (B)'},
-        {'id': 'STU-1006', 'name': 'Olivia Taylor', 'status': 'Absent', 'grade': '79% (C)'},
-      ]
-    },
-    {
-      'code': 'STEM-305',
-      'title': 'Robotics & Problem Solving',
-      'schedule': 'Wed, Fri · 2:00 PM - 4:00 PM',
-      'room': 'Maker Lab 1',
-      'studentsCount': 18,
-      'students': [
-        {'id': 'STU-1001', 'name': 'Alexander Hayes', 'status': 'Present', 'grade': '96% (A)'},
-        {'id': 'STU-1007', 'name': 'Ethan Davis', 'status': 'Present', 'grade': '90% (A)'},
-      ]
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadClasses();
+  }
 
-  Future<void> _editStudentGrade(String studentId, String studentName) async {
+  Future<void> _loadClasses() async {
+    setState(() => _loading = true);
+    try {
+      final profile = await _teacherService.getTeacherProfile();
+      final allClasses = await _schoolService.getClasses();
+
+      final filtered = allClasses.where((sc) {
+        final isTeacherInClassList = sc.teachers.any((t) =>
+            (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
+            (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase()));
+        final isClassInProfileList = profile.assignedClasses.any((ac) {
+          final cleanAc = ac.trim().toLowerCase();
+          return cleanAc == sc.displayName.trim().toLowerCase() ||
+                 cleanAc == sc.id.trim().toLowerCase() ||
+                 cleanAc == sc.shortLabel.trim().toLowerCase();
+        });
+        return isTeacherInClassList || isClassInProfileList;
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _assignedClasses = filtered;
+          _selectedClassIndex = 0;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _editStudentGrade(String studentId, String studentName, String className) async {
     final grades = await _teacherService.getGradesForStudent(studentId);
     GradeEntry? existing;
     if (grades.isNotEmpty) {
@@ -74,15 +78,11 @@ class _MyClassesPageState extends State<MyClassesPage> {
                 id: 'ge-${DateTime.now().millisecondsSinceEpoch}',
                 studentId: studentId,
                 studentName: studentName,
-                subject: _classes[_selectedClassIndex]['title'] as String,
+                subject: className,
                 assessmentType: AssessmentType.composite,
-                score: 90.0,
+                score: 0.0,
                 maxScore: 100.0,
-                term: 'Fall 2026',
-                attendanceScore: 8.0,
-                midtermScore: 26.0,
-                assignmentScore: 8.0,
-                finalScore: 48.0,
+                term: '2025/2026',
                 createdAt: DateTime.now(),
               ),
         ),
@@ -90,14 +90,52 @@ class _MyClassesPageState extends State<MyClassesPage> {
     );
 
     if (updated == true && mounted) {
-      setState(() {});
+      _loadClasses();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentClass = _classes[_selectedClassIndex];
-    final students = currentClass['students'] as List<Map<String, dynamic>>;
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Classes & Rosters')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_assignedClasses.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Classes & Rosters')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_person_outlined, size: 64, color: Colors.amber.shade700),
+                const SizedBox(height: AppSpacing.md),
+                const Text(
+                  'No Assigned Classes',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'The school administrator has not assigned you to teach any class yet.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final safeIndex = (_selectedClassIndex >= 0 && _selectedClassIndex < _assignedClasses.length)
+        ? _selectedClassIndex
+        : 0;
+    final currentClass = _assignedClasses[safeIndex];
+    final students = currentClass.students;
 
     return Scaffold(
       appBar: AppBar(
@@ -105,21 +143,21 @@ class _MyClassesPageState extends State<MyClassesPage> {
       ),
       body: Column(
         children: [
-          // Class Tabs
+          // Class Tabs - ONLY Assigned Classes
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: List.generate(_classes.length, (index) {
-                  final isSelected = index == _selectedClassIndex;
-                  final cls = _classes[index];
+                children: List.generate(_assignedClasses.length, (index) {
+                  final isSelected = index == safeIndex;
+                  final cls = _assignedClasses[index];
                   return Padding(
                     padding: const EdgeInsets.only(right: AppSpacing.sm),
                     child: ChoiceChip(
                       selected: isSelected,
-                      label: Text('${cls['code']}: ${cls['title']}'),
+                      label: Text(cls.displayName),
                       selectedColor: KukieAccent.violetTint,
                       labelStyle: TextStyle(
                         color: isSelected ? KukieAccent.violet : KukieAccent.ink,
@@ -154,7 +192,7 @@ class _MyClassesPageState extends State<MyClassesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${currentClass['code']} · ${currentClass['title']}',
+                        currentClass.displayName,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -163,7 +201,7 @@ class _MyClassesPageState extends State<MyClassesPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${currentClass['schedule']} · ${currentClass['room']}',
+                        '${currentClass.roomNumber} · Academic Year: ${currentClass.academicYear}',
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -174,7 +212,7 @@ class _MyClassesPageState extends State<MyClassesPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '${currentClass['studentsCount']} Enrolled Students',
+                          '${students.length} Enrolled Students',
                           style: const TextStyle(
                               color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
                         ),
@@ -187,13 +225,16 @@ class _MyClassesPageState extends State<MyClassesPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Class Roster & Today\'s Attendance',
+                      'Class Roster & Attendance',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pushNamed(AddGradePage.routeName),
+                      onPressed: () async {
+                        final res = await Navigator.of(context).pushNamed(AddGradePage.routeName);
+                        if (res == true && mounted) _loadClasses();
+                      },
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('Add Grade'),
                       style: ElevatedButton.styleFrom(
@@ -203,16 +244,30 @@ class _MyClassesPageState extends State<MyClassesPage> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                ...students.map((student) => _StudentRosterCard(
-                      student: student,
-                      onToggleStatus: (newStatus) {
-                        setState(() => student['status'] = newStatus);
-                      },
-                      onEditGrade: () => _editStudentGrade(
-                        student['id'] as String,
-                        student['name'] as String,
+                if (students.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: Center(
+                        child: Text(
+                          'No students enrolled in ${currentClass.displayName} roster yet.',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    )),
+                    ),
+                  )
+                else
+                  ...students.map((student) => _StudentRosterCard(
+                        student: student,
+                        onToggleStatus: (newStatus) {
+                          setState(() {});
+                        },
+                        onEditGrade: () => _editStudentGrade(
+                          student.studentId,
+                          student.studentName,
+                          currentClass.displayName,
+                        ),
+                      )),
               ],
             ),
           ),
@@ -222,23 +277,28 @@ class _MyClassesPageState extends State<MyClassesPage> {
   }
 }
 
-class _StudentRosterCard extends StatelessWidget {
+class _StudentRosterCard extends StatefulWidget {
   const _StudentRosterCard({
     required this.student,
     required this.onToggleStatus,
     required this.onEditGrade,
   });
 
-  final Map<String, dynamic> student;
+  final StudentClassInfo student;
   final ValueChanged<String> onToggleStatus;
   final VoidCallback onEditGrade;
 
   @override
-  Widget build(BuildContext context) {
-    final status = student['status'] as String;
+  State<_StudentRosterCard> createState() => _StudentRosterCardState();
+}
 
+class _StudentRosterCardState extends State<_StudentRosterCard> {
+  String _status = 'Present';
+
+  @override
+  Widget build(BuildContext context) {
     Color statusColor;
-    switch (status) {
+    switch (_status) {
       case 'Present':
         statusColor = Colors.green.shade700;
         break;
@@ -258,7 +318,9 @@ class _StudentRosterCard extends StatelessWidget {
             CircleAvatar(
               backgroundColor: KukieAccent.violetTint,
               child: Text(
-                (student['name'] as String).substring(0, 1),
+                widget.student.studentName.isNotEmpty
+                    ? widget.student.studentName.substring(0, 1).toUpperCase()
+                    : 'S',
                 style: const TextStyle(fontWeight: FontWeight.w800, color: KukieAccent.violet),
               ),
             ),
@@ -268,11 +330,11 @@ class _StudentRosterCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    student['name'] as String,
+                    widget.student.studentName,
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   Text(
-                    'ID: ${student['id']} · Current Grade: ${student['grade']}',
+                    'ID: ${widget.student.studentId}',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ],
@@ -280,12 +342,15 @@ class _StudentRosterCard extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20, color: KukieAccent.violet),
-              onPressed: onEditGrade,
-              tooltip: 'Edit Student Grade & Recommendation in-place',
+              onPressed: widget.onEditGrade,
+              tooltip: 'Edit Student Grade & Guidance',
             ),
             PopupMenuButton<String>(
-              initialValue: status,
-              onSelected: onToggleStatus,
+              initialValue: _status,
+              onSelected: (val) {
+                setState(() => _status = val);
+                widget.onToggleStatus(val);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
@@ -296,7 +361,7 @@ class _StudentRosterCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      status,
+                      _status,
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,

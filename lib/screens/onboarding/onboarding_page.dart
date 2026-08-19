@@ -291,7 +291,7 @@ class _WelcomePage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl2),
           const Text(
-            'Welcome to\nSchool Guardian',
+            'Welcome to\nSchool Guard',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 30,
@@ -438,7 +438,7 @@ class _ReferralPage extends StatelessWidget {
         padding: const EdgeInsets.only(top: AppSpacing.lg),
         children: [
           const Text(
-            'How did you hear about\nSchool Guardian?',
+            'How did you hear about\nSchool Guard?',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 24,
@@ -711,7 +711,7 @@ class _ReadyPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           const Text(
-            "Let's get you started with School Guardian.",
+            "Let's get you started with School Guard.",
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 15, color: KukieAccent.bodyGray),
           ),

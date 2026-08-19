@@ -46,6 +46,26 @@ class User {
   String get fullName =>
       [firstName, middleName, lastName].where((s) => (s ?? '').isNotEmpty).join(' ');
 
+  /// Returns a copy with [status] swapped out (everything else unchanged).
+  /// Used after an approve/reject decision so the row can be updated in
+  /// place in a list instead of being removed from it.
+  User copyWith({AccountStatus? status}) {
+    return User(
+      id: id,
+      studentId: studentId,
+      schoolCode: schoolCode,
+      firstName: firstName,
+      middleName: middleName,
+      lastName: lastName,
+      email: email,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      role: role,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String,
