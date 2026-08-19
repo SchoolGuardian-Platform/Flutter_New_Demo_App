@@ -21,6 +21,8 @@ import '../reports/reports_page.dart';
 import '../student/guardians_page.dart';
 import '../student/student_overview_tab.dart';
 import '../student/student_profile_page.dart';
+import '../teacher/my_classes_page.dart';
+import '../teacher/teacher_portal_page.dart';
 
 /// Post-login home screen. One shell, per-role content — the four roles
 /// share the same shape (app bar with profile menu + logout, a welcome
@@ -486,11 +488,21 @@ class _RoleSections extends StatelessWidget {
         ];
       case UserRole.teacher:
         return [
-          const _SectionSpec(
+          _SectionSpec(
+            icon: Icons.psychology,
+            title: 'Teacher Portal',
+            subtitle: 'Record student results, guidance & custom subject bars.',
+            route: 'Teacher Portal',
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const TeacherPortalPage())),
+          ),
+          _SectionSpec(
             icon: Icons.groups_outlined,
-            title: 'My Classes',
-            subtitle: 'Rosters and classroom safety tools.',
-            route: 'not yet on the backend',
+            title: 'My Classes & Rosters',
+            subtitle: 'Manage class rosters and student attendance.',
+            route: 'My Classes',
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,

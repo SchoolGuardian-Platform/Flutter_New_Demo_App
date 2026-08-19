@@ -42,11 +42,10 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
-      // POST /auth/login (email + password only — the backend has no
-      // phone-based login, see auth.validator.ts `loginSchema`).
       final result = await _authService.login(
         email: _identifierController.text.trim(),
         password: _passwordController.text,
+        role: _role,
       );
       if (!mounted) return;
       // Login only ever succeeds for ACTIVE accounts (PENDING/REJECTED/

@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_config.dart';
 import '../core/api_exception.dart';
 import '../core/token_storage.dart';
 import '../models/school_class.dart';
 import '../models/subject.dart';
+import '../models/user_role.dart';
+import 'admin_service.dart';
+import 'teacher_service.dart';
 
 /// Service managing class, section, subject, student class enrollment,
 /// and teacher-subject assignment operations.
-///
-/// Designed to connect with `src/routes/schoolManagement.routes.ts` on the
-/// backend, while retaining a robust, reactive state fallback when offline or
-/// operating in mock mode ("no backend as always").
 class SchoolManagementService {
   SchoolManagementService({http.Client? httpClient, TokenStorage? tokenStorage})
       : _httpClient = httpClient ?? http.Client(),
@@ -21,20 +21,63 @@ class SchoolManagementService {
   final http.Client _httpClient;
   final TokenStorage _tokenStorage;
 
-  // In-memory store for registered classes & subjects (initially empty)
-  static final List<Subject> _mockSubjects = [];
+  static const String _classesStorageKey = 'school_classes_persistent_v1';
+  static bool _classesInitialized = false;
+
+  // In-memory database store for registered subjects & classes
+  static final List<Subject> _mockSubjects = [
+    Subject(id: 'subj-001', name: 'Maths'),
+  ];
   static final List<SchoolClass> _mockClasses = [];
   static final List<StudentClassInfo> _assignedStudentsStore = [
     StudentClassInfo(
       id: 'sc-default-1',
       studentId: 'SG-2026-000001',
-      studentName: 'khsdkjgf kjadhfk bdfk',
+      studentName: 'Student Grade 9A',
       studentCode: 'SG-2026-000001',
       classId: 'cls-9-a',
       academicYear: '2026',
       enrolledAt: DateTime.now(),
     ),
+    StudentClassInfo(
+      id: 'sc-default-2',
+      studentId: 'SG-2026-000002',
+      studentName: 'Abebe Kebede (Sec B)',
+      studentCode: 'SG-2026-000002',
+      classId: 'cls-9-b',
+      academicYear: '2026',
+      enrolledAt: DateTime.now(),
+    ),
   ];
+
+  static Future<void> _initClassesStorage() async {
+    if (_classesInitialized) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_classesStorageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> list = jsonDecode(raw);
+        _mockClasses.clear();
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            _mockClasses.add(SchoolClass.fromJson(item));
+          }
+        }
+      }
+    } catch (_) {}
+    if (_mockClasses.isEmpty) {
+      _ensureInitialClasses();
+    }
+    _classesInitialized = true;
+  }
+
+  static Future<void> _persistClasses() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(_mockClasses.map((c) => c.toJson()).toList());
+      await prefs.setString(_classesStorageKey, encoded);
+    } catch (_) {}
+  }
 
   static void _ensureInitialClasses() {
     if (_mockClasses.isEmpty) {
@@ -50,7 +93,16 @@ class SchoolManagementService {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
           students: List<StudentClassInfo>.from(_assignedStudentsStore.where((s) => s.classId == 'cls-9-a')),
-          teachers: [],
+          teachers: [
+            TeacherSubjectInfo(
+              id: 'tsi-1',
+              teacherId: 'tch-001',
+              teacherName: 'Teacher Account',
+              subjectId: 'subj-001',
+              subjectName: 'Maths',
+              classId: 'cls-9-a',
+            ),
+          ],
         ),
         SchoolClass(
           id: 'cls-9-b',
@@ -84,7 +136,7 @@ class SchoolManagementService {
 
   /// Fetch all registered classes/sections, filtered optionally by grade or search string.
   Future<List<SchoolClass>> getClasses({int? grade, String? query}) async {
-    _ensureInitialClasses();
+    await _initClassesStorage();
     try {
       final token = await _tokenStorage.readAccessToken();
       if (token != null) {
@@ -471,6 +523,8 @@ class SchoolManagementService {
       updatedAt: DateTime.now(),
     );
 
+    await _persistClasses();
+
     return newEnrollment;
   }
 
@@ -487,6 +541,7 @@ class SchoolManagementService {
         students: updatedStudents,
         updatedAt: DateTime.now(),
       );
+      await _persistClasses();
     }
   }
 
@@ -531,6 +586,34 @@ class SchoolManagementService {
     try {
       final token = await _tokenStorage.readAccessToken();
       if (token != null) {
+        String realClassId = classId;
+        String realSubjectId = subjectId;
+        String realTeacherId = teacherId;
+
+        // Auto-create/ensure Class in Neon DB
+        try {
+          final cRes = await createClass(grade: targetClass.grade, section: targetClass.section);
+          realClassId = cRes.id;
+        } catch (_) {}
+
+        // Auto-create/ensure Subject in Neon DB
+        try {
+          final sRes = await createSubject(name: subjectName);
+          realSubjectId = sRes.id;
+        } catch (_) {}
+
+        // Auto-resolve Teacher UUID in Neon DB
+        try {
+          final activeTeachers = await AdminService().getActive(UserRole.teacher);
+          if (activeTeachers.isNotEmpty) {
+            final match = activeTeachers.firstWhere(
+              (t) => t.fullName.toLowerCase() == teacherName.toLowerCase() || t.id == teacherId,
+              orElse: () => activeTeachers.first,
+            );
+            realTeacherId = match.id;
+          }
+        } catch (_) {}
+
         final uri = Uri.parse('${ApiConfig.baseUrl}/admin/school/assign-teacher');
         final res = await _httpClient.post(
           uri,
@@ -539,9 +622,9 @@ class SchoolManagementService {
             'Authorization': 'Bearer $token',
           },
           body: jsonEncode({
-            'teacherId': teacherId,
-            'classId': classId,
-            'subjectId': subjectId,
+            'teacherId': realTeacherId,
+            'classId': realClassId,
+            'subjectId': realSubjectId,
             if (academicYear != null) 'academicYear': academicYear,
           }),
         ).timeout(ApiConfig.requestTimeout);
@@ -563,6 +646,15 @@ class SchoolManagementService {
       updatedAt: DateTime.now(),
     );
 
+    await _persistClasses();
+
+    try {
+      final ts = TeacherService();
+      await ts.addAssignedSubject(subjectName);
+      await ts.addAssignedClass(targetClass.displayName);
+      await ts.addAssignedClass(targetClass.shortLabel);
+    } catch (_) {}
+
     return newAssignment;
   }
 
@@ -579,6 +671,7 @@ class SchoolManagementService {
         teachers: updatedTeachers,
         updatedAt: DateTime.now(),
       );
+      await _persistClasses();
     }
   }
 }

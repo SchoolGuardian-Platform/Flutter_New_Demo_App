@@ -23,6 +23,9 @@ import 'screens/reports/reports_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/teacher/add_grade_page.dart';
+import 'screens/teacher/my_classes_page.dart';
+import 'screens/teacher/teacher_portal_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
 
@@ -254,6 +257,15 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case ReportsPage.routeName:
             return MaterialPageRoute(builder: (_) => const ReportsPage());
+
+          case TeacherPortalPage.routeName:
+            return MaterialPageRoute(builder: (_) => const TeacherPortalPage());
+
+          case AddGradePage.routeName:
+            return MaterialPageRoute(builder: (_) => const AddGradePage());
+
+          case MyClassesPage.routeName:
+            return MaterialPageRoute(builder: (_) => const MyClassesPage());
 
           case AccountRejectedPage.routeName:
             final reason = settings.arguments as String?;

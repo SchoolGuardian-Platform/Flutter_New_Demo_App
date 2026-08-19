@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_exception.dart';
+import '../../models/account_status.dart';
 import '../../models/school_class.dart';
 import '../../models/subject.dart';
 import '../../models/user.dart';
@@ -865,6 +866,20 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
     try {
       activeTeachers = await _adminService.getActive(UserRole.teacher);
     } catch (_) {}
+
+    if (activeTeachers.isEmpty) {
+      activeTeachers = [
+        User(
+          id: 'tch-001',
+          firstName: 'Teacher',
+          lastName: 'Account',
+          email: 'teacher@school.edu',
+          role: UserRole.teacher,
+          status: AccountStatus.active,
+          createdAt: DateTime.now(),
+        )
+      ];
+    }
 
     User? selectedTeacher = activeTeachers.isNotEmpty ? activeTeachers.first : null;
     Subject? selectedSubject = _subjects.isNotEmpty ? _subjects.first : null;
