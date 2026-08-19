@@ -17,6 +17,7 @@ import 'screens/dashboard/dashboard_page.dart';
 import 'screens/forgot_password_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
+import 'screens/biometrics/biometric_health_overview_page.dart';
 import 'screens/biometrics/stress_level_dashboard_page.dart';
 import 'screens/nutrition/calorie_nutrition_dashboard_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
@@ -206,6 +207,10 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case StressLevelDashboardPage.routeName:
             final user = settings.arguments as User?;
             return MaterialPageRoute(builder: (_) => StressLevelDashboardPage(user: user));
+
+          case BiometricHealthOverviewPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => BiometricHealthOverviewPage(user: user));
 
           case LoginPage.routeName:
             final role = settings.arguments as UserRole?;
