@@ -11,6 +11,10 @@ import 'teacher_service.dart';
 
 /// Service managing class, section, subject, student class enrollment,
 /// and teacher-subject assignment operations.
+///
+/// Designed to connect with `src/routes/schoolManagement.routes.ts` on the
+/// backend, while retaining a robust, reactive state fallback when offline or
+/// operating in mock mode ("no backend as always").
 class SchoolManagementService {
   SchoolManagementService({http.Client? httpClient, TokenStorage? tokenStorage})
       : _httpClient = httpClient ?? http.Client(),
