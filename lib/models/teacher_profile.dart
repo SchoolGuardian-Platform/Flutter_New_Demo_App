@@ -27,12 +27,8 @@ class TeacherProfile {
       majorField: 'Computer Science & Mathematics',
       department: 'STEM & Advanced Education',
       employeeId: 'TCH-9042',
-      assignedClasses: [
-        'Grade 9 - Section A',
-      ],
-      assignedSubjects: [
-        'Maths',
-      ],
+      assignedClasses: [],
+      assignedSubjects: [],
     );
   }
 }

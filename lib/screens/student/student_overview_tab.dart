@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api_exception.dart';
 import '../../models/account_status.dart';
+import '../../models/attendance_record.dart';
+import '../../models/grade_entry.dart';
 import '../../models/guardian_link.dart';
-import '../../models/user.dart';
-import '../../services/auth_service.dart';
-import '../../services/student_service.dart';
-import '../../theme/kukie_accent.dart';
 import '../../models/school_class.dart';
+import '../../models/user.dart';
+import '../../services/attendance_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/school_management_service.dart';
+import '../../services/student_service.dart';
+import '../../services/teacher_service.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/kukie_accent.dart';
 import '../../widgets/bento_grid_section.dart';
 import '../../widgets/class_schedule_timetable.dart';
 import '../../widgets/dashboard_grid_cards.dart';
@@ -28,11 +34,17 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
   final _studentService = StudentService();
   final _schoolService = SchoolManagementService();
   final _authService = AuthService();
+  final _attendanceService = AttendanceService();
+  final _teacherService = TeacherService();
 
   List<GuardianLink>? _guardians;
   SchoolClass? _assignedClass;
+  List<AttendanceRecord> _attendanceRecords = [];
+  List<GradeEntry> _gradeEntries = [];
+
   bool _loading = true;
   bool _loggingOut = false;
+  String? _error;
 
   @override
   void initState() {
@@ -46,14 +58,31 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     setState(() => _loading = true);
     try {
       final guardians = await _studentService.getMyGuardians();
-      final cls = await _schoolService.getStudentClass(widget.user.id, studentCode: widget.user.studentId);
+      final cls = await _schoolService.getStudentClass(widget.user.id,
+          studentCode: widget.user.studentId);
+      final code = widget.user.studentId;
+      var attendance =
+          await _attendanceService.getStudentAttendance(widget.user.id);
+      if (attendance.isEmpty && code != null && code.isNotEmpty) {
+        attendance = await _attendanceService.getStudentAttendance(code);
+      }
+      var grades = await _teacherService.getGradesForStudent(widget.user.id);
+      if (grades.isEmpty && code != null && code.isNotEmpty) {
+        grades = await _teacherService.getGradesForStudent(code);
+      }
+
       if (!mounted) return;
       setState(() {
         _guardians = guardians;
         _assignedClass = cls;
+        _attendanceRecords = attendance;
+        _gradeEntries = grades;
       });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
     } catch (_) {
-      // Demo fallback
+      if (!mounted) return;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,7 +109,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Log out?'),
-        content: const Text('Are you sure you want to log out of your School Guardian account?'),
+        content: const Text(
+            'Are you sure you want to log out of your School Guardian account?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -91,7 +121,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Log Out'),
           ),
@@ -106,15 +137,29 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     final user = widget.user;
     final guardianCount = _guardians?.length;
 
+    int presentCount = _attendanceRecords
+        .where((r) => r.status == AttendanceStatus.present)
+        .length;
+    int absentCount = _attendanceRecords
+        .where((r) => r.status == AttendanceStatus.absent)
+        .length;
+    int lateCount = _attendanceRecords
+        .where((r) => r.status == AttendanceStatus.late)
+        .length;
+    int excusedCount = _attendanceRecords
+        .where((r) => r.status == AttendanceStatus.excused)
+        .length;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Clean slate background
+      backgroundColor: const Color(0xFFF8FAFC),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
-            // 1. Top App Bar & Profile Greeting
+            // Top App Bar & Profile Greeting
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -153,12 +198,11 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                     ),
                   ],
                 ),
-
-                // Right Profile Avatar with Student Pill
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(16),
@@ -166,7 +210,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.circle, size: 8, color: Color(0xFF6366F1)),
+                          Icon(Icons.circle,
+                              size: 8, color: Color(0xFF6366F1)),
                           SizedBox(width: 4),
                           Text(
                             'Student',
@@ -181,7 +226,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                     ),
                     const SizedBox(width: 8),
                     InkWell(
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      onTap: () =>
+                          Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => StudentProfilePage(initialUser: user),
                       )),
                       borderRadius: BorderRadius.circular(22),
@@ -236,7 +282,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                       color: Colors.white24,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
+                    child: const Icon(Icons.school_rounded,
+                        color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -244,7 +291,9 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _assignedClass != null ? _assignedClass!.displayName : 'Class Assignment Enrolled',
+                          _assignedClass != null
+                              ? _assignedClass!.displayName
+                              : 'Class Assignment Enrolled',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
@@ -256,7 +305,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                           _assignedClass != null
                               ? 'Room: ${_assignedClass!.roomNumber ?? 'Unassigned'} • Year: ${_assignedClass!.academicYear}'
                               : 'Academic Term 2025-2026 • Computer Science Section A',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),
@@ -264,6 +314,11 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 ],
               ),
             ),
+            if (_error != null && guardianCount == null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(_error!,
+                  style: const TextStyle(color: AppColors.error, fontSize: 12)),
+            ],
             const SizedBox(height: 16),
 
             // Guardians & Account Status Quick Stat Cards
@@ -273,7 +328,9 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                   child: _StatCard(
                     icon: Icons.family_restroom_rounded,
                     label: 'Linked Guardians',
-                    value: _loading && guardianCount == null ? '—' : '${guardianCount ?? 2}',
+                    value: _loading && guardianCount == null
+                        ? '—'
+                        : '${guardianCount ?? 0}',
                     color: KukieAccent.violet,
                     background: KukieAccent.violetTint,
                   ),
@@ -283,20 +340,221 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                   child: _StatCard(
                     icon: Icons.verified_user_rounded,
                     label: 'Account status',
-                    value: user.status != null ? _statusLabel(user.status!) : 'Active',
+                    value: user.status != null
+                        ? _statusLabel(user.status!)
+                        : 'Active',
                     color: const Color(0xFF10B981),
                     background: const Color(0xFFD1FAE5),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Attendance Overview Card
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.calendar_today,
+                                color: KukieAccent.violet, size: 20),
+                            SizedBox(width: 8),
+                            Text('Attendance History',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: KukieAccent.violetTint,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text('${_attendanceRecords.length} records',
+                              style: const TextStyle(
+                                  color: KukieAccent.violet,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _attendanceChip(
+                            'Present', presentCount, KukieAccent.success),
+                        _attendanceChip('Absent', absentCount, Colors.red),
+                        _attendanceChip('Late', lateCount, Colors.orange),
+                        _attendanceChip('Excused', excusedCount, Colors.blue),
+                      ],
+                    ),
+                    if (_attendanceRecords.isNotEmpty) ...[
+                      const Divider(height: 24),
+                      const Text('Recent Records:',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      ..._attendanceRecords.take(3).map((r) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(r.date,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: r.status == AttendanceStatus.present
+                                        ? KukieAccent.success
+                                            .withValues(alpha: 0.15)
+                                        : r.status == AttendanceStatus.absent
+                                            ? Colors.red
+                                                .withValues(alpha: 0.15)
+                                            : Colors.orange
+                                                .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    r.status.displayName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: r.status == AttendanceStatus.present
+                                          ? KukieAccent.success
+                                          : r.status == AttendanceStatus.absent
+                                              ? Colors.red
+                                              : Colors.orange,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Academic Grades Card
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.assessment_outlined,
+                            color: KukieAccent.violet, size: 20),
+                        SizedBox(width: 8),
+                        Text('Academic Grades',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_gradeEntries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: Text(
+                              'No grade reports submitted by teachers yet.',
+                              style:
+                                  TextStyle(fontSize: 13, color: Colors.grey)),
+                        ),
+                      )
+                    else
+                      ..._gradeEntries.map((g) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(g.subject,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
+                                    Text(
+                                      '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: KukieAccent.violet,
+                                          fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                        '${g.assessmentType.label} • Term: ${g.term}',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey)),
+                                    Text(g.letterGrade,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13)),
+                                  ],
+                                ),
+                                if (g.parentRecommendation != null &&
+                                    g.parentRecommendation!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                      'Teacher note: "${g.parentRecommendation}"',
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                          color: Colors.black87)),
+                                ],
+                              ],
+                            ),
+                          )),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
 
-            // 2. Quick-Access Bento / Module Grid (Main Feature Hub)
+            // Quick-Access Bento / Module Grid
             BentoGridSection(user: user),
             const SizedBox(height: 24),
 
-            // Modern Card Grid Dashboard Section (Tasks, Weekly Goals, Announcements, Upcoming Classes)
+            // Modern Card Grid Dashboard Section
             const DashboardGridCardsSection(),
             const SizedBox(height: 24),
 
@@ -304,7 +562,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             const ClassScheduleTimetableWidget(),
             const SizedBox(height: 28),
 
-            // 3. Account & Utilities Section (Footer)
+            // Account & Utilities Section
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -348,7 +606,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.person_outline_rounded, color: Color(0xFF475569), size: 20),
+                            child: const Icon(Icons.person_outline_rounded,
+                                color: Color(0xFF475569), size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -357,16 +616,21 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                               children: const [
                                 Text(
                                   'My Profile & Settings',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B)),
                                 ),
                                 Text(
                                   'Edit account details & security',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Color(0xFF64748B)),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFCBD5E1)),
+                          const Icon(Icons.arrow_forward_ios,
+                              size: 14, color: Color(0xFFCBD5E1)),
                         ],
                       ),
                     ),
@@ -387,7 +651,8 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                               color: const Color(0xFFFEF2F2),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+                            child: const Icon(Icons.logout_rounded,
+                                color: Color(0xFFEF4444), size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -396,19 +661,27 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                               children: const [
                                 Text(
                                   'Log Out',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFEF4444)),
                                 ),
                                 Text(
                                   'Sign out of School Guardian',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                  style: TextStyle(
+                                      fontSize: 12, color: Color(0xFF94A3B8)),
                                 ),
                               ],
                             ),
                           ),
                           if (_loggingOut)
-                            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2))
                           else
-                            const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFCBD5E1)),
+                            const Icon(Icons.arrow_forward_ios,
+                                size: 14, color: Color(0xFFCBD5E1)),
                         ],
                       ),
                     ),
@@ -420,6 +693,18 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _attendanceChip(String label, int count, Color color) {
+    return Column(
+      children: [
+        Text('$count',
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
     );
   }
 
@@ -464,7 +749,8 @@ class _StatCard extends StatelessWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: background, shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(height: 10),
