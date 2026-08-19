@@ -111,6 +111,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
             // 1. Top App Bar & Profile Greeting

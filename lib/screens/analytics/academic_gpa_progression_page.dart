@@ -106,6 +106,7 @@ class _AcademicGpaProgressionPageState extends State<AcademicGpaProgressionPage>
       ),
       body: SafeArea(
         child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.all(20),
           children: [
             // Top Welcome Sub-Header

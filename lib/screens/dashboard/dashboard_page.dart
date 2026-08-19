@@ -23,7 +23,6 @@ import '../student/student_overview_tab.dart';
 import '../student/student_portal_dashboard_page.dart';
 import '../student/student_profile_page.dart';
 import '../analytics/academic_gpa_progression_page.dart';
-import '../antigravity/antigravity_zerog_dashboard_page.dart';
 import '../biometrics/biometric_health_overview_page.dart';
 import '../biometrics/stress_level_dashboard_page.dart';
 import '../nutrition/calorie_nutrition_dashboard_page.dart';
@@ -310,6 +309,7 @@ class _DashboardPageState extends State<DashboardPage> {
               : RefreshIndicator(
                   onRefresh: _refreshProfile,
                   child: ListView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
                       _WelcomeCard(user: _user),
@@ -713,7 +713,7 @@ class _QuickFeatureLaunchHub extends StatelessWidget {
               ),
             ),
             Text(
-              '6 Modules Available',
+              '5 Modules Available',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -721,22 +721,6 @@ class _QuickFeatureLaunchHub extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-
-        // Anti-Gravity Physics Hub Launcher
-        _StylishLauncherCard(
-          title: 'Anti-Gravity Zero-G Hub',
-          subtitle: 'Frictionless drag & flick, liquid energy & parallax dust',
-          badgeText: '🚀 PHYSICS SIMULATION ACTIVE',
-          badgeColor: const Color(0xFF0F172A),
-          badgeBgColor: const Color(0xFF67E8F9),
-          gradientColors: const [Color(0xFF070A12), Color(0xFF0B0F19), Color(0xFF1E1B4B)],
-          icon: Icons.blur_on_rounded,
-          onTap: () => Navigator.of(context).pushNamed(
-            AntiGravityZeroGDashboardPage.routeName,
-            arguments: user,
-          ),
         ),
         const SizedBox(height: 12),
 
@@ -826,7 +810,7 @@ class _QuickFeatureLaunchHub extends StatelessWidget {
   }
 }
 
-class _StylishLauncherCard extends StatelessWidget {
+class _StylishLauncherCard extends StatefulWidget {
   const _StylishLauncherCard({
     required this.title,
     required this.subtitle,
@@ -848,83 +832,96 @@ class _StylishLauncherCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_StylishLauncherCard> createState() => _StylishLauncherCardState();
+}
+
+class _StylishLauncherCardState extends State<_StylishLauncherCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors.first.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white24,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 20),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: badgeBgColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        badgeText,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: badgeColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        subtitle,
-                        style: const TextStyle(fontSize: 12, color: Colors.white70),
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                  ],
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: widget.gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.gradientColors.first.withValues(alpha: 0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
               ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.white24,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(widget.icon, color: Colors.white, size: 20),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: widget.badgeBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          widget.badgeText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: widget.badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.subtitle,
+                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -933,7 +930,7 @@ class _StylishLauncherCard extends StatelessWidget {
   }
 }
 
-class _StylishTile extends StatelessWidget {
+class _StylishTile extends StatefulWidget {
   const _StylishTile({
     required this.title,
     required this.subtitle,
@@ -953,81 +950,94 @@ class _StylishTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_StylishTile> createState() => _StylishTileState();
+}
+
+class _StylishTileState extends State<_StylishTile> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: accentColor, size: 18),
-                    ),
-                    const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFFCBD5E1)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: accentColor,
-                    ),
-                  ),
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: widget.bgColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(widget.icon, color: widget.accentColor, size: 18),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFFCBD5E1)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: widget.bgColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      widget.badgeText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: widget.accentColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

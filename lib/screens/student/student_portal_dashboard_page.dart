@@ -266,6 +266,7 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
                 // Main Dashboard Body
                 Expanded(
                   child: ListView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(24),
                     children: [
                       // Header Section with Dynamic Greeting

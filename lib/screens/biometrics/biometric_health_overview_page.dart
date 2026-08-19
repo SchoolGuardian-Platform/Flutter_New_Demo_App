@@ -129,6 +129,7 @@ class _BiometricHealthOverviewPageState extends State<BiometricHealthOverviewPag
           children: [
             // Scrollable Feed
             ListView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
               children: [
                 // Top Header Section

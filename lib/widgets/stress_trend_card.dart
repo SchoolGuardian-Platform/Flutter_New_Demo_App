@@ -21,7 +21,8 @@ class _StressTrendCardState extends State<StressTrendCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -101,6 +102,7 @@ class _StressTrendCardState extends State<StressTrendCard> {
           ),
         ],
       ),
+    ),
     );
   }
 

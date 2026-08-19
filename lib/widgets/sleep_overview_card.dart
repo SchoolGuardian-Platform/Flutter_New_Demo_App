@@ -18,7 +18,8 @@ class SleepOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -109,6 +110,7 @@ class SleepOverviewCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
