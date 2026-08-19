@@ -23,6 +23,7 @@ import '../student/student_overview_tab.dart';
 import '../student/student_portal_dashboard_page.dart';
 import '../student/student_profile_page.dart';
 import '../analytics/academic_gpa_progression_page.dart';
+import '../antigravity/antigravity_zerog_dashboard_page.dart';
 import '../biometrics/biometric_health_overview_page.dart';
 import '../biometrics/stress_level_dashboard_page.dart';
 import '../nutrition/calorie_nutrition_dashboard_page.dart';
@@ -289,6 +290,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.of(context).pushNamed(StressLevelDashboardPage.routeName, arguments: _user);
                 } else if (value == 'health_dash') {
                   Navigator.of(context).pushNamed(BiometricHealthOverviewPage.routeName, arguments: _user);
+                } else if (value == 'zerog_dash') {
+                  Navigator.of(context).pushNamed(AntiGravityZeroGDashboardPage.routeName, arguments: _user);
                 }
               },
               itemBuilder: (context) => [
@@ -304,6 +307,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: Text('View profile'),
                 ),
                 const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'zerog_dash',
+                  child: Text('🚀 Anti-Gravity Zero-G Hub'),
+                ),
                 const PopupMenuItem(
                   value: 'portal_dash',
                   child: Text('🎓 Student Portal Dashboard'),
