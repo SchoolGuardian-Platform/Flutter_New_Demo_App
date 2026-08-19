@@ -20,7 +20,12 @@ import '../parent/my_students_page.dart';
 import '../reports/reports_page.dart';
 import '../student/guardians_page.dart';
 import '../student/student_overview_tab.dart';
+import '../student/student_portal_dashboard_page.dart';
 import '../student/student_profile_page.dart';
+import '../analytics/academic_gpa_progression_page.dart';
+import '../biometrics/biometric_health_overview_page.dart';
+import '../biometrics/stress_level_dashboard_page.dart';
+import '../nutrition/calorie_nutrition_dashboard_page.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -274,6 +279,16 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => AdminProfilePage(initialUser: _user),
                   ));
+                } else if (value == 'portal_dash') {
+                  Navigator.of(context).pushNamed(StudentPortalDashboardPage.routeName, arguments: _user);
+                } else if (value == 'gpa_dash') {
+                  Navigator.of(context).pushNamed(AcademicGpaProgressionPage.routeName, arguments: _user);
+                } else if (value == 'calorie_dash') {
+                  Navigator.of(context).pushNamed(CalorieNutritionDashboardPage.routeName, arguments: _user);
+                } else if (value == 'stress_dash') {
+                  Navigator.of(context).pushNamed(StressLevelDashboardPage.routeName, arguments: _user);
+                } else if (value == 'health_dash') {
+                  Navigator.of(context).pushNamed(BiometricHealthOverviewPage.routeName, arguments: _user);
                 }
               },
               itemBuilder: (context) => [
@@ -287,6 +302,27 @@ class _DashboardPageState extends State<DashboardPage> {
                 const PopupMenuItem(
                   value: 'profile',
                   child: Text('View profile'),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'portal_dash',
+                  child: Text('🎓 Student Portal Dashboard'),
+                ),
+                const PopupMenuItem(
+                  value: 'gpa_dash',
+                  child: Text('📈 GPA Progression & Analytics'),
+                ),
+                const PopupMenuItem(
+                  value: 'calorie_dash',
+                  child: Text('🥗 Calorie & Nutrition Tracker'),
+                ),
+                const PopupMenuItem(
+                  value: 'stress_dash',
+                  child: Text('🧘 Stress Level Dashboard'),
+                ),
+                const PopupMenuItem(
+                  value: 'health_dash',
+                  child: Text('🩺 Biometric Health Overview'),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(

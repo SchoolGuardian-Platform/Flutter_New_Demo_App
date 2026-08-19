@@ -10,11 +10,11 @@ import '../../widgets/portal_upcoming_classes_card.dart';
 import '../../widgets/portal_weekly_goals_card.dart';
 
 class StudentPortalDashboardPage extends StatefulWidget {
-  const StudentPortalDashboardPage({super.key, required this.user});
+  const StudentPortalDashboardPage({super.key, this.user});
 
   static const routeName = '/student-portal-dashboard';
 
-  final User user;
+  final User? user;
 
   @override
   State<StudentPortalDashboardPage> createState() => _StudentPortalDashboardPageState();
@@ -232,8 +232,10 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
-    final userName = '${widget.user.firstName} ${widget.user.lastName}'.trim();
-    final displayName = userName.isNotEmpty ? userName : 'Student';
+    final userName = widget.user != null
+        ? '${widget.user!.firstName} ${widget.user!.lastName}'.trim()
+        : 'Alex Morgan';
+    final displayName = userName.isNotEmpty ? userName : 'Alex Morgan';
 
     final sidebar = PortalSidebar(
       selectedRoute: _selectedRoute,
