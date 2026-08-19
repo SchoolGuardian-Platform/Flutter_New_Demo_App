@@ -48,3 +48,20 @@ class DigestRecommendation {
   final String bodyText;
   final IconData icon;
 }
+
+/// Data Model for Device Screen Time Analytics
+class ScreenTimeMetric {
+  const ScreenTimeMetric({
+    required this.totalTimeText, // '4h 12m'
+    required this.trendText, // '↓ 45m vs yesterday'
+    required this.pickupsCount, // 42
+    required this.firstPickupTime, // '07:15 AM'
+    required this.categoryBreakdown, // {'Study & Apps': 0.42, 'Educational': 0.30, 'Social': 0.28}
+  });
+
+  final String totalTimeText;
+  final String trendText;
+  final int pickupsCount;
+  final String firstPickupTime;
+  final Map<String, double> categoryBreakdown;
+}

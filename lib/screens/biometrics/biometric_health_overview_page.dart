@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/health_overview_models.dart';
 import '../../models/user.dart';
 import '../../widgets/floating_bottom_nav_bar.dart';
+import '../../widgets/screen_time_overview_card.dart';
 import '../../widgets/sleep_overview_card.dart';
 import '../../widgets/stress_score_card.dart';
 import '../../widgets/todays_digest_card.dart';
@@ -195,6 +196,26 @@ class _BiometricHealthOverviewPageState extends State<BiometricHealthOverviewPag
                   onTapNavigation: () => _showDetailModal(
                     'Sleep Analysis Details',
                     'You achieved 6 hours 52 minutes of sleep last night (82% efficiency). Deep sleep: 1h 40m, REM: 1h 55m.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 1b. Phone Screen Time Overview Card
+                ScreenTimeOverviewCard(
+                  metric: const ScreenTimeMetric(
+                    totalTimeText: '4h 12m',
+                    trendText: '↓ 45m vs yesterday',
+                    pickupsCount: 42,
+                    firstPickupTime: '07:15 AM',
+                    categoryBreakdown: {
+                      'Study & Reading': 0.42,
+                      'Educational Media': 0.30,
+                      'Social & Chat': 0.28,
+                    },
+                  ),
+                  onTapDetails: () => _showDetailModal(
+                    'Phone Screen Time Breakdown',
+                    'Total active screen time today is 4 hours 12 minutes (down 45 minutes from yesterday). Primary categories: 1h 48m Study Apps, 1h 15m Educational Media, 1h 09m Social Messaging.',
                   ),
                 ),
                 const SizedBox(height: 16),

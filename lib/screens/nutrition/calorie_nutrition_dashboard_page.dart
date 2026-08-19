@@ -148,29 +148,6 @@ class _CalorieNutritionDashboardPageState extends State<CalorieNutritionDashboar
                         ),
                       ],
                     ),
-
-                    // User Health Avatar Badge (🥑)
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '🥑',
-                          style: TextStyle(fontSize: 22),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 20),

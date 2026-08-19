@@ -166,26 +166,6 @@ class _StressLevelDashboardPageState extends State<StressLevelDashboardPage> {
                         ),
                       ],
                     ),
-
-                    // User Status Emoji / Avatar Badge in Soft Yellow Pill
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7), // Soft yellow pill
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        '🥑',
-                        style: TextStyle(fontSize: 22),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 20),

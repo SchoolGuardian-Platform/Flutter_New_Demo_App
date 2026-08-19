@@ -21,7 +21,6 @@ class StudentPortalDashboardPage extends StatefulWidget {
 }
 
 class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage> {
-  String _activeTab = 'Overview';
   String _selectedRoute = '/dashboard';
 
   // Sample Mock Data
@@ -43,6 +42,15 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
       color: Color(0xFF10B981),
       instructorName: 'Sarah Taylor',
       attendeeAvatars: ['J', 'K', 'L'],
+    ),
+    const PortalClassItem(
+      id: 'c3',
+      code: 'PHYS 102',
+      title: 'Quantum Physics & Relativity',
+      timeRange: '3:30pm - 5:00pm',
+      color: Color(0xFFF59E0B),
+      instructorName: 'Dr. Robert Chen',
+      attendeeAvatars: ['P', 'R', 'T'],
     ),
   ];
 
@@ -263,91 +271,34 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
                       : null,
                 ),
 
-                // Main Dashboard Body
+                // Main Content View Body
                 Expanded(
                   child: ListView(
                     physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(24),
                     children: [
-                      // Header Section with Dynamic Greeting
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Good morning, $displayName! 👋',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Here is your academic overview and task schedule for today.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                      // Student Summary Header Bar
+                      _buildStudentSummaryHeader(displayName),
+                      const SizedBox(height: 20),
 
                       // Filter Pills / Tab Switcher
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            _tabPill('Overview'),
-                            _tabPill('Job Offers'),
-                            _tabPill('Tasks'),
+                            _tabPill('Overview', '/dashboard'),
+                            _tabPill('Schedule Matrix', '/schedule'),
+                            _tabPill('Portfolio Projects', '/portfolio'),
+                            _tabPill('Resources & Downloads', '/resources'),
+                            _tabPill('Student Forum', '/forum'),
+                            _tabPill('Account Settings', '/settings'),
                           ],
                         ),
                       ),
                       const SizedBox(height: 24),
 
-                      // 2x2 Grid / Responsive Column Layout
-                      if (isDesktop) ...[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
-                                  const SizedBox(height: 20),
-                                  PortalAnnouncementsCard(announcements: _announcements),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  PortalUpcomingClassesCard(classes: _classes),
-                                  const SizedBox(height: 20),
-                                  PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        // Mobile Single-Column Layout
-                        PortalUpcomingClassesCard(classes: _classes),
-                        const SizedBox(height: 16),
-                        PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
-                        const SizedBox(height: 16),
-                        PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
-                        const SizedBox(height: 16),
-                        PortalAnnouncementsCard(announcements: _announcements),
-                      ],
+                      // Route / Tab Specific Dynamic Content
+                      _buildActiveTabContent(isDesktop),
                     ],
                   ),
                 ),
@@ -359,12 +310,399 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
     );
   }
 
-  Widget _tabPill(String label) {
-    final isSelected = _activeTab == label;
+  Widget _buildStudentSummaryHeader(String displayName) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome, $displayName 👋',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Computer Science & AI Major • Year 3 (Junior)',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'ACTIVE ENROLLED',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF15803D),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+
+          // 4 Quick Metrics Grid
+          Row(
+            children: [
+              _headerMetric('Cumulative GPA', '3.84 / 4.00', '+0.12 vs last sem', const Color(0xFF6366F1)),
+              _headerMetric('Enrolled Courses', '5 Active', '15 Credit Hours', const Color(0xFF10B981)),
+              _headerMetric('Completed Credits', '48 / 120', 'Degree Track 40%', const Color(0xFFF59E0B)),
+              _headerMetric('Attendance Rate', '96.5%', 'Honor Roll Eligible', const Color(0xFF8B5CF6)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerMetric(String label, String value, String subtext, Color accentColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280), fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: accentColor),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtext,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTabContent(bool isDesktop) {
+    switch (_selectedRoute) {
+      case '/schedule':
+        return _buildScheduleMatrixView();
+      case '/portfolio':
+        return _buildPortfolioProjectsView();
+      case '/resources':
+        return _buildResourcesView();
+      case '/forum':
+        return _buildStudentForumView();
+      case '/settings':
+        return _buildAccountSettingsView();
+      case '/dashboard':
+      default:
+        return _buildOverviewDashboardView(isDesktop);
+    }
+  }
+
+  Widget _buildOverviewDashboardView(bool isDesktop) {
+    if (isDesktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              children: [
+                PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
+                const SizedBox(height: 20),
+                PortalAnnouncementsCard(announcements: _announcements),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              children: [
+                PortalUpcomingClassesCard(classes: _classes),
+                const SizedBox(height: 20),
+                PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        PortalUpcomingClassesCard(classes: _classes),
+        const SizedBox(height: 16),
+        PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
+        const SizedBox(height: 16),
+        PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
+        const SizedBox(height: 16),
+        PortalAnnouncementsCard(announcements: _announcements),
+      ],
+    );
+  }
+
+  Widget _buildScheduleMatrixView() {
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Weekly Timetable Schedule',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+          ),
+          const SizedBox(height: 4),
+          const Text('Spring Semester 2026 • Class Room Allocations & Time Blocks', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+          const SizedBox(height: 16),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: days.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (ctx, idx) {
+              final day = days[idx];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 90,
+                      child: Text(day, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('CSCI 201: Statistics (Room 304) • 10:00 AM - 11:30 AM', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text('MATH 301: Linear Algebra (Lab 102) • 01:30 PM - 03:00 PM', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortfolioProjectsView() {
+    final projects = [
+      {'title': 'Mobile Anti-Gravity & AI Tracker', 'tech': 'Flutter • Dart • Physics API', 'score': '98/100', 'status': 'Completed'},
+      {'title': 'Distributed Microservices DB Engine', 'tech': 'Go • PostgreSQL • Docker', 'score': '95/100', 'status': 'Under Review'},
+      {'title': 'Zero-Knowledge Authentication System', 'tech': 'Python • Rust • Cryptography', 'score': '96/100', 'status': 'Completed'},
+    ];
+
+    return Column(
+      children: projects.map((p) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p['title']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                  const SizedBox(height: 4),
+                  Text(p['tech']!, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(p['score']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                  const SizedBox(height: 4),
+                  Text(p['status']!, style: const TextStyle(fontSize: 11, color: Color(0xFF6366F1), fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildResourcesView() {
+    final files = [
+      {'name': 'CSCI 201: Statistics & ML Lecture Notes.pdf', 'size': '14.2 MB', 'category': 'Lecture Slides'},
+      {'name': 'MATH 301: Linear Algebra Formula Sheet.pdf', 'size': '3.8 MB', 'category': 'Exam Prep'},
+      {'name': 'CSCI 310: Software Architecture Patterns.zip', 'size': '42.5 MB', 'category': 'Lab Code'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Course Resources & Downloads', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: files.length,
+            separatorBuilder: (_, __) => const Divider(height: 16),
+            itemBuilder: (ctx, idx) {
+              final f = files[idx];
+              return ListTile(
+                leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 28),
+                title: Text(f['name']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                subtitle: Text('${f['category']} • ${f['size']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                trailing: IconButton(
+                  icon: const Icon(Icons.download_rounded, color: Color(0xFF6366F1)),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Downloading ${f['name']}...')),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentForumView() {
+    final threads = [
+      {'title': 'CSCI 201 Midterm Study Group in Library Room 204', 'replies': '18 replies', 'upvotes': '42 upvotes'},
+      {'title': 'Tips for Mastering Flutter State Management & Custom Painters', 'replies': '24 replies', 'upvotes': '65 upvotes'},
+      {'title': 'Algorithm Analysis Homework #3 Discussion Thread', 'replies': '9 replies', 'upvotes': '15 upvotes'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Student Peer Discussion Forum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: threads.length,
+            separatorBuilder: (_, __) => const Divider(height: 16),
+            itemBuilder: (ctx, idx) {
+              final t = threads[idx];
+              return ListTile(
+                leading: const Icon(Icons.forum_outlined, color: Color(0xFF6366F1)),
+                title: Text(t['title']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                subtitle: Text('${t['replies']} • ${t['upvotes']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountSettingsView() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('Student Profile & Account Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          SizedBox(height: 14),
+          ListTile(
+            leading: Icon(Icons.badge_outlined, color: Color(0xFF6366F1)),
+            title: Text('Student ID'),
+            subtitle: Text('STU-2026-8842'),
+          ),
+          Divider(height: 1),
+          ListTile(
+            leading: Icon(Icons.school_outlined, color: Color(0xFF10B981)),
+            title: Text('Academic Major'),
+            subtitle: Text('Computer Science & Artificial Intelligence'),
+          ),
+          Divider(height: 1),
+          ListTile(
+            leading: Icon(Icons.notifications_active_outlined, color: Color(0xFFF59E0B)),
+            title: Text('Notification Alerts'),
+            subtitle: Text('Exam reminders, task due dates & announcements enabled'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabPill(String label, String route) {
+    final isSelected = _selectedRoute == route;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
-        onTap: () => setState(() => _activeTab = label),
+        onTap: () => setState(() => _selectedRoute = route),
         borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
