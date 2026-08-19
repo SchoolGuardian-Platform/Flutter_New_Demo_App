@@ -8,13 +8,10 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
 
-/// Student's "My Profile" tab. Reuses `GET /auth/me`
-/// (`AuthService.getMe`) the same way `AdminProfilePage` does -- a
-/// student account is a `User` like any other, so no student-specific
-/// backend work is needed to show it.
-///
-/// Read-only for the same reason as `AdminProfilePage`: there's no
-/// `PATCH /auth/me` on the backend yet.
+import '../../models/school_class.dart';
+import '../../services/school_management_service.dart';
+
+/// Student's "My Profile" tab.
 class StudentProfilePage extends StatefulWidget {
   const StudentProfilePage({super.key, this.initialUser});
 
@@ -28,7 +25,9 @@ class StudentProfilePage extends StatefulWidget {
 
 class _StudentProfilePageState extends State<StudentProfilePage> {
   final _authService = AuthService();
+  final _schoolService = SchoolManagementService();
   User? _user;
+  SchoolClass? _assignedClass;
   bool _loading = true;
   String? _error;
   bool _sendingReset = false;
@@ -47,8 +46,12 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     });
     try {
       final user = await _authService.getMe();
+      final cls = await _schoolService.getStudentClass(user.id, studentCode: user.studentId);
       if (!mounted) return;
-      setState(() => _user = user);
+      setState(() {
+        _user = user;
+        _assignedClass = cls;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -104,6 +107,13 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   _ProfileCard(children: [
+                    _ProfileRow(
+                      icon: Icons.meeting_room_outlined,
+                      label: 'Class & Section',
+                      value: _assignedClass != null
+                          ? '${_assignedClass!.displayName} (${_assignedClass!.academicYear})'
+                          : 'Not Assigned Yet',
+                    ),
                     if (user.studentId != null && user.studentId!.isNotEmpty)
                       _ProfileRow(
                         icon: Icons.badge_outlined,

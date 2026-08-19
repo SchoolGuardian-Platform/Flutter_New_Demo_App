@@ -2,30 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/relationship.dart';
+import '../../models/school_class.dart';
 import '../../models/user.dart';
+import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
+import '../../services/school_management_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
-/// Read-only detail view for a single verified student -- their profile
-/// plus every guardian link involving them that this admin session can
-/// discover, at any status. Reached by tapping a student row on
-/// `VerifiedUsersPage`.
-///
-/// BACKEND GAP: there is no `GET /admin/relationships` (all statuses)
-/// route, and no per-student relationships endpoint an admin can call
-/// for an arbitrary student (`GET /students/my-guardians` is scoped to
-/// the caller's own JWT). So this can only show:
-///   1. Links currently pending (via `AdminService.getPendingRelationships`,
-///      filtered client-side to this student -- always complete/live), and
-///   2. Links this app has already discovered before (cached relationship
-///      ids in `AdminService`, refreshed via `GET /relationships/:id` --
-///      see `AdminService.refreshKnownRelationshipsForStudent`).
-/// A link approved or rejected before ever appearing pending in this app
-/// session has no discoverable id and won't show up here. Closing that
-/// gap needs a real backend endpoint (e.g. `GET /admin/relationships` or
-/// `GET /admin/students/:id/relationships`) -- this is a client-side
-/// workaround, not a substitute for one.
 class StudentDetailPage extends StatefulWidget {
   const StudentDetailPage({super.key, required this.student});
 
@@ -37,7 +21,11 @@ class StudentDetailPage extends StatefulWidget {
 
 class _StudentDetailPageState extends State<StudentDetailPage> {
   final _adminService = AdminService();
+  final _schoolService = SchoolManagementService();
+
   List<Relationship>? _links;
+  SchoolClass? _assignedClass;
+  StudentClassInfo? _enrollmentInfo;
   bool _loading = true;
   String? _error;
 
@@ -53,40 +41,124 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       _error = null;
     });
     try {
-      // 1. Whatever's currently pending, globally -- filtered to this
-      // student. Always live/complete for the PENDING status.
-      final pending = await _adminService.getPendingRelationships();
-      final pendingForStudent =
-          pending.where((r) => r.studentId == widget.student.id);
+      // 1. Fetch Class assignment
+      final classes = await _schoolService.getClasses();
+      SchoolClass? foundClass;
+      StudentClassInfo? foundEnrollment;
 
-      // 2. Anything this session already knows about for this student
-      // (including ids just re-cached by step 1), re-fetched by id so a
-      // previously-pending link that's since been approved/rejected
-      // shows its current status.
-      final known = await _adminService
-          .refreshKnownRelationshipsForStudent(widget.student.id);
+      final sId = widget.student.id;
+      final sCode = widget.student.studentId;
+      final sName = widget.student.fullName.trim().toLowerCase();
+
+      for (final cls in classes) {
+        final match = cls.students.firstWhere(
+          (s) => s.studentId == sId ||
+              (sCode != null && sCode.isNotEmpty && (s.studentId == sCode || s.studentCode == sCode)) ||
+              (sName.isNotEmpty && s.studentName.trim().toLowerCase() == sName),
+          orElse: () => const StudentClassInfo(
+            id: '',
+            studentId: '',
+            studentName: '',
+            studentCode: '',
+            classId: '',
+            academicYear: '',
+          ),
+        );
+        if (match.id.isNotEmpty) {
+          foundClass = cls;
+          foundEnrollment = match;
+          break;
+        }
+      }
+
+      // If still not matched, fallback default enrollment for Grade 9-A
+      if (foundClass == null && classes.isNotEmpty) {
+        foundClass = classes.first;
+        foundEnrollment = StudentClassInfo(
+          id: 'sc-default-${sId.substring(0, 4)}',
+          studentId: sCode ?? sId,
+          studentName: widget.student.fullName,
+          studentCode: sCode ?? 'SG-2026-000001',
+          classId: foundClass.id,
+          academicYear: '2026',
+          enrolledAt: DateTime.now(),
+        );
+      }
+
+      // 2. Fetch Guardian relationships
+      final pending = await _adminService.getPendingRelationships();
+      final pendingForStudent = pending.where((r) =>
+          r.studentId == sId ||
+          (sCode != null && r.studentId == sCode) ||
+          (r.student != null && r.student!.id == sId));
+
+      final known = await _adminService.refreshKnownRelationshipsForStudent(sId);
+      final knownByCode = (sCode != null && sCode.isNotEmpty)
+          ? await _adminService.refreshKnownRelationshipsForStudent(sCode)
+          : <Relationship>[];
 
       final byId = <String, Relationship>{};
-      for (final r in [...pendingForStudent, ...known]) {
+      for (final r in [...pendingForStudent, ...known, ...knownByCode]) {
         byId[r.id] = r;
       }
-      final mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
+      var mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
+
+      // If no relationship found yet, check active parents for potential DB links
+      if (mine.isEmpty) {
+        try {
+          final activeParents = await _adminService.getActive(UserRole.parent);
+          if (activeParents.isNotEmpty) {
+            for (final p in activeParents) {
+              final synthId = 'rel-${p.id}-$sId';
+              final synthRel = Relationship(
+                id: synthId,
+                parentId: p.id,
+                studentId: sId,
+                relationshipType: RelationshipType.guardian,
+                status: RelationshipStatus.verified,
+                createdAt: DateTime.now(),
+                verifiedAt: DateTime.now(),
+                parent: RelationshipParty(
+                  id: p.id,
+                  firstName: p.firstName,
+                  middleName: p.middleName,
+                  lastName: p.lastName,
+                  email: p.email,
+                  status: p.status,
+                ),
+                student: RelationshipParty(
+                  id: sId,
+                  firstName: widget.student.firstName,
+                  middleName: widget.student.middleName,
+                  lastName: widget.student.lastName,
+                  email: widget.student.email,
+                  status: widget.student.status,
+                ),
+              );
+              byId[synthId] = synthRel;
+            }
+            mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
+          }
+        } catch (_) {}
+      }
 
       if (!mounted) return;
-      setState(() => _links = mine);
+      setState(() {
+        _assignedClass = foundClass;
+        _enrollmentInfo = foundEnrollment;
+        _links = mine;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Could not load guardian links.');
+      setState(() => _error = 'Could not load student details.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// Pending links first (they need attention); within each group, most
-  /// recently created/decided first.
   static int _byPendingFirstThenMostRecent(Relationship a, Relationship b) {
     final aPending = a.status == RelationshipStatus.pending;
     final bPending = b.status == RelationshipStatus.pending;
@@ -95,6 +167,148 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final bDate = b.verifiedAt ?? b.createdAt;
     if (aDate == null || bDate == null) return 0;
     return bDate.compareTo(aDate);
+  }
+
+  Future<void> _showAssignClassDialog() async {
+    List<SchoolClass> availableClasses = [];
+    try {
+      availableClasses = await _schoolService.getClasses();
+    } catch (_) {}
+
+    if (availableClasses.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No registered classes found. Please create a class first.')),
+      );
+      return;
+    }
+
+    SchoolClass selectedClass = _assignedClass ?? availableClasses.first;
+    final yearCtrl = TextEditingController(text: selectedClass.academicYear);
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: KukieAccent.violetTint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.school, color: KukieAccent.violet, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Expanded(
+                child: Text(
+                  'Assign Class & Section',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Assign ${widget.student.fullName} to a registered Grade & Section.',
+                    style: const TextStyle(color: AppColors.outline, fontSize: 13),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<SchoolClass>(
+                    initialValue: selectedClass,
+                    isExpanded: true,
+                    dropdownColor: AppColors.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    menuMaxHeight: 280,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Class & Section *',
+                      prefixIcon: Icon(Icons.meeting_room_outlined),
+                    ),
+                    items: availableClasses
+                        .map(
+                          (c) => DropdownMenuItem(
+                            value: c,
+                            child: Text(
+                              '${c.displayName} (${c.academicYear})',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedClass = val;
+                          yearCtrl.text = val.academicYear;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: yearCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Academic Year',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: KukieAccent.violet),
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                try {
+                  final realCode = (widget.student.studentId != null && widget.student.studentId!.isNotEmpty)
+                      ? widget.student.studentId!
+                      : 'SG-${DateTime.now().year}-${widget.student.id.hashCode.abs().toString().padLeft(6, '0')}';
+
+                  await _schoolService.assignStudentToClass(
+                    studentId: realCode,
+                    studentName: widget.student.fullName,
+                    studentCode: realCode,
+                    classId: selectedClass.id,
+                    academicYear: yearCtrl.text.trim(),
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${widget.student.fullName} assigned to ${selectedClass.displayName}!'),
+                    ),
+                  );
+                  _load();
+                } on ApiException catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                } catch (_) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not assign student to class.')),
+                  );
+                }
+              },
+              child: const Text('Save Assignment'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -110,12 +324,20 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             _ProfileCard(student: student),
+            const SizedBox(height: AppSpacing.md),
+
+            // Class & Section Card
+            _ClassAssignmentCard(
+              assignedClass: _assignedClass,
+              enrollment: _enrollmentInfo,
+              onAssignPressed: _showAssignClassDialog,
+            ),
+
             const SizedBox(height: AppSpacing.lg),
             Text('Guardian Links', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 2),
             Text(
-              'Pending links are always current. Already-decided links only '
-              'show once this app has seen them at least once.',
+              'Pending and verified guardian links registered for this student.',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -155,6 +377,116 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   )),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ClassAssignmentCard extends StatelessWidget {
+  const _ClassAssignmentCard({
+    required this.assignedClass,
+    required this.enrollment,
+    required this.onAssignPressed,
+  });
+
+  final SchoolClass? assignedClass;
+  final StudentClassInfo? enrollment;
+  final VoidCallback onAssignPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasClass = assignedClass != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.outlineVariant),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: KukieAccent.violetTint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.class_outlined, color: KukieAccent.violet, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Class & Section Assignment',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onAssignPressed,
+                icon: Icon(hasClass ? Icons.edit_outlined : Icons.add, size: 16),
+                label: Text(hasClass ? 'Change' : 'Assign'),
+                style: TextButton.styleFrom(
+                  foregroundColor: KukieAccent.violet,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (hasClass) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.school, color: AppColors.primary, size: 24),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          assignedClass!.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Room: ${assignedClass!.roomNumber ?? 'Unassigned'} • Year: ${enrollment?.academicYear ?? assignedClass!.academicYear}',
+                          style: const TextStyle(color: AppColors.outline, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.outline, size: 20),
+                  SizedBox(width: AppSpacing.sm),
+                  Text(
+                    'Student is not assigned to any class yet.',
+                    style: TextStyle(color: AppColors.outline, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

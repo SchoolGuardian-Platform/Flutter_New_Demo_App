@@ -9,26 +9,10 @@ import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import '../../widgets/status_pie_chart.dart';
 
-/// Bottom-nav "Overview" tab for the student dashboard -- mirrors the
-/// admin dashboard's Overview tab (`admin_overview_tab.dart`): a welcome
-/// header, a couple of at-a-glance stat cards, then chart(s).
-///
-/// DATA SOURCE NOTE:
-/// - The "Linked Guardians" count is real, live data from
-///   `GET /students/my-guardians` (`StudentService.getMyGuardians`),
-///   which IS implemented on the backend.
-/// - The Grade Status / Wellbeing Status pie charts are NOT backed by a
-///   live endpoint: `GET /reports/student/{id}/academic` and
-///   `.../wellbeing` are both marked `x-implementation-status: planned`
-///   in `SchoolGuardian_Final_OpenAPI.yaml` -- i.e. designed but not
-///   built yet, same situation as `screens/reports/reports_page.dart`.
-///   Per this task's instructions the backend isn't being touched here,
-///   so rather than either hide the charts entirely or quietly show
-///   made-up numbers as if they were real, this tab displays clearly
-///   labelled SAMPLE data and says so in a banner. Once those two
-///   endpoints ship, [_loadReportStatuses] is the only place that needs
-///   to change -- swap the two `_sample...` slice lists for a real
-///   service call.
+import '../../models/school_class.dart';
+import '../../services/school_management_service.dart';
+
+/// Bottom-nav "Overview" tab for the student dashboard
 class StudentOverviewTab extends StatefulWidget {
   const StudentOverviewTab({super.key, required this.user});
 
@@ -40,8 +24,10 @@ class StudentOverviewTab extends StatefulWidget {
 
 class StudentOverviewTabState extends State<StudentOverviewTab> {
   final _studentService = StudentService();
+  final _schoolService = SchoolManagementService();
 
   List<GuardianLink>? _guardians;
+  SchoolClass? _assignedClass;
   bool _loading = true;
   String? _error;
 
@@ -52,7 +38,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
   }
 
   /// Public so the dashboard shell can trigger a refresh when this tab is
-  /// re-selected (e.g. after linking/unlinking a guardian elsewhere).
+  /// re-selected.
   Future<void> refresh() => _load();
 
   Future<void> _load() async {
@@ -62,8 +48,12 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     });
     try {
       final guardians = await _studentService.getMyGuardians();
+      final cls = await _schoolService.getStudentClass(widget.user.id, studentCode: widget.user.studentId);
       if (!mounted) return;
-      setState(() => _guardians = guardians);
+      setState(() {
+        _guardians = guardians;
+        _assignedClass = cls;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -72,10 +62,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     }
   }
 
-  // Sample-only distributions -- see class doc for why these aren't a
-  // live API call. Grouped into 3 buckets each, matching the kind of
-  // breakdown `GET /reports/student/:id/academic` and `.../wellbeing`
-  // are documented to eventually return.
+  // Sample-only distributions
   static const _sampleGradeSlices = [
     PieSlice(label: 'Excellent', value: 3, color: AppColors.secondary),
     PieSlice(label: 'Good', value: 4, color: AppColors.primary),
@@ -110,7 +97,57 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 .bodySmall
                 ?.copyWith(color: AppColors.outline),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
+
+          // Assigned Class Banner Card
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [KukieAccent.violet, KukieAccent.violetDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: Colors.white24,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.school, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _assignedClass != null ? _assignedClass!.displayName : 'Class Assignment Pending',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _assignedClass != null
+                            ? 'Room: ${_assignedClass!.roomNumber ?? 'Unassigned'} • Year: ${_assignedClass!.academicYear}'
+                            : 'Contact your school admin to get enrolled in a class section.',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
           Row(
             children: [
               Expanded(

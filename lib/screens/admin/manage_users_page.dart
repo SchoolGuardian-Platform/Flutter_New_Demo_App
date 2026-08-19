@@ -4,6 +4,7 @@ import '../../core/api_exception.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
+import 'class_section_management_page.dart';
 import 'pending_approvals_page.dart';
 
 /// Admin's "Manage Users" hub -- reviewing and acting on every account/link
@@ -139,6 +140,39 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
               title: 'Guardian Links',
               count: summary?.relationships.length ?? 0,
               onTap: () => _openTab(3),
+            ),
+            const Divider(height: 24),
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: KukieAccent.violet.withValues(alpha: 0.3)),
+                boxShadow: AppColors.cardShadow,
+              ),
+              child: ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ClassSectionManagementPage()),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.class_outlined, color: KukieAccent.violet),
+                ),
+                title: Text('Class & Section Registration',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text(
+                  'Manage classes, sections, rooms, student rosters & teacher assignments.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: KukieAccent.violet),
+              ),
             ),
           ],
         ),

@@ -11,6 +11,7 @@ import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
+import '../admin/class_section_management_page.dart';
 import '../admin/guardian_links_page.dart';
 import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
@@ -517,6 +518,15 @@ class _RoleSections extends StatelessWidget {
             route: 'GET /admin/{role}/pending',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ManageUsersPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.class_outlined,
+            title: 'Class & Section Registration',
+            subtitle:
+                'Register classes, sections, rooms, student rosters & teacher assignments.',
+            route: 'GET /school-management/classes',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ClassSectionManagementPage())),
           ),
           _SectionSpec(
             icon: Icons.family_restroom,

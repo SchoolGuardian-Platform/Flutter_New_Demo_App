@@ -33,6 +33,7 @@ class AdminOverviewTab extends StatefulWidget {
 class AdminOverviewTabState extends State<AdminOverviewTab> {
   final _adminService = AdminService();
   PendingSummary? _summary;
+  int _approvedTotalCount = 0;
   bool _loading = true;
   String? _error;
 
@@ -54,8 +55,12 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
     });
     try {
       final summary = await _adminService.getPendingSummary();
+      final approvedCount = await _adminService.getTotalApprovedCount();
       if (!mounted) return;
-      setState(() => _summary = summary);
+      setState(() {
+        _summary = summary;
+        _approvedTotalCount = approvedCount;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -122,7 +127,7 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                     // it resets whenever the app restarts, despite the
                     // "Total" label. A real total needs a backend change.
                     label: 'Total Approved',
-                    value: '${AdminService.sessionApprovals}',
+                    value: '$_approvedTotalCount',
                     color: AppColors.secondary,
                     background: AppColors.secondaryContainer.withValues(alpha: 0.4),
                   ),
