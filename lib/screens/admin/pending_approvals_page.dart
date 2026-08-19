@@ -339,7 +339,7 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
         child: ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
           itemCount: users.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
             final user = users[index];
             final decided =
@@ -424,7 +424,7 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
       child: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.md),
         itemCount: _pendingRelationships.length,
-        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, index) {
           final relationship = _pendingRelationships[index];
           return _PendingRelationshipCard(
