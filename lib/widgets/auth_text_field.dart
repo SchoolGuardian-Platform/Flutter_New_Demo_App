@@ -50,7 +50,7 @@ class AuthTextField extends StatelessWidget {
                     letterSpacing: 0,
                   ),
             ),
-            if (labelTrailing != null) labelTrailing!,
+            ?labelTrailing,
           ],
         ),
         const SizedBox(height: 6),

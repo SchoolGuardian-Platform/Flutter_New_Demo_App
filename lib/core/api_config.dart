@@ -14,6 +14,7 @@
 /// If nothing is passed, it falls back to the local-dev Android-emulator
 /// address below (10.0.2.2 maps to the host machine's localhost — use your
 /// machine's LAN IP for a physical device).
+library;
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 

@@ -160,138 +160,11 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   void _showAcademicReport(BuildContext context) {
-    double calculatedGpa = 0.0;
-    if (_grades.isNotEmpty) {
-      final totalPoints = _grades.fold(0.0, (sum, g) => sum + g.gpaPoints);
-      calculatedGpa = totalPoints / _grades.length;
-    }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        maxChildSize: 0.95,
-        minChildSize: 0.5,
-        builder: (_, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  const Icon(Icons.school, color: KukieAccent.violet, size: 28),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Academic Report & GPA Summary',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
-
-              if (_grades.isEmpty) ...[
-                const SizedBox(height: 30),
-                Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.assignment_late_outlined, size: 56, color: Colors.grey.shade400),
-                      const SizedBox(height: AppSpacing.md),
-                      const Text(
-                        'No Submitted Grades Yet',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                        child: Text(
-                          'Your teachers have not recorded subject grades for this academic term yet. Your cumulative GPA will be calculated automatically after your teachers submit your subject grades.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [KukieAccent.violet, Color(0xFF6B46C1)],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Term: ${_grades.first.term}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Calculated GPA: ${calculatedGpa.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '${_grades.length} Subject${_grades.length > 1 ? 's' : ''} Evaluated',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                const Text(
-                  'Submitted Subject Grades',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                for (final g in _grades) _AcademicGradeDetailCard(grade: g),
-              ],
-            ],
-          ),
-        ),
-      ),
+      builder: (context) => _AcademicReportModal(initialGrades: _grades),
     );
   }
 
@@ -732,6 +605,295 @@ class _AcademicGradeDetailCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AcademicReportModal extends StatefulWidget {
+  const _AcademicReportModal({required this.initialGrades});
+
+  final List<GradeEntry> initialGrades;
+
+  @override
+  State<_AcademicReportModal> createState() => _AcademicReportModalState();
+}
+
+class _AcademicReportModalState extends State<_AcademicReportModal> {
+  String _selectedCategory = 'ALL';
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredGrades = widget.initialGrades.where((g) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          g.subject.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          g.studentName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          g.studentId.toLowerCase().contains(_searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+      if (_selectedCategory == 'ALL') return true;
+      return g.assessmentType.apiValue == _selectedCategory;
+    }).toList();
+
+    double calculatedGpa = 0.0;
+    if (widget.initialGrades.isNotEmpty) {
+      final totalPoints = widget.initialGrades.fold(0.0, (sum, g) => sum + g.gpaPoints);
+      calculatedGpa = totalPoints / widget.initialGrades.length;
+    }
+
+    String honorsStatus = 'Satisfactory Progress';
+    Color honorsColor = KukieAccent.violet;
+    if (calculatedGpa >= 3.75) {
+      honorsStatus = 'High Honors (Outstanding)';
+      honorsColor = const Color(0xFF10B981);
+    } else if (calculatedGpa >= 3.2) {
+      honorsStatus = 'Honors Distinction';
+      honorsColor = const Color(0xFF3B82F6);
+    }
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
+      builder: (_, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: ListView(
+          controller: scrollController,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                const Icon(Icons.school, color: KukieAccent.violet, size: 28),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Academic Report & GPA Hub',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 8),
+
+            if (widget.initialGrades.isEmpty) ...[
+              const SizedBox(height: 30),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.assignment_late_outlined, size: 56, color: Colors.grey.shade400),
+                    const SizedBox(height: AppSpacing.md),
+                    const Text(
+                      'No Submitted Grades Yet',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                      child: Text(
+                        'Your teachers have not recorded subject grades for this academic term yet. Your cumulative GPA will be calculated automatically after your teachers submit your subject grades.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+            ] else ...[
+              // Summary Banner with Calculated GPA and Progress
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [KukieAccent.violet, Color(0xFF6B46C1)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Term: ${widget.initialGrades.first.term}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: honorsColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            honorsStatus,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            calculatedGpa.toStringAsFixed(2),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Cumulative GPA (4.0 Scale)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${widget.initialGrades.length} Subject Course${widget.initialGrades.length > 1 ? 's' : ''} Evaluated',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Search & Assessment Category Filter Chips
+              TextField(
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Filter by course, student, or ID...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _filterChip('ALL', 'All Assessments'),
+                    _filterChip('ASSIGNMENT', 'Assignments'),
+                    _filterChip('QUIZ', 'Quizzes'),
+                    _filterChip('MIDTERM', 'Midterms'),
+                    _filterChip('FINAL', 'Final Exams'),
+                    _filterChip('PROJECT', 'Projects'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Subject Assessment Entries',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '${filteredGrades.length} Records',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (filteredGrades.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  alignment: Alignment.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.search_off_outlined, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No grades match your search filter',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                for (final g in filteredGrades) _AcademicGradeDetailCard(grade: g),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String categoryKey, String label) {
+    final isSelected = _selectedCategory == categoryKey;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: KukieAccent.violetTint,
+        backgroundColor: Colors.grey.shade100,
+        labelStyle: TextStyle(
+          color: isSelected ? KukieAccent.violet : Colors.grey.shade700,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+        ),
+        onSelected: (selected) {
+          if (selected) {
+            setState(() => _selectedCategory = categoryKey);
+          }
+        },
       ),
     );
   }

@@ -14,10 +14,7 @@ import 'onboarding_data.dart';
 ///
 /// Shown once (see [seenPrefsKey], read by `session_check_page.dart`).
 /// Purely presentational + local storage — no backend calls. The role
-/// picked on page 4 is only used to pre-select which login screen/portal
-/// label the person lands on next (see `login_page.dart`, where `role` is
-/// cosmetic); it does not grant or restrict anything — real permissions
-/// always come from the backend on login.
+/// picked on page 4 is used to open the respective role dashboard.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 

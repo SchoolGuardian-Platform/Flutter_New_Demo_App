@@ -38,24 +38,31 @@ class SchoolManagementService {
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final s = Subject.fromJson(item);
-            if (s.name.toLowerCase() != 'maths' && s.code != 'MATH101' && s.id != 'subj-001') {
+            if (s.name.toLowerCase() != 'maths' &&
+                s.code != 'MATH101' &&
+                s.id != 'subj-001') {
               _mockSubjects.add(s);
             }
           }
         }
       }
     } catch (_) {}
-    _mockSubjects.removeWhere((s) => s.name.toLowerCase() == 'maths' || s.code == 'MATH101' || s.id == 'subj-001');
+    _mockSubjects.removeWhere((s) =>
+        s.name.toLowerCase() == 'maths' ||
+        s.code == 'MATH101' ||
+        s.id == 'subj-001');
     _subjectsInitialized = true;
   }
 
   static Future<void> _persistSubjects() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final encoded = jsonEncode(_mockSubjects.map((s) => s.toJson()).toList());
+      final encoded =
+          jsonEncode(_mockSubjects.map((s) => s.toJson()).toList());
       await prefs.setString(_subjectsStorageKey, encoded);
     } catch (_) {}
   }
+
   static final List<StudentClassInfo> _assignedStudentsStore = [];
 
   static Future<void> _initClassesStorage() async {
@@ -69,12 +76,13 @@ class SchoolManagementService {
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final cls = SchoolClass.fromJson(item);
-            final cleanStudents = cls.students.where((s) =>
-              !s.studentName.toLowerCase().contains('abebe') &&
-              !s.studentName.toLowerCase().contains('student grade') &&
-              s.studentId != 'SG-2026-000001' &&
-              s.studentId != 'SG-2026-000002'
-            ).toList();
+            final cleanStudents = cls.students
+                .where((s) =>
+                    !s.studentName.toLowerCase().contains('abebe') &&
+                    !s.studentName.toLowerCase().contains('student grade') &&
+                    s.studentId != 'SG-2026-000001' &&
+                    s.studentId != 'SG-2026-000002')
+                .toList();
             _mockClasses.add(cls.copyWith(students: cleanStudents));
           }
         }
@@ -85,12 +93,13 @@ class SchoolManagementService {
     } else {
       for (int i = 0; i < _mockClasses.length; i++) {
         final cls = _mockClasses[i];
-        final cleanStudents = cls.students.where((s) =>
-          !s.studentName.toLowerCase().contains('abebe') &&
-          !s.studentName.toLowerCase().contains('student grade') &&
-          s.studentId != 'SG-2026-000001' &&
-          s.studentId != 'SG-2026-000002'
-        ).toList();
+        final cleanStudents = cls.students
+            .where((s) =>
+                !s.studentName.toLowerCase().contains('abebe') &&
+                !s.studentName.toLowerCase().contains('student grade') &&
+                s.studentId != 'SG-2026-000001' &&
+                s.studentId != 'SG-2026-000002')
+            .toList();
         _mockClasses[i] = cls.copyWith(students: cleanStudents);
       }
     }
@@ -156,13 +165,17 @@ class SchoolManagementService {
     await _initClassesStorage();
 
     try {
-      final res = await _apiClient.get('/admin/school/classes', requireAuth: true);
+      final res =
+          await _apiClient.get('/admin/school/classes', requireAuth: true);
       final rawList = res['data'] is List ? res['data'] as List : null;
       if (rawList != null) {
         for (final item in rawList) {
           if (item is Map<String, dynamic>) {
             final cls = SchoolClass.fromJson(item);
-            final idx = _mockClasses.indexWhere((c) => c.id == cls.id || (c.grade == cls.grade && c.section.toUpperCase() == cls.section.toUpperCase()));
+            final idx = _mockClasses.indexWhere((c) =>
+                c.id == cls.id ||
+                (c.grade == cls.grade &&
+                    c.section.toUpperCase() == cls.section.toUpperCase()));
             if (idx != -1) {
               _mockClasses[idx] = cls;
             } else {
@@ -180,11 +193,12 @@ class SchoolManagementService {
 
     if (query != null && query.trim().isNotEmpty) {
       final q = query.trim().toLowerCase();
-      results = results.where((c) =>
-        c.displayName.toLowerCase().contains(q) ||
-        (c.roomNumber ?? '').toLowerCase().contains(q) ||
-        (c.section ?? '').toLowerCase().contains(q)
-      ).toList();
+      results = results
+          .where((c) =>
+              c.displayName.toLowerCase().contains(q) ||
+              (c.roomNumber ?? '').toLowerCase().contains(q) ||
+              (c.section ?? '').toLowerCase().contains(q))
+          .toList();
     }
 
     return List.unmodifiable(results);
@@ -195,7 +209,8 @@ class SchoolManagementService {
     final classes = await getClasses();
     return classes.firstWhere(
       (c) => c.id == classId,
-      orElse: () => throw ApiException(statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.'),
+      orElse: () => throw ApiException(
+          statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.'),
     );
   }
 
@@ -210,14 +225,18 @@ class SchoolManagementService {
   }) async {
     await _initClassesStorage();
     final secUpper = section.trim().toUpperCase();
-    final year = academicYear?.trim().isNotEmpty == true ? academicYear!.trim() : '2025/2026';
+    final year = academicYear?.trim().isNotEmpty == true
+        ? academicYear!.trim()
+        : '2025/2026';
 
     SchoolClass newClass = SchoolClass(
       id: 'cls-$grade-${secUpper.toLowerCase()}',
       grade: grade,
       section: secUpper,
       academicYear: year,
-      roomNumber: roomNumber?.trim().isNotEmpty == true ? roomNumber!.trim() : 'Room 101',
+      roomNumber: roomNumber?.trim().isNotEmpty == true
+          ? roomNumber!.trim()
+          : 'Room 101',
       maxCapacity: maxCapacity ?? 35,
       description: description?.trim(),
       createdAt: DateTime.now(),
@@ -246,7 +265,9 @@ class SchoolManagementService {
           grade: (data['grade'] as num?)?.toInt() ?? grade,
           section: (data['section'] as String?) ?? secUpper,
           academicYear: year,
-          roomNumber: roomNumber?.trim().isNotEmpty == true ? roomNumber!.trim() : 'Room 101',
+          roomNumber: roomNumber?.trim().isNotEmpty == true
+              ? roomNumber!.trim()
+              : 'Room 101',
           maxCapacity: maxCapacity ?? 35,
           description: description?.trim(),
           createdAt: DateTime.now(),
@@ -259,7 +280,9 @@ class SchoolManagementService {
       rethrow;
     } catch (_) {}
 
-    final existingIdx = _mockClasses.indexWhere((c) => c.id == newClass.id || (c.grade == newClass.grade && c.section == newClass.section));
+    final existingIdx = _mockClasses.indexWhere((c) =>
+        c.id == newClass.id ||
+        (c.grade == newClass.grade && c.section == newClass.section));
     if (existingIdx != -1) {
       _mockClasses[existingIdx] = newClass;
     } else {
@@ -276,7 +299,8 @@ class SchoolManagementService {
       _mockClasses[index] = updated.copyWith(updatedAt: DateTime.now());
       return _mockClasses[index];
     }
-    throw ApiException(statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
+    throw ApiException(
+        statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
   }
 
   /// Delete a class/section from the database.
@@ -287,7 +311,8 @@ class SchoolManagementService {
 
     try {
       if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(classId)) {
-        await _apiClient.delete('/admin/school/classes/$classId', requireAuth: true);
+        await _apiClient.delete('/admin/school/classes/$classId',
+            requireAuth: true);
       }
     } catch (_) {}
   }
@@ -297,7 +322,8 @@ class SchoolManagementService {
     await _initSubjectsStorage();
 
     try {
-      final res = await _apiClient.get('/admin/school/subjects', requireAuth: true);
+      final res =
+          await _apiClient.get('/admin/school/subjects', requireAuth: true);
       final rawList = res['data'] is List ? res['data'] as List : null;
       if (rawList != null) {
         for (final item in rawList) {
@@ -305,7 +331,9 @@ class SchoolManagementService {
             final dbSubj = Subject.fromJson(item);
 
             final idx = _mockSubjects.indexWhere(
-              (m) => m.id == dbSubj.id || m.name.toLowerCase() == dbSubj.name.toLowerCase(),
+              (m) =>
+                  m.id == dbSubj.id ||
+                  m.name.toLowerCase() == dbSubj.name.toLowerCase(),
             );
             if (idx != -1) {
               final existing = _mockSubjects[idx];
@@ -335,13 +363,17 @@ class SchoolManagementService {
     await _initSubjectsStorage();
     final sName = name.trim();
 
-    final existingIdx = _mockSubjects.indexWhere((s) => s.name.toLowerCase() == sName.toLowerCase());
+    final existingIdx = _mockSubjects
+        .indexWhere((s) => s.name.toLowerCase() == sName.toLowerCase());
 
     Subject newSubject = Subject(
-      id: existingIdx != -1 ? _mockSubjects[existingIdx].id : 'subj-${DateTime.now().millisecondsSinceEpoch}',
+      id: existingIdx != -1
+          ? _mockSubjects[existingIdx].id
+          : 'subj-${DateTime.now().millisecondsSinceEpoch}',
       name: sName,
       code: code?.trim().isNotEmpty == true ? code!.trim().toUpperCase() : null,
-      category: category?.trim().isNotEmpty == true ? category!.trim() : 'General',
+      category:
+          category?.trim().isNotEmpty == true ? category!.trim() : 'General',
       description: description?.trim(),
     );
 
@@ -360,8 +392,12 @@ class SchoolManagementService {
         newSubject = Subject(
           id: data['id'] as String,
           name: data['name'] as String? ?? sName,
-          code: code?.trim().isNotEmpty == true ? code!.trim().toUpperCase() : null,
-          category: category?.trim().isNotEmpty == true ? category!.trim() : 'General',
+          code: code?.trim().isNotEmpty == true
+              ? code!.trim().toUpperCase()
+              : null,
+          category: category?.trim().isNotEmpty == true
+              ? category!.trim()
+              : 'General',
           description: description?.trim(),
         );
       }
@@ -381,12 +417,15 @@ class SchoolManagementService {
   }
 
   /// Find assigned class for a student ID or student code.
-  Future<SchoolClass?> getStudentClass(String studentId, {String? studentCode}) async {
+  Future<SchoolClass?> getStudentClass(String studentId,
+      {String? studentCode}) async {
     final classes = await getClasses();
     for (final cls in classes) {
       if (cls.students.any((s) =>
           s.studentId == studentId ||
-          (studentCode != null && studentCode.isNotEmpty && s.studentCode == studentCode))) {
+          (studentCode != null &&
+              studentCode.isNotEmpty &&
+              s.studentCode == studentCode))) {
         return cls;
       }
     }
@@ -397,7 +436,8 @@ class SchoolManagementService {
   Future<void> deleteSubject(String subjectId) async {
     await _initSubjectsStorage();
     final targetIndex = _mockSubjects.indexWhere(
-      (s) => s.id == subjectId || s.name.toLowerCase() == subjectId.toLowerCase(),
+      (s) =>
+          s.id == subjectId || s.name.toLowerCase() == subjectId.toLowerCase(),
     );
 
     String targetName = subjectId;
@@ -412,7 +452,8 @@ class SchoolManagementService {
 
     try {
       if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(subjectId)) {
-        await _apiClient.delete('/admin/school/subjects/$subjectId', requireAuth: true);
+        await _apiClient.delete('/admin/school/subjects/$subjectId',
+            requireAuth: true);
       }
     } catch (_) {}
 
@@ -425,11 +466,14 @@ class SchoolManagementService {
     await _initClassesStorage();
     for (int i = 0; i < _mockClasses.length; i++) {
       final cls = _mockClasses[i];
-      final updatedTeachers = cls.teachers.where((t) =>
-        t.subjectId != subjectId && t.subjectName.toLowerCase() != targetName.toLowerCase()
-      ).toList();
+      final updatedTeachers = cls.teachers
+          .where((t) =>
+              t.subjectId != subjectId &&
+              t.subjectName.toLowerCase() != targetName.toLowerCase())
+          .toList();
       if (updatedTeachers.length != cls.teachers.length) {
-        _mockClasses[i] = cls.copyWith(teachers: updatedTeachers, updatedAt: DateTime.now());
+        _mockClasses[i] = cls.copyWith(
+            teachers: updatedTeachers, updatedAt: DateTime.now());
       }
     }
     await _persistClasses();
@@ -445,21 +489,27 @@ class SchoolManagementService {
   }) async {
     final classIndex = _mockClasses.indexWhere((c) => c.id == classId);
     if (classIndex == -1) {
-      throw ApiException(statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
+      throw ApiException(
+          statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
     }
 
-    final realStudentCode = (studentCode != null && studentCode.trim().isNotEmpty)
+    final realStudentCode = (studentCode != null &&
+            studentCode.trim().isNotEmpty)
         ? studentCode.trim()
         : ((studentId.startsWith('SG-') || studentId.startsWith('STU-'))
             ? studentId
             : 'SG-${DateTime.now().year}-${studentId.hashCode.abs().toString().padLeft(6, '0')}');
 
     final targetClass = _mockClasses[classIndex];
-    if (targetClass.students.any((s) => s.studentId == realStudentCode || s.studentId == studentId || s.studentCode == realStudentCode)) {
+    if (targetClass.students.any((s) =>
+        s.studentId == realStudentCode ||
+        s.studentId == studentId ||
+        s.studentCode == realStudentCode)) {
       throw ApiException(
         statusCode: 400,
         code: 'ALREADY_ASSIGNED',
-        message: '$studentName is already enrolled in ${targetClass.displayName}.',
+        message:
+            '$studentName is already enrolled in ${targetClass.displayName}.',
       );
     }
 
@@ -495,7 +545,8 @@ class SchoolManagementService {
     }
 
     _assignedStudentsStore.add(newEnrollment);
-    final updatedStudents = List<StudentClassInfo>.from(targetClass.students)..add(newEnrollment);
+    final updatedStudents =
+        List<StudentClassInfo>.from(targetClass.students)..add(newEnrollment);
     _mockClasses[classIndex] = targetClass.copyWith(
       students: updatedStudents,
       updatedAt: DateTime.now(),
@@ -513,7 +564,8 @@ class SchoolManagementService {
     final classIndex = _mockClasses.indexWhere((c) => c.id == classId);
     if (classIndex != -1) {
       final targetClass = _mockClasses[classIndex];
-      final updatedStudents = targetClass.students.where((s) => s.id != enrollmentId).toList();
+      final updatedStudents =
+          targetClass.students.where((s) => s.id != enrollmentId).toList();
       _mockClasses[classIndex] = targetClass.copyWith(
         students: updatedStudents,
         updatedAt: DateTime.now(),
@@ -523,7 +575,8 @@ class SchoolManagementService {
 
     try {
       if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(enrollmentId)) {
-        await _apiClient.delete('/admin/school/assign-student/$enrollmentId', requireAuth: true);
+        await _apiClient.delete('/admin/school/assign-student/$enrollmentId',
+            requireAuth: true);
       }
     } catch (_) {}
   }
@@ -539,7 +592,8 @@ class SchoolManagementService {
   }) async {
     final classIndex = _mockClasses.indexWhere((c) => c.id == classId);
     if (classIndex == -1) {
-      throw ApiException(statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
+      throw ApiException(
+          statusCode: 404, code: 'NOT_FOUND', message: 'Class not found.');
     }
 
     final targetClass = _mockClasses[classIndex];
@@ -551,7 +605,8 @@ class SchoolManagementService {
       throw ApiException(
         statusCode: 400,
         code: 'ALREADY_ASSIGNED',
-        message: '$teacherName is already assigned to teach $subjectName in ${targetClass.displayName}.',
+        message:
+            '$teacherName is already assigned to teach $subjectName in ${targetClass.displayName}.',
       );
     }
 
@@ -572,7 +627,8 @@ class SchoolManagementService {
       String realTeacherId = teacherId;
 
       try {
-        final cRes = await createClass(grade: targetClass.grade, section: targetClass.section);
+        final cRes = await createClass(
+            grade: targetClass.grade, section: targetClass.section);
         if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(cRes.id)) {
           realClassId = cRes.id;
         }
@@ -587,10 +643,13 @@ class SchoolManagementService {
 
       if (!RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(realTeacherId)) {
         try {
-          final activeTeachers = await AdminService().getActive(UserRole.teacher);
+          final activeTeachers =
+              await AdminService().getActive(UserRole.teacher);
           if (activeTeachers.isNotEmpty) {
             final match = activeTeachers.firstWhere(
-              (t) => t.fullName.toLowerCase() == teacherName.toLowerCase() || t.id == teacherId,
+              (t) =>
+                  t.fullName.toLowerCase() == teacherName.toLowerCase() ||
+                  t.id == teacherId,
               orElse: () => activeTeachers.first,
             );
             realTeacherId = match.id;
@@ -625,7 +684,8 @@ class SchoolManagementService {
       // Local fallback
     }
 
-    final updatedTeachers = List<TeacherSubjectInfo>.from(targetClass.teachers)..add(newAssignment);
+    final updatedTeachers =
+        List<TeacherSubjectInfo>.from(targetClass.teachers)..add(newAssignment);
     _mockClasses[classIndex] = targetClass.copyWith(
       teachers: updatedTeachers,
       updatedAt: DateTime.now(),
@@ -651,7 +711,9 @@ class SchoolManagementService {
     final classIndex = _mockClasses.indexWhere((c) => c.id == classId);
     if (classIndex != -1) {
       final targetClass = _mockClasses[classIndex];
-      final updatedTeachers = targetClass.teachers.where((t) => t.id != assignmentId).toList();
+      final updatedTeachers = targetClass.teachers
+          .where((t) => t.id != assignmentId)
+          .toList();
       _mockClasses[classIndex] = targetClass.copyWith(
         teachers: updatedTeachers,
         updatedAt: DateTime.now(),
@@ -661,7 +723,8 @@ class SchoolManagementService {
 
     try {
       if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(assignmentId)) {
-        await _apiClient.delete('/admin/school/assign-teacher/$assignmentId', requireAuth: true);
+        await _apiClient.delete('/admin/school/assign-teacher/$assignmentId',
+            requireAuth: true);
       }
     } catch (_) {}
   }
