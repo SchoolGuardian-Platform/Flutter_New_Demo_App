@@ -7,10 +7,9 @@ import '../../models/user.dart';
 import '../../services/student_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
-import '../../widgets/status_pie_chart.dart';
-
 import '../../models/school_class.dart';
 import '../../services/school_management_service.dart';
+import '../../widgets/dashboard_grid_cards.dart';
 
 /// Bottom-nav "Overview" tab for the student dashboard
 class StudentOverviewTab extends StatefulWidget {
@@ -61,19 +60,6 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  // Sample-only distributions
-  static const _sampleGradeSlices = [
-    PieSlice(label: 'Excellent', value: 3, color: AppColors.secondary),
-    PieSlice(label: 'Good', value: 4, color: AppColors.primary),
-    PieSlice(label: 'Needs attention', value: 1, color: AppColors.warning),
-  ];
-
-  static const _sampleWellbeingSlices = [
-    PieSlice(label: 'Positive', value: 6, color: AppColors.secondary),
-    PieSlice(label: 'Neutral', value: 2, color: AppColors.warning),
-    PieSlice(label: 'Flagged', value: 1, color: AppColors.error),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -181,39 +167,10 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 style: const TextStyle(color: AppColors.error, fontSize: 12)),
           ],
           const SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: KukieAccent.violetTint,
-              borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-              border: Border.all(color: KukieAccent.cardBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: KukieAccent.violet),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Grade and wellbeing reporting endpoints are coming soon '
-                    'on the backend -- the charts below show sample data so '
-                    'you can see the shape of what\'s coming.',
-                    style: const TextStyle(
-                        color: KukieAccent.ink, fontSize: 12, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          const StatusPieChart(
-            title: 'Grade Status (sample)',
-            slices: _sampleGradeSlices,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          const StatusPieChart(
-            title: 'Wellbeing Status (sample)',
-            slices: _sampleWellbeingSlices,
-          ),
+
+          // Modern Card Grid Dashboard Section (Tasks, Weekly Goals, Announcements, Upcoming Classes)
+          const DashboardGridCardsSection(),
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );
