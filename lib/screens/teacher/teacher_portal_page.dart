@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
 import '../../models/teacher_profile.dart';
+import '../../models/school_class.dart';
+import '../../models/subject.dart';
+import '../../services/auth_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'add_grade_page.dart';
+import 'mark_attendance_page.dart';
+import 'manage_homework_page.dart';
 
 class TeacherPortalPage extends StatefulWidget {
   const TeacherPortalPage({super.key});
@@ -35,20 +40,9 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
     final profile = await _teacherService.getTeacherProfile();
     final grades = await _teacherService.getGradeEntries();
 
-    List<String> dbSubjectNames = [];
-    try {
-      final dbSubjects = await SchoolManagementService().getSubjects();
-      dbSubjectNames = dbSubjects.map((s) => s.name).toList();
-    } catch (_) {}
-
     if (!mounted) return;
 
     final subjectList = List<String>.from(profile.assignedSubjects);
-    for (final s in dbSubjectNames) {
-      if (s.isNotEmpty && !subjectList.contains(s)) {
-        subjectList.add(s);
-      }
-    }
     for (final g in grades) {
       if (g.subject.isNotEmpty && !subjectList.contains(g.subject)) {
         subjectList.add(g.subject);
@@ -65,65 +59,175 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
   }
 
   Future<void> _showAddSubjectBarDialog() async {
-    final controller = TextEditingController();
+    List<Subject> dbSubjects = [];
+    List<SchoolClass> availableClasses = [];
+    try {
+      dbSubjects = await SchoolManagementService().getSubjects();
+      availableClasses = await SchoolManagementService().getClasses();
+    } catch (_) {}
+
+    String? selectedDbSubject = dbSubjects.isNotEmpty ? dbSubjects.first.name : null;
+    SchoolClass? selectedClass = availableClasses.isNotEmpty ? availableClasses.first : null;
+    final customSubjectController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    bool useCustomSubject = dbSubjects.isEmpty;
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Assign Teaching Subject'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Assign a new subject to your teaching profile. It will be saved to the database and displayed across all portal forms.',
-                style: TextStyle(fontSize: 12.5, color: Colors.black87),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Subject Name *',
-                  hintText: 'e.g. Maths, Science, History',
-                  prefixIcon: Icon(Icons.book_outlined),
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.assignment_ind_outlined, color: KukieAccent.violet, size: 20),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                const SizedBox(width: AppSpacing.sm),
+                const Expanded(
+                  child: Text(
+                    'Assign Subject to Profile',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select a course created by the Admin in the school database to add to your teaching profile.',
+                      style: TextStyle(fontSize: 12.5, color: Colors.black87),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    if (dbSubjects.isNotEmpty && !useCustomSubject) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedDbSubject,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Admin Course / Subject *',
+                          prefixIcon: Icon(Icons.menu_book_outlined),
+                        ),
+                        items: dbSubjects.map((s) => DropdownMenuItem(
+                          value: s.name,
+                          child: Text(s.name),
+                        )).toList(),
+                        onChanged: (val) {
+                          setDialogState(() => selectedDbSubject = val);
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        onPressed: () => setDialogState(() => useCustomSubject = true),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('Add a custom subject name instead', style: TextStyle(fontSize: 12)),
+                      ),
+                    ] else ...[
+                      TextFormField(
+                        controller: customSubjectController,
+                        decoration: const InputDecoration(
+                          labelText: 'Subject Name *',
+                          hintText: 'e.g. Chemistry',
+                          prefixIcon: Icon(Icons.book_outlined),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      if (dbSubjects.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: () => setDialogState(() => useCustomSubject = false),
+                          icon: const Icon(Icons.list, size: 14),
+                          label: const Text('Choose from Admin Courses list', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ],
+
+                    const SizedBox(height: AppSpacing.md),
+                    if (availableClasses.isNotEmpty) ...[
+                      DropdownButtonFormField<SchoolClass>(
+                        initialValue: selectedClass,
+                        decoration: const InputDecoration(
+                          labelText: 'Target Class (For DB TeacherClassSubject)',
+                          prefixIcon: Icon(Icons.class_outlined),
+                        ),
+                        items: availableClasses.map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c.displayName),
+                        )).toList(),
+                        onChanged: (val) {
+                          setDialogState(() => selectedClass = val);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    final targetSubject = useCustomSubject
+                        ? customSubjectController.text.trim()
+                        : (selectedDbSubject ?? customSubjectController.text.trim());
+
+                    if (targetSubject.isEmpty) return;
+
+                    // 1. Add to Teacher Profile (My Teaching Subjects)
+                    await _teacherService.addAssignedSubject(targetSubject);
+
+                    // 2. Persist to Neon DB TeacherClassSubject table
+                    try {
+                      final me = await AuthService().getMe();
+                      final cls = selectedClass ?? (availableClasses.isNotEmpty ? availableClasses.first : null);
+
+                      if (cls != null) {
+                        await SchoolManagementService().assignTeacherToClass(
+                          teacherId: me.id,
+                          teacherName: '${me.firstName} ${me.lastName}',
+                          classId: cls.id,
+                          subjectId: targetSubject,
+                          subjectName: targetSubject,
+                        );
+                      } else {
+                        await SchoolManagementService().createSubject(name: targetSubject);
+                      }
+                    } catch (_) {}
+
+                    if (!mounted) return;
+                    final nav = Navigator.of(dialogCtx);
+                    final messenger = ScaffoldMessenger.of(context);
+
+                    nav.pop();
+                    await _loadData();
+
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Assigned "$targetSubject" to your teaching profile!'),
+                        backgroundColor: KukieAccent.success,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Assign to Profile'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                final newSub = controller.text.trim();
-                await _teacherService.addAssignedSubject(newSub);
-                try {
-                  await SchoolManagementService().createSubject(name: newSub);
-                } catch (_) {}
-
-                if (mounted) {
-                  Navigator.of(context).pop();
-                  _loadData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Assigned subject "$newSub" to database & profile!'),
-                      backgroundColor: KukieAccent.success,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Assign Subject'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -204,6 +308,44 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   _StatsRow(gradesCount: _grades.length),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Quick Actions Row (Attendance & Homework)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const MarkAttendancePage()),
+                            );
+                          },
+                          icon: const Icon(Icons.fact_check_outlined, color: KukieAccent.violet, size: 18),
+                          label: const Text('Mark Attendance', style: TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: KukieAccent.violet, width: 1.2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ManageHomeworkPage()),
+                            );
+                          },
+                          icon: const Icon(Icons.assignment_outlined, color: KukieAccent.violet, size: 18),
+                          label: const Text('Homework', style: TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: KukieAccent.violet, width: 1.2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: AppSpacing.lg),
 
                   // --- Subject / Course Teaching Bars ---
