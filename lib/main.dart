@@ -23,6 +23,7 @@ import 'screens/reports/reports_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/student/student_portal_dashboard_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
@@ -191,6 +192,10 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case DashboardPage.routeName:
             final user = settings.arguments as User;
             return MaterialPageRoute(builder: (_) => DashboardPage(user: user));
+
+          case StudentPortalDashboardPage.routeName:
+            final user = settings.arguments as User;
+            return MaterialPageRoute(builder: (_) => StudentPortalDashboardPage(user: user));
 
           case LoginPage.routeName:
             final role = settings.arguments as UserRole?;
