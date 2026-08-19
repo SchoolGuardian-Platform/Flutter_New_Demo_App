@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import '../../models/school_class.dart';
 import '../../services/school_management_service.dart';
+import '../../widgets/class_schedule_timetable.dart';
 import '../../widgets/dashboard_grid_cards.dart';
 
 /// Bottom-nav "Overview" tab for the student dashboard
@@ -170,6 +171,10 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
 
           // Modern Card Grid Dashboard Section (Tasks, Weekly Goals, Announcements, Upcoming Classes)
           const DashboardGridCardsSection(),
+          const SizedBox(height: AppSpacing.lg),
+
+          // Interactive Weekly Timetable Schedule Matrix
+          const ClassScheduleTimetableWidget(),
           const SizedBox(height: AppSpacing.lg),
         ],
       ),
