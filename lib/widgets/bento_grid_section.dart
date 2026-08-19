@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../screens/analytics/academic_gpa_progression_page.dart';
-import '../screens/antigravity/antigravity_zerog_dashboard_page.dart';
 import '../screens/biometrics/biometric_health_overview_page.dart';
 import '../screens/biometrics/stress_level_dashboard_page.dart';
 import '../screens/nutrition/calorie_nutrition_dashboard_page.dart';
@@ -45,22 +44,6 @@ class BentoGridSection extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 14),
-
-        // 0. Anti-Gravity Zero-G Interactive Floating Physics Hub
-        BentoAcademicCard(
-          title: 'Anti-Gravity Zero-G Hub',
-          subtitle: 'Frictionless drag & flick, liquid energy & parallax dust',
-          badgeText: '🚀 PHYSICS SIMULATION ACTIVE',
-          badgeColor: const Color(0xFF0F172A),
-          badgeBgColor: const Color(0xFF67E8F9),
-          gradientColors: const [Color(0xFF070A12), Color(0xFF0B0F19), Color(0xFF1E1B4B)],
-          icon: Icons.blur_on_rounded,
-          onTap: () => Navigator.of(context).pushNamed(
-            AntiGravityZeroGDashboardPage.routeName,
-            arguments: user,
-          ),
         ),
         const SizedBox(height: 14),
 

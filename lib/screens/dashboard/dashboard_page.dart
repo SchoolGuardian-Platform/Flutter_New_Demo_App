@@ -280,18 +280,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => AdminProfilePage(initialUser: _user),
                   ));
-                } else if (value == 'portal_dash') {
-                  Navigator.of(context).pushNamed(StudentPortalDashboardPage.routeName, arguments: _user);
-                } else if (value == 'gpa_dash') {
-                  Navigator.of(context).pushNamed(AcademicGpaProgressionPage.routeName, arguments: _user);
-                } else if (value == 'calorie_dash') {
-                  Navigator.of(context).pushNamed(CalorieNutritionDashboardPage.routeName, arguments: _user);
-                } else if (value == 'stress_dash') {
-                  Navigator.of(context).pushNamed(StressLevelDashboardPage.routeName, arguments: _user);
-                } else if (value == 'health_dash') {
-                  Navigator.of(context).pushNamed(BiometricHealthOverviewPage.routeName, arguments: _user);
-                } else if (value == 'zerog_dash') {
-                  Navigator.of(context).pushNamed(AntiGravityZeroGDashboardPage.routeName, arguments: _user);
                 }
               },
               itemBuilder: (context) => [
@@ -305,31 +293,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 const PopupMenuItem(
                   value: 'profile',
                   child: Text('View profile'),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'zerog_dash',
-                  child: Text('🚀 Anti-Gravity Zero-G Hub'),
-                ),
-                const PopupMenuItem(
-                  value: 'portal_dash',
-                  child: Text('🎓 Student Portal Dashboard'),
-                ),
-                const PopupMenuItem(
-                  value: 'gpa_dash',
-                  child: Text('📈 GPA Progression & Analytics'),
-                ),
-                const PopupMenuItem(
-                  value: 'calorie_dash',
-                  child: Text('🥗 Calorie & Nutrition Tracker'),
-                ),
-                const PopupMenuItem(
-                  value: 'stress_dash',
-                  child: Text('🧘 Stress Level Dashboard'),
-                ),
-                const PopupMenuItem(
-                  value: 'health_dash',
-                  child: Text('🩺 Biometric Health Overview'),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
@@ -350,6 +313,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
                       _WelcomeCard(user: _user),
+                      const SizedBox(height: AppSpacing.lg),
+                      _QuickFeatureLaunchHub(user: _user),
                       const SizedBox(height: AppSpacing.lg),
                       Text('Overview',
                           style: Theme.of(context).textTheme.headlineSmall),
@@ -719,6 +684,351 @@ class _SectionCard extends StatelessWidget {
                       size: 14, color: AppColors.outline),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickFeatureLaunchHub extends StatelessWidget {
+  const _QuickFeatureLaunchHub({required this.user});
+
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text(
+              'Feature Dashboards Hub',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            Text(
+              '6 Modules Available',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Anti-Gravity Physics Hub Launcher
+        _StylishLauncherCard(
+          title: 'Anti-Gravity Zero-G Hub',
+          subtitle: 'Frictionless drag & flick, liquid energy & parallax dust',
+          badgeText: '🚀 PHYSICS SIMULATION ACTIVE',
+          badgeColor: const Color(0xFF0F172A),
+          badgeBgColor: const Color(0xFF67E8F9),
+          gradientColors: const [Color(0xFF070A12), Color(0xFF0B0F19), Color(0xFF1E1B4B)],
+          icon: Icons.blur_on_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            AntiGravityZeroGDashboardPage.routeName,
+            arguments: user,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Student Portal Dashboard Launcher
+        _StylishLauncherCard(
+          title: 'Student Portal Dashboard',
+          subtitle: 'Classes, tasks, announcements & schedule matrix',
+          badgeText: '🎓 ACADEMIC PORTAL',
+          badgeColor: Colors.white,
+          badgeBgColor: Colors.white24,
+          gradientColors: const [Color(0xFF6366F1), Color(0xFF7C3AED)],
+          icon: Icons.dashboard_customize_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            StudentPortalDashboardPage.routeName,
+            arguments: user,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // GPA Progression & Analytics Launcher
+        _StylishLauncherCard(
+          title: 'GPA Progression & Analytics',
+          subtitle: 'Semester trajectory, grades & target track',
+          badgeText: '3.84 GPA • Top 5%',
+          badgeColor: const Color(0xFF065F46),
+          badgeBgColor: const Color(0xFFA7F3D0),
+          gradientColors: const [Color(0xFF0F172A), Color(0xFF1E293B)],
+          icon: Icons.auto_graph_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            AcademicGpaProgressionPage.routeName,
+            arguments: user,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2x2 Grid for Health & Biometrics
+        Row(
+          children: [
+            Expanded(
+              child: _StylishTile(
+                title: 'Calorie Tracker',
+                subtitle: 'Radial dial & macros',
+                badgeText: '🔥 1,232 kcal left',
+                accentColor: const Color(0xFF0D9488),
+                bgColor: const Color(0xFFCCFBF1),
+                icon: Icons.local_fire_department_rounded,
+                onTap: () => Navigator.of(context).pushNamed(
+                  CalorieNutritionDashboardPage.routeName,
+                  arguments: user,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StylishTile(
+                title: 'Stress Level',
+                subtitle: 'Spline & equalizer',
+                badgeText: '🛡️ Manageable • 46',
+                accentColor: const Color(0xFFF97316),
+                bgColor: const Color(0xFFFFEDD5),
+                icon: Icons.monitor_heart_rounded,
+                onTap: () => Navigator.of(context).pushNamed(
+                  StressLevelDashboardPage.routeName,
+                  arguments: user,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Full-width Health Overview Tile
+        _StylishTile(
+          title: 'Biometric Health Overview',
+          subtitle: 'Multi-sensor sleep, pulse rate & HRV vitals preview',
+          badgeText: '🌙 Sleep 6h 52m • ❤️ 74 bpm • ⚡ HRV 56 ms',
+          accentColor: const Color(0xFF7C3AED),
+          bgColor: const Color(0xFFEDE9FE),
+          icon: Icons.health_and_safety_rounded,
+          onTap: () => Navigator.of(context).pushNamed(
+            BiometricHealthOverviewPage.routeName,
+            arguments: user,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StylishLauncherCard extends StatelessWidget {
+  const _StylishLauncherCard({
+    required this.title,
+    required this.subtitle,
+    required this.badgeText,
+    required this.badgeColor,
+    required this.badgeBgColor,
+    required this.gradientColors,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badgeText;
+  final Color badgeColor;
+  final Color badgeBgColor;
+  final List<Color> gradientColors;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors.first.withValues(alpha: 0.25),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white24,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 20),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeBgColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        badgeText,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        subtitle,
+                        style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StylishTile extends StatelessWidget {
+  const _StylishTile({
+    required this.title,
+    required this.subtitle,
+    required this.badgeText,
+    required this.accentColor,
+    required this.bgColor,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badgeText;
+  final Color accentColor;
+  final Color bgColor;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: accentColor, size: 18),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFFCBD5E1)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
