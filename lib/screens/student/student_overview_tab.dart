@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/account_status.dart';
+import '../../models/attendance_record.dart';
+import '../../models/grade_entry.dart';
 import '../../models/guardian_link.dart';
+import '../../models/school_class.dart';
 import '../../models/user.dart';
+import '../../services/attendance_service.dart';
+import '../../services/school_management_service.dart';
 import '../../services/student_service.dart';
+import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
-import '../../widgets/status_pie_chart.dart';
-
-import '../../models/school_class.dart';
-import '../../services/school_management_service.dart';
 
 /// Bottom-nav "Overview" tab for the student dashboard
 class StudentOverviewTab extends StatefulWidget {
@@ -25,9 +27,14 @@ class StudentOverviewTab extends StatefulWidget {
 class StudentOverviewTabState extends State<StudentOverviewTab> {
   final _studentService = StudentService();
   final _schoolService = SchoolManagementService();
+  final _attendanceService = AttendanceService();
+  final _teacherService = TeacherService();
 
   List<GuardianLink>? _guardians;
   SchoolClass? _assignedClass;
+  List<AttendanceRecord> _attendanceRecords = [];
+  List<GradeEntry> _gradeEntries = [];
+
   bool _loading = true;
   String? _error;
 
@@ -37,8 +44,6 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     _load();
   }
 
-  /// Public so the dashboard shell can trigger a refresh when this tab is
-  /// re-selected.
   Future<void> refresh() => _load();
 
   Future<void> _load() async {
@@ -49,36 +54,42 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     try {
       final guardians = await _studentService.getMyGuardians();
       final cls = await _schoolService.getStudentClass(widget.user.id, studentCode: widget.user.studentId);
+      final code = widget.user.studentId;
+      var attendance = await _attendanceService.getStudentAttendance(widget.user.id);
+      if (attendance.isEmpty && code != null && code.isNotEmpty) {
+        attendance = await _attendanceService.getStudentAttendance(code);
+      }
+      var grades = await _teacherService.getGradesForStudent(widget.user.id);
+      if (grades.isEmpty && code != null && code.isNotEmpty) {
+        grades = await _teacherService.getGradesForStudent(code);
+      }
+
       if (!mounted) return;
       setState(() {
         _guardians = guardians;
         _assignedClass = cls;
+        _attendanceRecords = attendance;
+        _gradeEntries = grades;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Sample-only distributions
-  static const _sampleGradeSlices = [
-    PieSlice(label: 'Excellent', value: 3, color: AppColors.secondary),
-    PieSlice(label: 'Good', value: 4, color: AppColors.primary),
-    PieSlice(label: 'Needs attention', value: 1, color: AppColors.warning),
-  ];
-
-  static const _sampleWellbeingSlices = [
-    PieSlice(label: 'Positive', value: 6, color: AppColors.secondary),
-    PieSlice(label: 'Neutral', value: 2, color: AppColors.warning),
-    PieSlice(label: 'Flagged', value: 1, color: AppColors.error),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
     final guardianCount = _guardians?.length;
+
+    int presentCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.present).length;
+    int absentCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.absent).length;
+    int lateCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.late).length;
+    int excusedCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.excused).length;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -181,41 +192,168 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 style: const TextStyle(color: AppColors.error, fontSize: 12)),
           ],
           const SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: KukieAccent.violetTint,
-              borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-              border: Border.all(color: KukieAccent.cardBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: KukieAccent.violet),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Grade and wellbeing reporting endpoints are coming soon '
-                    'on the backend -- the charts below show sample data so '
-                    'you can see the shape of what\'s coming.',
-                    style: const TextStyle(
-                        color: KukieAccent.ink, fontSize: 12, height: 1.4),
+
+          // Real Attendance Overview Card
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.calendar_today, color: KukieAccent.violet, size: 20),
+                          SizedBox(width: 8),
+                          Text('Attendance History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: KukieAccent.violetTint,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text('${_attendanceRecords.length} records', style: const TextStyle(color: KukieAccent.violet, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _attendanceChip('Present', presentCount, KukieAccent.success),
+                      _attendanceChip('Absent', absentCount, Colors.red),
+                      _attendanceChip('Late', lateCount, Colors.orange),
+                      _attendanceChip('Excused', excusedCount, Colors.blue),
+                    ],
+                  ),
+                  if (_attendanceRecords.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    const Text('Recent Records:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    ..._attendanceRecords.take(3).map((r) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(r.date, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: r.status == AttendanceStatus.present
+                                      ? KukieAccent.success.withValues(alpha: 0.15)
+                                      : r.status == AttendanceStatus.absent
+                                          ? Colors.red.withValues(alpha: 0.15)
+                                          : Colors.orange.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  r.status.displayName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: r.status == AttendanceStatus.present
+                                        ? KukieAccent.success
+                                        : r.status == AttendanceStatus.absent
+                                            ? Colors.red
+                                            : Colors.orange,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                  ],
+                ],
+              ),
             ),
           ),
+
           const SizedBox(height: AppSpacing.md),
-          const StatusPieChart(
-            title: 'Grade Status (sample)',
-            slices: _sampleGradeSlices,
+
+          // Real Academic Grades Card
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.assessment_outlined, color: KukieAccent.violet, size: 20),
+                      SizedBox(width: 8),
+                      Text('Academic Grades', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_gradeEntries.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text('No grade reports submitted by teachers yet.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      ),
+                    )
+                  else
+                    ..._gradeEntries.map((g) => Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(g.subject, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text(
+                                    '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet, fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('${g.assessmentType.label} • Term: ${g.term}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text(g.letterGrade, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                ],
+                              ),
+                              if (g.parentRecommendation != null && g.parentRecommendation!.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text('Teacher note: "${g.parentRecommendation}"', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87)),
+                              ],
+                            ],
+                          ),
+                        )),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const StatusPieChart(
-            title: 'Wellbeing Status (sample)',
-            slices: _sampleWellbeingSlices,
-          ),
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
+    );
+  }
+
+  Widget _attendanceChip(String label, int count, Color color) {
+    return Column(
+      children: [
+        Text('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
     );
   }
 

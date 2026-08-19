@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:schoolguardian_app/models/relationship.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/account_status.dart';
+import '../../models/attendance_record.dart';
+import '../../models/grade_entry.dart';
 import '../../models/student_link.dart';
+import '../../services/attendance_service.dart';
 import '../../services/parent_service.dart';
+import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'link_student_page.dart';
 
 /// Parent's "Linked Students" tab -- the verified students connected to
 /// this parent's account. Backed by `GET /parents/my-students`
-/// (`ParentService.getMyStudents`). The FAB opens
-/// `LinkStudentPage` to request a new link; this list refreshes when
-/// that screen is popped, since a newly-requested link won't show up
-/// here until an admin approves it, but it's cheap to re-check.
 class MyStudentsPage extends StatefulWidget {
   const MyStudentsPage({super.key});
 
@@ -135,13 +134,50 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
   }
 }
 
-class _StudentLinkCard extends StatelessWidget {
+class _StudentLinkCard extends StatefulWidget {
   const _StudentLinkCard({required this.link});
 
   final StudentLink link;
 
   @override
+  State<_StudentLinkCard> createState() => _StudentLinkCardState();
+}
+
+class _StudentLinkCardState extends State<_StudentLinkCard> {
+  bool _expanded = false;
+  bool _loadingDetails = false;
+  List<AttendanceRecord> _attendance = [];
+  List<GradeEntry> _grades = [];
+
+  Future<void> _toggleExpand() async {
+    final newExpanded = !_expanded;
+    setState(() => _expanded = newExpanded);
+
+    if (newExpanded && _attendance.isEmpty && _grades.isEmpty) {
+      setState(() => _loadingDetails = true);
+      try {
+        final attList = await AttendanceService().getStudentAttendance(widget.link.studentId);
+        final gradeList = await TeacherService().getGradesForStudent(widget.link.studentId);
+        if (mounted) {
+          setState(() {
+            _attendance = attList;
+            _grades = gradeList;
+            _loadingDetails = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _loadingDetails = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final link = widget.link;
+    int presentCount = _attendance.where((r) => r.status == AttendanceStatus.present).length;
+    int absentCount = _attendance.where((r) => r.status == AttendanceStatus.absent).length;
+    int lateCount = _attendance.where((r) => r.status == AttendanceStatus.late).length;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -150,67 +186,151 @@ class _StudentLinkCard extends StatelessWidget {
         border: Border.all(color: AppColors.outlineVariant),
         boxShadow: AppColors.cardShadow,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: KukieAccent.violetTint,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.school_outlined, color: KukieAccent.violet, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
+          InkWell(
+            onTap: _toggleExpand,
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(link.fullName,
-                          style: Theme.of(context).textTheme.labelLarge),
-                    ),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                        border: Border.all(
-                            color: AppColors.secondary.withValues(alpha: 0.4)),
-                      ),
-                      child: Text(
-                        link.relationshipType.label,
-                        style: const TextStyle(
-                          color: AppColors.secondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(link.email, style: Theme.of(context).textTheme.bodySmall),
-                if (link.status != null && link.status != AccountStatus.active)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      'Student account status: ${link.status!.name}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: AppColors.warning),
-                    ),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(Icons.school_outlined, color: KukieAccent.violet, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(link.fullName,
+                                style: Theme.of(context).textTheme.labelLarge),
+                          ),
+                          Container(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(AppRadius.full),
+                              border: Border.all(
+                                  color: AppColors.secondary.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              link.relationshipType.name,
+                              style: const TextStyle(
+                                color: AppColors.secondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(link.email, style: Theme.of(context).textTheme.bodySmall),
+                      if (link.status != null && link.status != AccountStatus.active)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Student account status: ${link.status!.name}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.warning),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: Colors.grey,
+                ),
               ],
             ),
           ),
+
+          if (_expanded) ...[
+            const Divider(height: 20),
+            if (_loadingDetails)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else ...[
+              // Attendance Section for Parent
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Attendance Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text('${_attendance.length} total records', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _chip('Present', presentCount, KukieAccent.success),
+                  _chip('Absent', absentCount, Colors.red),
+                  _chip('Late', lateCount, Colors.orange),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Grades Section for Parent
+              const Row(
+                children: [
+                  Icon(Icons.assessment_outlined, size: 16, color: KukieAccent.violet),
+                  SizedBox(width: 6),
+                  Text('Academic Reports', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (_grades.isEmpty)
+                const Text('No grades posted yet.', style: TextStyle(fontSize: 12, color: Colors.grey))
+              else
+                ..._grades.map((g) => Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(g.subject, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text('${g.assessmentType.label} (${g.term})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                          Text('${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet, fontSize: 13)),
+                        ],
+                      ),
+                    )),
+            ],
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _chip(String label, int val, Color c) {
+    return Column(
+      children: [
+        Text('$val', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
     );
   }
 }
