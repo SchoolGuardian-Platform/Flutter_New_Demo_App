@@ -17,6 +17,7 @@ import 'screens/dashboard/dashboard_page.dart';
 import 'screens/forgot_password_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
+import 'screens/analytics/academic_gpa_progression_page.dart';
 import 'screens/biometrics/biometric_health_overview_page.dart';
 import 'screens/biometrics/stress_level_dashboard_page.dart';
 import 'screens/nutrition/calorie_nutrition_dashboard_page.dart';
@@ -211,6 +212,10 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case BiometricHealthOverviewPage.routeName:
             final user = settings.arguments as User?;
             return MaterialPageRoute(builder: (_) => BiometricHealthOverviewPage(user: user));
+
+          case AcademicGpaProgressionPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => AcademicGpaProgressionPage(user: user));
 
           case LoginPage.routeName:
             final role = settings.arguments as UserRole?;
