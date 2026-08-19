@@ -7,10 +7,12 @@ class PortalTasksCard extends StatefulWidget {
     super.key,
     required this.tasks,
     required this.onAddTask,
+    this.onToggleTaskStatus,
   });
 
   final List<PortalTaskItem> tasks;
   final VoidCallback onAddTask;
+  final ValueChanged<PortalTaskItem>? onToggleTaskStatus;
 
   @override
   State<PortalTasksCard> createState() => _PortalTasksCardState();
@@ -142,19 +144,31 @@ class _PortalTasksCardState extends State<PortalTasksCard> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _getStatusBgColor(task.status),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: _getStatusBorderColor(task.status)),
-                            ),
-                            child: Text(
-                              task.status,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _getStatusTextColor(task.status),
+                          InkWell(
+                            onTap: widget.onToggleTaskStatus != null
+                                ? () => widget.onToggleTaskStatus!(task)
+                                : null,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _getStatusBgColor(task.status),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: _getStatusBorderColor(task.status)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    task.status,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _getStatusTextColor(task.status),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.sync_rounded, size: 10, color: Color(0xFF9CA3AF)),
+                                ],
                               ),
                             ),
                           ),

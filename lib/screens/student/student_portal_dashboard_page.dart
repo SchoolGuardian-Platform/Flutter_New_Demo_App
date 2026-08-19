@@ -237,6 +237,65 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
     );
   }
 
+  void _handleToggleTaskStatus(PortalTaskItem task) {
+    String nextStatus;
+    switch (task.status) {
+      case 'In progress':
+        nextStatus = 'Done';
+        break;
+      case 'Done':
+        nextStatus = 'Due Soon';
+        break;
+      case 'Due Soon':
+      default:
+        nextStatus = 'In progress';
+        break;
+    }
+
+    setState(() {
+      final idx = _tasks.indexWhere((t) => t.id == task.id);
+      if (idx != -1) {
+        _tasks[idx] = PortalTaskItem(
+          id: task.id,
+          title: task.title,
+          status: nextStatus,
+          dueDate: task.dueDate,
+        );
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Task "${task.title}" updated to $nextStatus')),
+    );
+  }
+
+  void _handleIncrementGoal(PortalGoalItem goal) {
+    if (goal.completedCount >= goal.totalCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('🎉 Goal "${goal.title}" is 100% complete!')),
+      );
+      return;
+    }
+
+    final newCount = goal.completedCount + 1;
+    setState(() {
+      final idx = _goals.indexWhere((g) => g.id == goal.id);
+      if (idx != -1) {
+        _goals[idx] = PortalGoalItem(
+          id: goal.id,
+          title: goal.title,
+          streakText: newCount == goal.totalCount ? '🎉 Goal Completed!' : goal.streakText,
+          completedCount: newCount,
+          totalCount: goal.totalCount,
+        );
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Progress logged: ${goal.title} ($newCount/${goal.totalCount})')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
@@ -443,7 +502,11 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
           Expanded(
             child: Column(
               children: [
-                PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
+                PortalTasksCard(
+                  tasks: _tasks,
+                  onAddTask: _handleAddTask,
+                  onToggleTaskStatus: _handleToggleTaskStatus,
+                ),
                 const SizedBox(height: 20),
                 PortalAnnouncementsCard(announcements: _announcements),
               ],
@@ -455,7 +518,11 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
               children: [
                 PortalUpcomingClassesCard(classes: _classes),
                 const SizedBox(height: 20),
-                PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
+                PortalWeeklyGoalsCard(
+                  goals: _goals,
+                  onAddGoal: _handleAddGoal,
+                  onTapGoal: _handleIncrementGoal,
+                ),
               ],
             ),
           ),
@@ -466,9 +533,17 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
       children: [
         PortalUpcomingClassesCard(classes: _classes),
         const SizedBox(height: 16),
-        PortalTasksCard(tasks: _tasks, onAddTask: _handleAddTask),
+        PortalTasksCard(
+          tasks: _tasks,
+          onAddTask: _handleAddTask,
+          onToggleTaskStatus: _handleToggleTaskStatus,
+        ),
         const SizedBox(height: 16),
-        PortalWeeklyGoalsCard(goals: _goals, onAddGoal: _handleAddGoal),
+        PortalWeeklyGoalsCard(
+          goals: _goals,
+          onAddGoal: _handleAddGoal,
+          onTapGoal: _handleIncrementGoal,
+        ),
         const SizedBox(height: 16),
         PortalAnnouncementsCard(announcements: _announcements),
       ],

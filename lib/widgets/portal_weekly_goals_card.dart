@@ -7,10 +7,12 @@ class PortalWeeklyGoalsCard extends StatelessWidget {
     super.key,
     required this.goals,
     required this.onAddGoal,
+    this.onTapGoal,
   });
 
   final List<PortalGoalItem> goals;
   final VoidCallback onAddGoal;
+  final ValueChanged<PortalGoalItem>? onTapGoal;
 
   @override
   Widget build(BuildContext context) {
@@ -75,64 +77,73 @@ class PortalWeeklyGoalsCard extends StatelessWidget {
 
           // Goal Items List
           for (final goal in goals) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          goal.title,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF111827),
+            InkWell(
+              onTap: onTapGoal != null ? () => onTapGoal!(goal) : null,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            goal.title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF111827),
+                            ),
                           ),
                         ),
-                      ),
-                      Text(
-                        '${goal.completedCount}/${goal.totalCount}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4B5563),
+                        Text(
+                          '${goal.completedCount}/${goal.totalCount}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B5563),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        goal.streakText,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepOrange,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: goal.progressFraction,
-                      minHeight: 6,
-                      backgroundColor: const Color(0xFFE5E7EB),
-                      color: const Color(0xFF10B981),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          goal.streakText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepOrange,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'Tap to log progress +1 ⚡',
+                          style: TextStyle(fontSize: 10, color: Color(0xFF6B7280), fontStyle: FontStyle.italic),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: goal.progressFraction,
+                        minHeight: 6,
+                        backgroundColor: const Color(0xFFE5E7EB),
+                        color: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

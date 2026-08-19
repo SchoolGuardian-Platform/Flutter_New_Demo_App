@@ -164,26 +164,6 @@ class _BiometricHealthOverviewPageState extends State<BiometricHealthOverviewPag
                         ),
                       ],
                     ),
-
-                    // User Status Emoji Badge (🥑)
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        '🥑',
-                        style: TextStyle(fontSize: 22),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
