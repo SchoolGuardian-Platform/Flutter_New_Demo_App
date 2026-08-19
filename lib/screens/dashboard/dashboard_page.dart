@@ -6,7 +6,6 @@ import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
 import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
@@ -17,6 +16,7 @@ import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
 import '../parent/my_students_page.dart';
+import '../communication/private_communication_page.dart';
 import '../reports/reports_page.dart';
 import '../student/guardians_page.dart';
 import '../student/student_overview_tab.dart';
@@ -314,12 +314,17 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       _WelcomeCard(user: _user),
                       const SizedBox(height: AppSpacing.lg),
-                      _QuickFeatureLaunchHub(user: _user),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text('Overview',
-                          style: Theme.of(context).textTheme.headlineSmall),
+                      Text(
+                        'Overview & Primary Actions',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF0F172A),
+                            ),
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       _RoleSections(role: _user.role, user: _user),
+                      const SizedBox(height: AppSpacing.xl),
+                      _QuickFeatureLaunchHub(user: _user),
                     ],
                   ),
                 ),
@@ -463,6 +468,15 @@ class _RoleSections extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const MyStudentsPage())),
           ),
           _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Confidential messaging with class teachers & school admin.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
+          ),
+          _SectionSpec(
             icon: Icons.description_outlined,
             title: 'Reports',
             subtitle: 'Academic, attendance, and wellbeing reports.',
@@ -513,6 +527,15 @@ class _RoleSections extends StatelessWidget {
                 .push(MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Direct confidential messaging with parents & admin.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
+          ),
+          _SectionSpec(
             icon: Icons.description_outlined,
             title: 'Reports',
             subtitle: 'Generate reports for your students.',
@@ -557,6 +580,15 @@ class _RoleSections extends StatelessWidget {
             route: 'GET /admin/relationships',
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GuardianLinksPage())),
+          ),
+          _SectionSpec(
+            icon: Icons.forum_rounded,
+            title: 'Private Communication Hub',
+            subtitle: 'Confidential guardian inquiries & staff announcements.',
+            route: 'Private Communication',
+            onTap: () => Navigator.of(context).pushNamed(
+                PrivateCommunicationPage.routeName,
+                arguments: user),
           ),
           _SectionSpec(
             icon: Icons.description_outlined,
@@ -611,79 +643,112 @@ class _SectionSpec {
   final VoidCallback? onTap;
 }
 
-class _SectionCard extends StatelessWidget {
+class _SectionCard extends StatefulWidget {
   const _SectionCard({required this.spec});
 
   final _SectionSpec spec;
 
   @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final tappable = spec.onTap != null;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: spec.onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: tappable
-                  ? KukieAccent.violet.withValues(alpha: 0.25)
-                  : AppColors.outlineVariant,
+    final tappable = widget.spec.onTap != null;
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTapDown: tappable ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: tappable ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel: tappable ? () => setState(() => _isPressed = false) : null,
+        onTap: widget.spec.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: tappable
+                    ? const Color(0xFFC7D2FE)
+                    : const Color(0xFFE2E8F0),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            boxShadow: tappable ? AppColors.cardShadow : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: tappable
-                      ? KukieAccent.violetTint
-                      : AppColors.surfaceContainerHigh,
-                  shape: BoxShape.circle,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: tappable
+                        ? const Color(0xFFEEF2FF)
+                        : const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    widget.spec.icon,
+                    color: tappable ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                    size: 22,
+                  ),
                 ),
-                child: Icon(
-                  spec.icon,
-                  color: tappable ? KukieAccent.violet : AppColors.onSurfaceVariant,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(spec.title, style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 2),
-                    Text(spec.subtitle, style: Theme.of(context).textTheme.bodySmall),
-                    if (!tappable) ...[
-                      const SizedBox(height: 4),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        spec.route,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.outline,
-                              fontStyle: FontStyle.italic,
-                            ),
+                        widget.spec.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.spec.subtitle,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                      if (!tappable) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.spec.route,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (tappable)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Icon(Icons.arrow_forward_ios,
-                      size: 14, color: AppColors.outline),
-                ),
-            ],
+                if (tappable)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
