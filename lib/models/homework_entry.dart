@@ -19,11 +19,34 @@ class HomeworkEntry {
   final DateTime dueDate;
   final DateTime createdAt;
 
-  factory HomeworkEntry.fromJson(Map<String, dynamic> json) {
+  factory HomeworkEntry.fromJson(Map<String, dynamic> rawJson) {
+    Map<String, dynamic> json = rawJson;
+    if (rawJson['homework'] is Map<String, dynamic>) {
+      json = rawJson['homework'] as Map<String, dynamic>;
+    } else if (rawJson['data'] is Map<String, dynamic> && !(rawJson['data'] as Map<String, dynamic>).containsKey('homework')) {
+      json = rawJson['data'] as Map<String, dynamic>;
+    }
+
     final classObj = json['class'] as Map<String, dynamic>?;
     String? cName;
     if (classObj != null) {
-      cName = 'Grade ${classObj['grade'] ?? ''} - Section ${classObj['section'] ?? ''}';
+      final grade = classObj['grade'];
+      final section = classObj['section'];
+      if (grade != null && section != null) {
+        cName = 'Grade $grade - Section $section';
+      } else if (grade != null) {
+        cName = 'Grade $grade';
+      }
+    }
+
+    DateTime parsedDueDate = DateTime.now().add(const Duration(days: 1));
+    if (json['dueDate'] != null) {
+      parsedDueDate = DateTime.tryParse(json['dueDate'].toString()) ?? parsedDueDate;
+    }
+
+    DateTime parsedCreatedAt = DateTime.now();
+    if (json['createdAt'] != null) {
+      parsedCreatedAt = DateTime.tryParse(json['createdAt'].toString()) ?? parsedCreatedAt;
     }
 
     return HomeworkEntry(
@@ -33,8 +56,8 @@ class HomeworkEntry {
       subject: json['subject'] as String? ?? 'General',
       title: json['title'] as String? ?? 'Homework',
       description: json['description'] as String? ?? '',
-      dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate'] as String) : DateTime.now().add(const Duration(days: 1)),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : DateTime.now(),
+      dueDate: parsedDueDate,
+      createdAt: parsedCreatedAt,
     );
   }
 
