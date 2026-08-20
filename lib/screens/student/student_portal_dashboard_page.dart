@@ -621,40 +621,38 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
           const SizedBox(height: 4),
           const Text('Spring Semester 2026 • Class Room Allocations & Time Blocks', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
           const SizedBox(height: 16),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: days.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (ctx, idx) {
-              final day = days[idx];
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFF3F4F6)),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 90,
-                      child: Text(day, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('CSCI 201: Statistics (Room 304) • 10:00 AM - 11:30 AM', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Text('MATH 301: Linear Algebra (Lab 102) • 01:30 PM - 03:00 PM', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                        ],
+          Column(
+            children: [
+              for (int idx = 0; idx < days.length; idx++) ...[
+                if (idx > 0) const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF3F4F6)),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 90,
+                        child: Text(days[idx], style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4F46E5))),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('CSCI 201: Statistics (Room 304) • 10:00 AM - 11:30 AM', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            SizedBox(height: 4),
+                            Text('MATH 301: Linear Algebra (Lab 102) • 01:30 PM - 03:00 PM', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ],
       ),
@@ -723,27 +721,25 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
         children: [
           const Text('Course Resources & Downloads', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 14),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: files.length,
-            separatorBuilder: (_, __) => const Divider(height: 16),
-            itemBuilder: (ctx, idx) {
-              final f = files[idx];
-              return ListTile(
-                leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 28),
-                title: Text(f['name']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                subtitle: Text('${f['category']} • ${f['size']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                trailing: IconButton(
-                  icon: const Icon(Icons.download_rounded, color: Color(0xFF6366F1)),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Downloading ${f['name']}...')),
-                    );
-                  },
+          Column(
+            children: [
+              for (int idx = 0; idx < files.length; idx++) ...[
+                if (idx > 0) const Divider(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFEF4444), size: 28),
+                  title: Text(files[idx]['name']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: Text('${files[idx]['category']} • ${files[idx]['size']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.download_rounded, color: Color(0xFF6366F1)),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Downloading ${files[idx]['name']}...')),
+                      );
+                    },
+                  ),
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ],
       ),
@@ -769,20 +765,18 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
         children: [
           const Text('Student Peer Discussion Forum', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 14),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: threads.length,
-            separatorBuilder: (_, __) => const Divider(height: 16),
-            itemBuilder: (ctx, idx) {
-              final t = threads[idx];
-              return ListTile(
-                leading: const Icon(Icons.forum_outlined, color: Color(0xFF6366F1)),
-                title: Text(t['title']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                subtitle: Text('${t['replies']} • ${t['upvotes']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
-              );
-            },
+          Column(
+            children: [
+              for (int idx = 0; idx < threads.length; idx++) ...[
+                if (idx > 0) const Divider(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.forum_outlined, color: Color(0xFF6366F1)),
+                  title: Text(threads[idx]['title']!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: Text('${threads[idx]['replies']} • ${threads[idx]['upvotes']}', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ],
           ),
         ],
       ),

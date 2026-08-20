@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/account_status.dart';
 import '../../models/attendance_record.dart';
 import '../../models/grade_entry.dart';
 import '../../models/guardian_link.dart';
+import '../../models/homework_entry.dart';
 import '../../models/school_class.dart';
 import '../../models/user.dart';
 import '../../services/attendance_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/homework_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/student_service.dart';
 import '../../services/teacher_service.dart';
@@ -17,6 +20,7 @@ import '../../theme/kukie_accent.dart';
 import '../../widgets/class_schedule_timetable.dart';
 import '../../widgets/dashboard_grid_cards.dart';
 import '../landing_page.dart';
+import 'homework_ai_assistant_page.dart';
 import 'student_profile_page.dart';
 
 /// Bento-Grid Front-Page Overview Dashboard for School Guardian
@@ -35,11 +39,15 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
   final _authService = AuthService();
   final _attendanceService = AttendanceService();
   final _teacherService = TeacherService();
+  final _homeworkService = HomeworkService();
 
   List<GuardianLink>? _guardians;
   SchoolClass? _assignedClass;
   List<AttendanceRecord> _attendanceRecords = [];
   List<GradeEntry> _gradeEntries = [];
+  List<HomeworkEntry> _homeworkEntries = [];
+  List<HomeworkEntry> _newHomeworks = [];   // homework not yet seen
+  bool _notificationDismissed = false;
 
   bool _loading = true;
   bool _loggingOut = false;
@@ -69,6 +77,11 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
       if (grades.isEmpty && code != null && code.isNotEmpty) {
         grades = await _teacherService.getGradesForStudent(code);
       }
+      // Use the new getMyHomework() which calls /homework/student/me
+      var homeworks = await _homeworkService.getStudentHomeworks(widget.user.id);
+
+      // Check for unseen new homework (for notification banner)
+      final newHw = await _homeworkService.getNewHomeworks();
 
       if (!mounted) return;
       setState(() {
@@ -76,6 +89,9 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
         _assignedClass = cls;
         _attendanceRecords = attendance;
         _gradeEntries = grades;
+        _homeworkEntries = homeworks;
+        _newHomeworks = newHw;
+        _notificationDismissed = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -170,28 +186,29 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Welcome back, ',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(
+                              text: 'Welcome back, ',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              user.firstName,
+                            TextSpan(
+                              text: user.firstName,
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFF6366F1),
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -210,16 +227,18 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 ),
                 const SizedBox(width: 8),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFC7D2FE)),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: const [
                           Icon(Icons.circle,
                               size: 8, color: Color(0xFF6366F1)),
@@ -235,7 +254,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     InkWell(
                       onTap: () =>
                           Navigator.of(context).push(MaterialPageRoute(
@@ -466,6 +485,14 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 ),
               ),
             ),
+            const SizedBox(height: AppSpacing.md),
+
+            // ── New Homework Notification Banner ──
+            if (_newHomeworks.isNotEmpty && !_notificationDismissed)
+              _buildNewHomeworkBanner(),
+
+            // Assigned Homework Card
+            _buildHomeworkSection(),
             const SizedBox(height: AppSpacing.md),
 
             // Academic Grades Card
@@ -716,6 +743,88 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     );
   }
 
+  Widget _buildNewHomeworkBanner() {
+    final count = _newHomeworks.length;
+    final label = count == 1
+        ? '1 new homework assignment from your teacher!'
+        : '$count new homework assignments from your teachers!';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            // Scroll or highlight the homework section
+            _homeworkService.markAllSeen();
+            setState(() => _notificationDismissed = true);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('📚', style: TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Tap to dismiss • Scroll down to view',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    _homeworkService.markAllSeen();
+                    setState(() => _notificationDismissed = true);
+                  },
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _attendanceChip(String label, int count, Color color) {
     return Column(
       children: [
@@ -730,6 +839,189 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
 
   String _statusLabel(AccountStatus status) =>
       status == AccountStatus.active ? 'Active' : status.name;
+
+  Widget _buildHomeworkSection() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.assignment_rounded, color: KukieAccent.violet, size: 20),
+                    SizedBox(width: 8),
+                    Text('Assigned Homework', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_homeworkEntries.length} Active',
+                    style: const TextStyle(color: KukieAccent.violet, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_homeworkEntries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.task_alt_rounded, size: 40, color: Colors.green.shade400),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'All caught up! No pending homework.',
+                        style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  for (int index = 0; index < _homeworkEntries.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 10),
+                    Builder(
+                      builder: (context) {
+                        final hw = _homeworkEntries[index];
+                        final isPastDue = hw.dueDate.isBefore(DateTime.now());
+                        final dueFormatted = DateFormat('MMM d, yyyy').format(hw.dueDate);
+                        final isNew = _newHomeworks.any((n) => n.id == hw.id);
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isNew
+                                  ? const Color(0xFF6366F1).withValues(alpha: 0.5)
+                                  : const Color(0xFFF3F4F6),
+                              width: isNew ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── New badge + subject/due row ──
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (isNew) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF6366F1),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Text('NEW', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: KukieAccent.violetTint,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            hw.subject,
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isPastDue ? Colors.red.shade50 : Colors.orange.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.schedule, size: 12, color: isPastDue ? Colors.red : Colors.orange),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            isPastDue ? 'Past Due: $dueFormatted' : 'Due: $dueFormatted',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: isPastDue ? Colors.red : Colors.orange.shade800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // ── Title + description ──
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                                child: Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ),
+                              if (hw.description.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                                  child: Text(
+                                    hw.description,
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              // ── AI Help button ──
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(MaterialPageRoute(
+                                        builder: (_) => HomeworkAiAssistantPage(homework: hw),
+                                      ));
+                                    },
+                                    icon: const Icon(Icons.auto_awesome_rounded, size: 15),
+                                    label: const Text('Get AI Help', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1E1B4B),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _StatCard extends StatelessWidget {

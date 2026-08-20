@@ -95,16 +95,17 @@ class _PortalUpcomingClassesCardState extends State<PortalUpcomingClassesCard> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: cls.color,
-                          borderRadius: BorderRadius.circular(2),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          width: 4,
+                          decoration: BoxDecoration(
+                            color: cls.color,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
-                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -196,7 +197,8 @@ class _PortalUpcomingClassesCardState extends State<PortalUpcomingClassesCard> {
                       ),
                     ],
                   ),
-                );
+                ),
+              );
               },
             ),
           ),
