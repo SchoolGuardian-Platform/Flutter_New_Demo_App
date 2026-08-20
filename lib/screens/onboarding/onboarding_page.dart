@@ -38,7 +38,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String? _selectedReferral;
   UserRole? _selectedRole;
 
-  static const _pageCount = 5;
 
   @override
   void dispose() {

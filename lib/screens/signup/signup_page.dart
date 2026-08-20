@@ -654,7 +654,7 @@ class _GenderField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<Gender>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           icon: const Icon(Icons.expand_more, color: AppColors.outline),
           decoration: InputDecoration(

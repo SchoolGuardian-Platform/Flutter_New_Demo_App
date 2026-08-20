@@ -122,7 +122,7 @@ class AuthService {
       'firstName': firstName,
       if (middleName != null && middleName.isNotEmpty) 'middleName': middleName,
       'lastName': lastName,
-      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+      'dateOfBirth': ?dateOfBirth,
       if (gender != null) 'gender': gender.apiValue,
       'email': email,
       'password': password,

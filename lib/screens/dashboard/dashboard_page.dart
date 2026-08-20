@@ -6,21 +6,18 @@ import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
 import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
 import '../admin/admin_profile_page.dart';
 import '../admin/manage_users_page.dart';
 import '../landing_page.dart';
-import '../reports/reports_page.dart';
+import '../parent/parent_my_children_page.dart';
+import '../student_attendance_page.dart';
+import '../teacher/teacher_attendance_page.dart';
+import '../teacher/teacher_grades_page.dart';
+import '../teacher/teacher_homework_page.dart';
 
-/// Post-login home screen. One shell, per-role content — the four roles
-/// share the same shape (app bar with profile menu + logout, a welcome
-/// card, a grid of role-specific sections) rather than four separate
-/// screens, since none of the underlying admin/parent/student endpoints
-/// have a service layer yet (see PROGRESS.md #5). Each section here is a
-/// placeholder that names the backend route it will eventually call.
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, required this.user});
 
@@ -38,23 +35,7 @@ class _DashboardPageState extends State<DashboardPage> {
   late User _user = widget.user;
   bool _refreshing = false;
   bool _loggingOut = false;
-
-  /// Only fetched for admins -- powers the notification bell badge in the
-  /// app bar. See `AdminService.getPendingSummary` for why this is
-  /// assembled client-side rather than from a single endpoint.
   int _pendingCount = 0;
-
-  /// Admin-only bottom nav. "Overview" (index 0) renders inline; the other
-  /// two are shortcuts that push the existing full-screen admin pages
-  /// and then return here, refreshing Overview's stats so numbers don't
-  /// go stale after an approve/reject. See `_onAdminTabTapped`.
-  ///
-  /// There used to be a dedicated "Approvals" tab here, but approving or
-  /// rejecting is already fully doable from the Notifications bell (see
-  /// `AdminNotificationsPage._respondToUser` /
-  /// `_respondToRelationship`), so the tab was redundant with that and
-  /// with the "Manage Users" section. Removed rather than kept as a
-  /// second way to do the same thing.
   final _overviewKey = GlobalKey<AdminOverviewTabState>();
 
   @override
@@ -70,15 +51,9 @@ class _DashboardPageState extends State<DashboardPage> {
       final summary = await _adminService.getPendingSummary();
       if (!mounted) return;
       setState(() => _pendingCount = summary.total);
-    } catch (_) {
-      // Non-critical for the dashboard shell; the notifications page
-      // itself will surface a proper error if this keeps failing.
-    }
+    } catch (_) {}
   }
 
-  /// `GET /auth/me` — re-fetches the profile (pull-to-refresh). Also
-  /// doubles as the "is my session still good" check other screens can
-  /// reuse the pattern from (see `session_check_page.dart`).
   Future<void> _refreshProfile() async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
@@ -96,16 +71,10 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  /// `POST /auth/logout` — revokes the refresh token server-side and
-  /// clears local storage either way (see `AuthService.logout`).
   Future<void> _logout() async {
     setState(() => _loggingOut = true);
     try {
       await _authService.logout();
-    } on ApiException {
-      // Token storage is cleared in AuthService.logout's `finally` even
-      // if the server call itself fails, so it's safe to proceed to
-      // landing regardless.
     } finally {
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -140,7 +109,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _onAdminTabTapped(int index) async {
     switch (index) {
       case 0:
-        return; // Overview renders inline; nothing to navigate to.
+        return;
       case 1:
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => const ManageUsersPage(),
@@ -152,8 +121,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ));
         break;
     }
-    // Approving/rejecting on any of those screens changes the pending
-    // counts, so refresh Overview's stats and the app bar badge on return.
     _overviewKey.currentState?.refresh();
     _loadPendingCount();
   }
@@ -336,7 +303,7 @@ class _WelcomeCard extends StatelessWidget {
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(color: AppColors.warning),
+                          ?.copyWith(color: AppColors.error),
                     ),
                   ),
               ],
@@ -348,146 +315,123 @@ class _WelcomeCard extends StatelessWidget {
   }
 }
 
-/// Per-role home sections. Admin's cards now navigate to real, working
-/// screens (previously they were static text naming a route that nothing
-/// on screen actually opened). Parent/student/teacher cards still name
-/// the backend route they stand in for, since those services don't have
-/// a Flutter layer yet; Reports is wired for every role since its screen
-/// exists regardless of backend status.
 class _RoleSections extends StatelessWidget {
   const _RoleSections({required this.role, required this.user});
 
   final UserRole role;
   final User user;
 
-  List<_SectionSpec> _sections(BuildContext context) {
+  List<_SectionSpec> _buildSpecs(BuildContext context) {
+    final specs = <_SectionSpec>[];
     switch (role) {
-      case UserRole.parent:
-        return [
-          const _SectionSpec(
-            icon: Icons.link,
-            title: 'Linked Students',
-            subtitle: 'View and manage students linked to your account.',
-            route: 'GET /parents/my-students',
-          ),
-          _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'Academic, attendance, and wellbeing reports.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
-          ),
-        ];
       case UserRole.student:
-        return [
-          const _SectionSpec(
-            icon: Icons.badge_outlined,
-            title: 'My Profile',
-            subtitle: 'Student ID, school, and enrollment details.',
-            route: 'GET /auth/me',
-          ),
-          const _SectionSpec(
-            icon: Icons.family_restroom,
-            title: 'Linked Guardians',
-            subtitle: 'Parents/guardians connected to your account.',
-            route: 'GET /students/my-guardians',
+        specs.addAll([
+          _SectionSpec(
+            icon: Icons.event_available_outlined,
+            title: 'My Attendance',
+            subtitle: 'View your attendance history and records.',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => StudentAttendancePage(user: user),
+            )),
           ),
           _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'Your academic, attendance, and wellbeing reports.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
-          ),
-        ];
-      case UserRole.teacher:
-        return [
-          const _SectionSpec(
-            icon: Icons.groups_outlined,
+            icon: Icons.class_outlined,
             title: 'My Classes',
-            subtitle: 'Rosters and classroom safety tools.',
-            route: 'not yet on the backend',
+            subtitle: 'See your enrolled classes and schedule.',
+            onTap: () {},
           ),
+        ]);
+        break;
+      case UserRole.parent:
+        specs.addAll([
           _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'Generate reports for your students.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
-          ),
-        ];
-      case UserRole.admin:
-        return [
-          _SectionSpec(
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            subtitle: 'New registrations and guardian-link requests.',
-            route: 'GET /admin/{role}/pending, /admin/relationships/pending',
+            icon: Icons.people_outline,
+            title: 'My Children',
+            subtitle: 'View your linked students\' information.',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const AdminNotificationsPage())),
+              builder: (_) => const ParentMyChildrenPage(),
+            )),
           ),
           _SectionSpec(
-            icon: Icons.manage_accounts_outlined,
-            title: 'Manage Users',
-            subtitle: 'All account categories, grouped with live counts.',
-            route: 'GET /admin/{role}/pending',
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageUsersPage())),
-          ),
-          _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'School-wide academic, attendance, and wellbeing data.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
-          ),
-          _SectionSpec(
-            icon: Icons.admin_panel_settings_outlined,
-            title: 'My Admin Profile',
-            subtitle: 'Your account details.',
-            route: 'GET /auth/me',
+            icon: Icons.event_available_outlined,
+            title: 'Attendance Records',
+            subtitle: 'Review your child\'s attendance history.',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => AdminProfilePage(initialUser: user))),
+              builder: (_) => const ParentMyChildrenPage(),
+            )),
           ),
-        ];
+        ]);
+        break;
+      case UserRole.teacher:
+        specs.addAll([
+          _SectionSpec(
+            icon: Icons.check_circle_outline,
+            title: 'Attendance',
+            subtitle: 'Record and manage class attendance.',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const TeacherAttendancePage(),
+            )),
+          ),
+          _SectionSpec(
+            icon: Icons.grade_outlined,
+            title: 'Grades',
+            subtitle: 'Enter and review student grades.',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const TeacherGradesPage(),
+            )),
+          ),
+          _SectionSpec(
+            icon: Icons.assignment_outlined,
+            title: 'Homework',
+            subtitle: 'Post and manage homework assignments.',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const TeacherHomeworkPage(),
+            )),
+          ),
+        ]);
+        break;
+      default:
+        specs.add(
+          _SectionSpec(
+            icon: Icons.dashboard_customize_outlined,
+            title: 'Getting Started',
+            subtitle: 'Your personalized tools will appear here.',
+            onTap: () {},
+          ),
+        );
     }
+    return specs;
   }
 
   @override
   Widget build(BuildContext context) {
-    final sections = _sections(context);
+    final specs = _buildSpecs(context);
     return Column(
-      children: sections
-          .map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _SectionCard(spec: s),
-              ))
-          .toList(),
+      children: [
+        for (final spec in specs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: _SectionCard(spec: spec),
+          ),
+      ],
     );
   }
 }
+
+
 
 class _SectionSpec {
   const _SectionSpec({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.route,
-    this.onTap,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final String route;
-
-  /// Null for sections that don't have a screen yet (parent/student/
-  /// teacher placeholders naming a route with no Flutter service layer).
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 }
 
 class _SectionCard extends StatelessWidget {
@@ -497,71 +441,50 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tappable = spec.onTap != null;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: spec.onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
         child: Container(
-          width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: tappable
-                  ? KukieAccent.violet.withValues(alpha: 0.25)
-                  : AppColors.outlineVariant,
-            ),
-            boxShadow: tappable ? AppColors.cardShadow : null,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: AppColors.cardShadow,
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(
-                  color: tappable
-                      ? KukieAccent.violetTint
-                      : AppColors.surfaceContainerHigh,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryFixed,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  spec.icon,
-                  color: tappable ? KukieAccent.violet : AppColors.onSurfaceVariant,
-                  size: 20,
-                ),
+                child: Icon(spec.icon, color: AppColors.primary, size: 20),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(spec.title, style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      spec.title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 2),
-                    Text(spec.subtitle, style: Theme.of(context).textTheme.bodySmall),
-                    if (!tappable) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        spec.route,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.outline,
-                              fontStyle: FontStyle.italic,
-                            ),
-                      ),
-                    ],
+                    Text(
+                      spec.subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
-              if (tappable)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Icon(Icons.arrow_forward_ios,
-                      size: 14, color: AppColors.outline),
-                ),
+              const Icon(Icons.chevron_right, color: AppColors.outline),
             ],
           ),
         ),

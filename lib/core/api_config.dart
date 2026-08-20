@@ -56,8 +56,42 @@ class ApiConfig {
   static const String verifyEmailConfirm = '/auth/verify-email';
   static const String verifyEmailResend = '/auth/resend-verification';
 
-  // ---- Not yet wired up on the Flutter side (no screens for these yet) ----
-  // Admin (src/routes/admin.routes.ts): '/admin/...'
-  // Parent (src/routes/parent.routes.ts): '/parents/...'
-  // Student (src/routes/student.routes.ts): '/students/...'
+  // ---- Attendance (src/routes/attendance.routes.ts) ----
+  static const String attendance = '/attendance';
+  static const String attendanceTeacher = '/attendance/teacher';
+
+  static String attendanceByStudent(String studentId) =>
+      '/attendance/student/$studentId';
+
+  static String attendanceSummary(String studentId) =>
+      '/attendance/student/$studentId/summary';
+
+  static String attendanceById(String id) => '/attendance/$id';
+
+  // ---- Grades (src/routes/grade.routes.ts) ----
+  static const String grades = '/grades';
+  static const String gradesByTeacher = '/grades/teacher';
+
+  static String gradesByStudent(String studentId) =>
+      '/grades/student/$studentId';
+
+  static String gradeSummary(String studentId) =>
+      '/grades/student/$studentId/summary';
+
+  static String gradeById(String id) => '/grades/$id';
+
+  // ---- Homework (src/routes/homework.routes.ts) ----
+  static const String homework = '/homework';
+  static const String homeworkByTeacher = '/homework/teacher';
+
+  static String homeworkByStudent(String studentId) =>
+      '/homework/student/$studentId';
+
+  static String homeworkByClass(String classId) => '/homework/class/$classId';
+
+  static String homeworkById(String id) => '/homework/$id';
+
+  // ---- Parent (src/routes/parent.routes.ts) ----
+  static const String parentMyStudents = '/parents/my-students';
+  static const String parentLinkStudent = '/parents/link-student';
 }

@@ -17,11 +17,16 @@ import 'screens/forgot_password_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
+import 'screens/parent/parent_my_children_page.dart';
 import 'screens/pending_approval_page.dart';
 import 'screens/reports/reports_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/student_attendance_page.dart';
+import 'screens/teacher/teacher_attendance_page.dart';
+import 'screens/teacher/teacher_grades_page.dart';
+import 'screens/teacher/teacher_homework_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
 
@@ -258,6 +263,30 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case UnauthorizedPage.routeName:
             return MaterialPageRoute(builder: (_) => const UnauthorizedPage());
+
+          // ---- Teacher screens ----
+          case TeacherAttendancePage.routeName:
+            return MaterialPageRoute(
+                builder: (_) => const TeacherAttendancePage());
+
+          case TeacherGradesPage.routeName:
+            return MaterialPageRoute(
+                builder: (_) => const TeacherGradesPage());
+
+          case TeacherHomeworkPage.routeName:
+            return MaterialPageRoute(
+                builder: (_) => const TeacherHomeworkPage());
+
+          // ---- Parent screens ----
+          case ParentMyChildrenPage.routeName:
+            return MaterialPageRoute(
+                builder: (_) => const ParentMyChildrenPage());
+
+          // ---- Student screens ----
+          case StudentAttendancePage.routeName:
+            final user = settings.arguments as User;
+            return MaterialPageRoute(
+                builder: (_) => StudentAttendancePage(user: user));
 
           default:
             return MaterialPageRoute(builder: (_) => const LandingPage());
