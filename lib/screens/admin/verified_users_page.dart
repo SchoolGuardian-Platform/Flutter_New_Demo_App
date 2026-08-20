@@ -5,7 +5,9 @@ import '../../models/user.dart';
 import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
+import '../../widgets/friend_admin_bottom_nav.dart';
+import 'admin_profile_page.dart';
+import 'manage_users_page.dart';
 import 'student_detail_page.dart';
 
 /// Admin's "Users" directory — every already-verified (ACTIVE) account,
@@ -148,31 +150,54 @@ class _VerifiedUsersPageState extends State<VerifiedUsersPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
-        title: const Text('Users'),
+        title: const Text('Users', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+        elevation: 0,
+        backgroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
+          labelColor: const Color(0xFF5B5BF7),
+          unselectedLabelColor: const Color(0xFF64748B),
+          indicatorColor: const Color(0xFF5B5BF7),
+          indicatorWeight: 3,
           tabs: _roles.map((r) => Tab(text: _label(r))).toList(),
         ),
+      ),
+      bottomNavigationBar: FriendAdminBottomNav(
+        currentIndex: 2,
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.of(context).pop();
+          } else if (index == 1) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const ManageUsersPage()),
+            );
+          } else if (index == 3) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AdminProfilePage()),
+            );
+          }
+        },
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-            child: TextField(
-              onChanged: (v) => setState(() => _query = v.trim()),
-              decoration: InputDecoration(
-                hintText: 'Search by name, email, or ID',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                filled: true,
-                fillColor: AppColors.surfaceContainerLow,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v.trim()),
+                decoration: const InputDecoration(
+                  hintText: 'Search by name, email, or ID',
+                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 ),
               ),
             ),
@@ -266,92 +291,92 @@ class _VerifiedUserCard extends StatelessWidget {
 
   final User user;
   final VoidCallback onDelete;
-
-  /// Non-null only for students -- opens [StudentDetailPage] (profile +
-  /// guardian links). Parents/teachers have no such page, so their cards
-  /// stay non-interactive apart from the delete button.
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.md),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.outlineVariant),
-          ),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 48,
+                height: 48,
                 decoration: const BoxDecoration(
-                  color: KukieAccent.violetTint,
+                  color: Color(0xFFEEF2FF),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(user.role.icon, color: KukieAccent.violet, size: 20),
+                child: Icon(user.role.icon, color: const Color(0xFF5B5BF7), size: 22),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(user.fullName,
-                              style: Theme.of(context).textTheme.labelLarge),
+                        Flexible(
+                          child: Text(
+                            user.fullName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.secondary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            border: Border.all(
-                                color: AppColors.secondary.withValues(alpha: 0.4)),
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
                             'Verified',
                             style: TextStyle(
-                              color: AppColors.secondary,
+                              color: Color(0xFF15803D),
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(user.email, style: Theme.of(context).textTheme.bodySmall),
-                    if (user.studentId != null && user.studentId!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text('ID: ${user.studentId}',
-                            style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 3),
+                    Text(
+                      user.email,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (user.studentId != null && user.studentId!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'ID: ${user.studentId}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                       ),
+                    ],
                   ],
                 ),
               ),
-              if (onTap != null)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, top: 4),
-                  child: Icon(Icons.arrow_forward_ios,
-                      size: 14, color: AppColors.outline),
-                ),
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 22),
                 tooltip: 'Remove user',
-                visualDensity: VisualDensity.compact,
               ),
+              if (onTap != null)
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
             ],
           ),
         ),

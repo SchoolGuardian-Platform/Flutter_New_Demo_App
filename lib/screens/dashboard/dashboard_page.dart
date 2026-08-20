@@ -26,6 +26,7 @@ import '../analytics/academic_gpa_progression_page.dart';
 import '../biometrics/biometric_health_overview_page.dart';
 import '../biometrics/stress_level_dashboard_page.dart';
 import '../nutrition/calorie_nutrition_dashboard_page.dart';
+import '../../widgets/friend_admin_bottom_nav.dart';
 import '../teacher/my_classes_page.dart';
 import '../teacher/teacher_portal_page.dart';
 
@@ -57,6 +58,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// app bar. See `AdminService.getPendingSummary` for why this is
   /// assembled client-side rather than from a single endpoint.
   int _pendingCount = 0;
+  int _studentTabIndex = 0;
 
   /// Admin-only bottom nav. "Overview" (index 0) renders inline; the other
   /// three ("Manage", "Users", "Profile") are shortcuts that push the
@@ -187,9 +189,13 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _onStudentTabTapped(int index) async {
+    if (index == 0) {
+      setState(() => _studentTabIndex = 0);
+      _studentOverviewKey.currentState?.refresh();
+      return;
+    }
+    setState(() => _studentTabIndex = index);
     switch (index) {
-      case 0:
-        return; // Overview renders inline; nothing to navigate to.
       case 1:
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => StudentProfilePage(initialUser: _user),
@@ -206,8 +212,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ));
         break;
     }
-    // Returning here could follow a guardian-link change, so refresh
-    // Overview's live count.
+    if (mounted) setState(() => _studentTabIndex = 0);
     _studentOverviewKey.currentState?.refresh();
   }
 
@@ -323,41 +328,22 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       _RoleSections(role: _user.role, user: _user),
-                      const SizedBox(height: AppSpacing.xl),
-                      _QuickFeatureLaunchHub(user: _user),
+                      if (_user.role == UserRole.student) ...[
+                        const SizedBox(height: AppSpacing.xl),
+                        _QuickFeatureLaunchHub(user: _user),
+                      ],
                     ],
                   ),
                 ),
       bottomNavigationBar: isAdmin
-          ? BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
+          ? FriendAdminBottomNav(
               currentIndex: 0,
-              selectedItemColor: AppColors.primary,
-              unselectedItemColor: AppColors.outline,
               onTap: _onAdminTabTapped,
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard_outlined),
-                  label: 'Overview',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.manage_accounts_outlined),
-                  label: 'Manage',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.groups_outlined),
-                  label: 'Users',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  label: 'Profile',
-                ),
-              ],
             )
           : isStudent
               ? BottomNavigationBar(
                   type: BottomNavigationBarType.fixed,
-                  currentIndex: 0,
+                  currentIndex: _studentTabIndex,
                   selectedItemColor: AppColors.primary,
                   unselectedItemColor: AppColors.outline,
                   onTap: _onStudentTabTapped,
@@ -468,21 +454,13 @@ class _RoleSections extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const MyStudentsPage())),
           ),
           _SectionSpec(
-            icon: Icons.forum_rounded,
-            title: 'Private Communication Hub',
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Messages',
             subtitle: 'Confidential messaging with class teachers & school admin.',
-            route: 'Private Communication',
+            route: 'GET /messages',
             onTap: () => Navigator.of(context).pushNamed(
                 PrivateCommunicationPage.routeName,
                 arguments: user),
-          ),
-          _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'Academic, attendance, and wellbeing reports.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
           ),
         ];
       case UserRole.student:
@@ -527,21 +505,13 @@ class _RoleSections extends StatelessWidget {
                 .push(MaterialPageRoute(builder: (_) => const MyClassesPage())),
           ),
           _SectionSpec(
-            icon: Icons.forum_rounded,
-            title: 'Private Communication Hub',
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Messages',
             subtitle: 'Direct confidential messaging with parents & admin.',
-            route: 'Private Communication',
+            route: 'GET /messages',
             onTap: () => Navigator.of(context).pushNamed(
                 PrivateCommunicationPage.routeName,
                 arguments: user),
-          ),
-          _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'Generate reports for your students.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
           ),
         ];
       case UserRole.admin:
@@ -582,22 +552,15 @@ class _RoleSections extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const GuardianLinksPage())),
           ),
           _SectionSpec(
-            icon: Icons.forum_rounded,
-            title: 'Private Communication Hub',
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Messages',
             subtitle: 'Confidential guardian inquiries & staff announcements.',
-            route: 'Private Communication',
+            route: 'GET /messages',
             onTap: () => Navigator.of(context).pushNamed(
                 PrivateCommunicationPage.routeName,
                 arguments: user),
           ),
-          _SectionSpec(
-            icon: Icons.description_outlined,
-            title: 'Reports',
-            subtitle: 'School-wide academic, attendance, and wellbeing data.',
-            route: 'GET /reports/student/:id/*',
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const ReportsPage())),
-          ),
+
           _SectionSpec(
             icon: Icons.admin_panel_settings_outlined,
             title: 'My Admin Profile',

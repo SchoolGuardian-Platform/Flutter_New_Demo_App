@@ -108,6 +108,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   menuMaxHeight: 280,
                   decoration: const InputDecoration(
                     labelText: 'Grade Level (1 - 12) *',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.grade_outlined),
                   ),
                   items: List.generate(
@@ -127,6 +128,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Section Name / Code *',
                     hintText: 'e.g. A, B, C, 101',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.meeting_room_outlined),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Section is required' : null,
@@ -140,6 +142,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         decoration: const InputDecoration(
                           labelText: 'Room Number',
                           hintText: 'e.g. Room 204',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
                       ),
                     ),
@@ -151,6 +154,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         decoration: const InputDecoration(
                           labelText: 'Max Capacity',
                           hintText: '35',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) return null;
@@ -168,6 +172,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Academic Year',
                     hintText: '2025/2026',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.calendar_today_outlined),
                   ),
                 ),
@@ -178,6 +183,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Description / Notes (Optional)',
                     hintText: 'e.g. Natural Science Stream Section',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                   ),
                 ),
               ],
@@ -232,140 +238,172 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.book_outlined, color: KukieAccent.violet),
-              SizedBox(width: 8),
-              Text('School Subjects'),
-            ],
-          ),
-          content: SizedBox(
-            width: 400,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) {
+        List<Subject> dialogSubjects = List.from(_subjects);
+        bool isLoading = true;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            if (isLoading) {
+              isLoading = false;
+              _schoolService.getSubjects().then((updated) {
+                if (ctx.mounted) {
+                  setDialogState(() {
+                    dialogSubjects = updated;
+                    _subjects = updated;
+                  });
+                }
+              });
+            }
+
+            return AlertDialog(
+              title: const Row(
                 children: [
-                  const Text(
-                    'Add New Subject',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Subject Name *',
-                      hintText: 'e.g. Mathematics',
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: codeCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Code',
-                            hintText: 'MATH-101',
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: catCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                            hintText: 'STEM / Languages',
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: KukieAccent.violet,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Add Subject'),
-                      onPressed: () async {
-                        if (nameCtrl.text.trim().isEmpty) return;
-                        try {
-                          await _schoolService.createSubject(
-                            name: nameCtrl.text.trim(),
-                            code: codeCtrl.text.trim(),
-                            category: catCtrl.text.trim(),
-                          );
-                          nameCtrl.clear();
-                          codeCtrl.clear();
-                          final updated = await _schoolService.getSubjects();
-                          setDialogState(() {
-                            _subjects = updated;
-                          });
-                          _loadData();
-                        } on ApiException catch (e) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(e.message)));
-                        }
-                      },
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  const Text(
-                    'Existing Subjects',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  ..._subjects.map(
-                    (s) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: KukieAccent.violetTint,
-                        child: Text(
-                          s.name.substring(0, 1).toUpperCase(),
-                          style: const TextStyle(
-                            color: KukieAccent.violet,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      title: Text(s.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('${s.code ?? 'No Code'} • ${s.category ?? 'General'}', style: const TextStyle(fontSize: 12)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                        onPressed: () async {
-                          await _schoolService.deleteSubject(s.id);
-                          final updated = await _schoolService.getSubjects();
-                          setDialogState(() {
-                            _subjects = updated;
-                          });
-                          _loadData();
-                        },
-                      ),
-                    ),
-                  ),
+                  Icon(Icons.book_outlined, color: KukieAccent.violet),
+                  SizedBox(width: 8),
+                  Text('School Subjects'),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      ),
+              content: SizedBox(
+                width: 400,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Add New Subject',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Subject Name *',
+                          hintText: 'e.g. Mathematics',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: codeCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Code',
+                                hintText: 'MATH-101',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: catCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Category',
+                                hintText: 'STEM / Languages',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: KukieAccent.violet,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Add Subject'),
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty) return;
+                            try {
+                              await _schoolService.createSubject(
+                                name: nameCtrl.text.trim(),
+                                code: codeCtrl.text.trim(),
+                                category: catCtrl.text.trim(),
+                              );
+                              nameCtrl.clear();
+                              codeCtrl.clear();
+                              final updated = await _schoolService.getSubjects();
+                              setDialogState(() {
+                                dialogSubjects = updated;
+                                _subjects = updated;
+                              });
+                              _loadData();
+                            } on ApiException catch (e) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(e.message)));
+                            }
+                          },
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      const Text(
+                        'Existing Subjects',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      if (dialogSubjects.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text(
+                              'No subjects created yet.',
+                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                          ),
+                        )
+                      else
+                        ...dialogSubjects.map(
+                          (s) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: KukieAccent.violetTint,
+                              child: Text(
+                                s.name.isNotEmpty ? s.name.substring(0, 1).toUpperCase() : 'S',
+                                style: const TextStyle(
+                                  color: KukieAccent.violet,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            title: Text(s.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            subtitle: Text('${s.code ?? 'No Code'} • ${s.category ?? 'General'}', style: const TextStyle(fontSize: 12)),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                              onPressed: () async {
+                                await _schoolService.deleteSubject(s.id);
+                                final updated = await _schoolService.getSubjects();
+                                setDialogState(() {
+                                  dialogSubjects = updated;
+                                  _subjects = updated;
+                                });
+                                _loadData();
+                              },
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -822,7 +860,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         : 'SG-${DateTime.now().year}-${(100000 + (DateTime.now().millisecondsSinceEpoch % 899999))}');
 
                 final studentId = selectedTab == 0
-                    ? (selectedStudent!.studentId ?? selectedStudent!.id)
+                    ? selectedStudent!.id
                     : realCode;
                 final studentName = selectedTab == 0
                     ? selectedStudent!.fullName

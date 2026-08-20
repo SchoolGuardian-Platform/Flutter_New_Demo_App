@@ -43,6 +43,22 @@ class ApiClient {
   }) =>
       _send('POST', path, body: body, requireAuth: requireAuth, timeout: timeout);
 
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, dynamic>? body,
+    bool requireAuth = false,
+    Duration? timeout,
+  }) =>
+      _send('DELETE', path, body: body, requireAuth: requireAuth, timeout: timeout);
+
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    bool requireAuth = false,
+    Duration? timeout,
+  }) =>
+      _send('PATCH', path, body: body, requireAuth: requireAuth, timeout: timeout);
+
   /// Guards against a stampede of parallel 401s each kicking off their own
   /// `/auth/refresh` call — every caller that arrives while a refresh is
   /// already in flight awaits the same future instead.

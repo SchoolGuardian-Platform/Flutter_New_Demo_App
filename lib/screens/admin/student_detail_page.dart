@@ -183,7 +183,10 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       return;
     }
 
-    SchoolClass selectedClass = _assignedClass ?? availableClasses.first;
+    SchoolClass selectedClass = availableClasses.firstWhere(
+      (c) => _assignedClass != null && c.id == _assignedClass!.id,
+      orElse: () => availableClasses.first,
+    );
     final yearCtrl = TextEditingController(text: selectedClass.academicYear);
 
     if (!mounted) return;
@@ -223,8 +226,8 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     style: const TextStyle(color: AppColors.outline, fontSize: 13),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<SchoolClass>(
-                    initialValue: selectedClass,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedClass.id,
                     isExpanded: true,
                     dropdownColor: AppColors.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(AppRadius.md),
@@ -235,8 +238,8 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     ),
                     items: availableClasses
                         .map(
-                          (c) => DropdownMenuItem(
-                            value: c,
+                          (c) => DropdownMenuItem<String>(
+                            value: c.id,
                             child: Text(
                               '${c.displayName} (${c.academicYear})',
                               overflow: TextOverflow.ellipsis,
@@ -246,9 +249,10 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {
+                        final found = availableClasses.firstWhere((c) => c.id == val);
                         setDialogState(() {
-                          selectedClass = val;
-                          yearCtrl.text = val.academicYear;
+                          selectedClass = found;
+                          yearCtrl.text = found.academicYear;
                         });
                       }
                     },
@@ -280,7 +284,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                       : 'SG-${DateTime.now().year}-${widget.student.id.hashCode.abs().toString().padLeft(6, '0')}';
 
                   await _schoolService.assignStudentToClass(
-                    studentId: realCode,
+                    studentId: widget.student.id,
                     studentName: widget.student.fullName,
                     studentCode: realCode,
                     classId: selectedClass.id,
@@ -316,15 +320,23 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final student = widget.student;
     final links = _links;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(student.fullName)),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        title: Text(
+          student.fullName,
+          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.all(16),
           children: [
             _ProfileCard(student: student),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: 16),
 
             // Class & Section Card
             _ClassAssignmentCard(
@@ -333,46 +345,50 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
               onAssignPressed: _showAssignClassDialog,
             ),
 
-            const SizedBox(height: AppSpacing.lg),
-            Text('Guardian Links', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 2),
-            Text(
-              'Pending and verified guardian links registered for this student.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.outline, fontSize: 11),
+            const SizedBox(height: 24),
+            const Text(
+              'Guardian Links',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 4),
+            const Text(
+              'Pending and verified guardian links registered for this student.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            ),
+            const SizedBox(height: 12),
             if (_loading && links == null)
               const Padding(
-                padding: EdgeInsets.only(top: AppSpacing.xl),
-                child: Center(child: CircularProgressIndicator()),
+                padding: EdgeInsets.only(top: 32),
+                child: Center(child: CircularProgressIndicator(color: Color(0xFF5B5BF7))),
               )
             else if (_error != null && links == null)
               Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.lg),
+                padding: const EdgeInsets.only(top: 24),
                 child: Column(
                   children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: AppSpacing.md),
-                    FilledButton(onPressed: _load, child: const Text('Retry')),
+                    Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFEF4444))),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B5BF7)),
+                      onPressed: _load,
+                      child: const Text('Retry'),
+                    ),
                   ],
                 ),
               )
             else if ((links ?? const <Relationship>[]).isEmpty)
               const Padding(
-                padding: EdgeInsets.only(top: AppSpacing.lg),
+                padding: EdgeInsets.only(top: 24),
                 child: Center(
                   child: Text(
                     'No guardians have linked to this student yet.',
-                    style: TextStyle(color: AppColors.outline),
+                    style: TextStyle(color: Color(0xFF64748B)),
                   ),
                 ),
               )
             else
               ...links!.map((r) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: _GuardianLinkRow(relationship: r),
                   )),
           ],
@@ -398,12 +414,11 @@ class _ClassAssignmentCard extends StatelessWidget {
     final hasClass = assignedClass != null;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,55 +426,64 @@ class _ClassAssignmentCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: KukieAccent.violetTint,
-                  shape: BoxShape.circle,
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.class_outlined, color: KukieAccent.violet, size: 20),
+                child: const Icon(Icons.menu_book_outlined, color: Color(0xFF5B5BF7), size: 20),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Text(
                   'Class & Section Assignment',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                 ),
               ),
               TextButton.icon(
                 onPressed: onAssignPressed,
-                icon: Icon(hasClass ? Icons.edit_outlined : Icons.add, size: 16),
-                label: Text(hasClass ? 'Change' : 'Assign'),
-                style: TextButton.styleFrom(
-                  foregroundColor: KukieAccent.violet,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                icon: Icon(hasClass ? Icons.edit_outlined : Icons.add, size: 16, color: const Color(0xFF5B5BF7)),
+                label: Text(
+                  hasClass ? 'Change' : 'Assign',
+                  style: const TextStyle(color: Color(0xFF5B5BF7), fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 14),
           if (hasClass) ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.school, color: AppColors.primary, size: 24),
-                  const SizedBox(width: AppSpacing.md),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.school, color: Color(0xFF5B5BF7), size: 22),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           assignedClass!.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Room: ${assignedClass!.roomNumber ?? 'Unassigned'} • Year: ${enrollment?.academicYear ?? assignedClass!.academicYear}',
-                          style: const TextStyle(color: AppColors.outline, fontSize: 12),
+                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                         ),
                       ],
                     ),
@@ -469,18 +493,19 @@ class _ClassAssignmentCard extends StatelessWidget {
             ),
           ] else ...[
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info_outline, color: AppColors.outline, size: 20),
-                  SizedBox(width: AppSpacing.sm),
+                  Icon(Icons.info_outline, color: Color(0xFF64748B), size: 20),
+                  SizedBox(width: 10),
                   Text(
                     'Student is not assigned to any class yet.',
-                    style: TextStyle(color: AppColors.outline, fontSize: 13),
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                   ),
                 ],
               ),
@@ -501,51 +526,56 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              color: KukieAccent.violetTint,
-              shape: BoxShape.circle,
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.school_outlined,
-                color: KukieAccent.violet, size: 22),
+            child: const Icon(Icons.school, color: Color(0xFF5B5BF7), size: 28),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(student.fullName, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(student.email, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  student.fullName,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  student.email,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
                 if (student.studentId != null && student.studentId!.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       'Student ID: ${student.studentId}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: KukieAccent.violet, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: Color(0xFF5B5BF7),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 if (student.status != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.only(top: 3),
                     child: Text(
                       'Status: ${student.status!.name}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                     ),
                   ),
               ],
@@ -569,53 +599,53 @@ class _GuardianLinkRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final decided = relationship.status != RelationshipStatus.pending;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
                   '${relationship.relationshipType.label} link',
-                  style: Theme.of(context).textTheme.labelLarge,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                 ),
               ),
               _StatusBadge(status: relationship.status),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
             relationship.parent != null
-                ? 'Parent: ${relationship.parent!.fullName} '
-                    '(${relationship.parent!.email})'
+                ? 'Parent: ${relationship.parent!.fullName}'
                 : 'Parent (internal id): ${relationship.parentId}',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
           ),
-          if (decided && relationship.verifiedAt != null) ...[
+          if (relationship.parent != null && relationship.parent!.email.isNotEmpty) ...[
             const SizedBox(height: 2),
+            Text(
+              '(${relationship.parent!.email})',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+          ],
+          if (decided && relationship.verifiedAt != null) ...[
+            const SizedBox(height: 6),
             Text(
               'Decided ${_formatDate(relationship.verifiedAt!)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.outline, fontSize: 11),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
             ),
           ] else if (relationship.createdAt != null) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 6),
             Text(
               'Requested ${_formatDate(relationship.createdAt!)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.outline, fontSize: 11),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
             ),
           ],
         ],
@@ -639,21 +669,21 @@ class _StatusBadge extends StatelessWidget {
       RelationshipStatus.verified => 'Approved',
       RelationshipStatus.rejected => 'Rejected',
     };
-    final color = switch (status) {
-      RelationshipStatus.pending => AppColors.warning,
-      RelationshipStatus.verified => AppColors.secondary,
-      RelationshipStatus.rejected => AppColors.error,
+    final (bgColor, textColor, borderColor) = switch (status) {
+      RelationshipStatus.pending => (const Color(0xFFFEF3C7), const Color(0xFFD97706), const Color(0xFFFDE68A)),
+      RelationshipStatus.verified => (const Color(0xFFDCFCE7), const Color(0xFF15803D), const Color(0xFF86EFAC)),
+      RelationshipStatus.rejected => (const Color(0xFFFEE2E2), const Color(0xFFDC2626), const Color(0xFFFCA5A5)),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+        style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold),
       ),
     );
   }

@@ -32,8 +32,8 @@ class ClassScheduleTimetableWidget extends StatefulWidget {
 }
 
 class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWidget> {
-  String _selectedMonth = 'February';
-  String _selectedYear = '2026';
+  final String _selectedMonth = 'February';
+  final String _selectedYear = '2026';
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   final List<String> _dayDates = ['FEB 1', 'FEB 2', 'FEB 3', 'FEB 4', 'FEB 5'];
@@ -140,32 +140,40 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header & Dropdowns
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               const Text(
                 'Schedule',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
                     onPressed: () {},
-                    icon: const Icon(Icons.chevron_left, size: 18),
-                    label: const Text('Prev week', style: TextStyle(fontSize: 12)),
+                    icon: const Icon(Icons.chevron_left, size: 16),
+                    label: const Text('Prev', style: TextStyle(fontSize: 11)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                   const SizedBox(width: 6),
                   ElevatedButton.icon(
                     onPressed: () {},
-                    label: const Text('Next week', style: TextStyle(fontSize: 12)),
-                    icon: const Icon(Icons.chevron_right, size: 18),
+                    label: const Text('Next', style: TextStyle(fontSize: 11)),
+                    icon: const Icon(Icons.chevron_right, size: 16),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: KukieAccent.violet,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ],
@@ -319,16 +327,17 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 3,
-              height: double.infinity,
-              decoration: BoxDecoration(
-                color: event.color,
-                borderRadius: BorderRadius.circular(2),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 3,
+                decoration: BoxDecoration(
+                  color: event.color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
             const SizedBox(width: 5),
             Expanded(
               child: Column(
@@ -364,6 +373,7 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

@@ -69,4 +69,14 @@ class ApiConfig {
   // Admin (src/routes/admin.routes.ts): '/admin/...'
   // Parent (src/routes/parent.routes.ts): '/parents/...'
   // Student (src/routes/student.routes.ts): '/students/...'
+
+  // ---- Gemini AI (Google AI Studio free tier) ----
+  // Get your free API key at: https://aistudio.google.com/app/apikey
+  // Pass via: flutter run --dart-define=GEMINI_API_KEY=your_key_here
+  static final String geminiApiKey = const String.fromEnvironment('GEMINI_API_KEY').isNotEmpty
+      ? const String.fromEnvironment('GEMINI_API_KEY')
+      : '';
+
+  static const String geminiBaseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
 }

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+
+import '../../models/attendance_record.dart';
 import '../../models/grade_entry.dart';
+import '../../models/user_role.dart';
+import '../../services/attendance_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/parent_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
@@ -16,21 +22,57 @@ class ReportsPage extends StatefulWidget {
 
 class _ReportsPageState extends State<ReportsPage> {
   final _teacherService = TeacherService();
+  final _attendanceService = AttendanceService();
+  final _authService = AuthService();
+  final _parentService = ParentService();
+
   List<GradeEntry> _grades = [];
+  List<AttendanceRecord> _attendanceRecords = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadGrades();
+    _loadData();
   }
 
-  Future<void> _loadGrades() async {
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
     try {
-      final list = await _teacherService.getGradeEntries();
+      final me = await _authService.getMe();
+      List<GradeEntry> gradesList = [];
+      List<AttendanceRecord> attList = [];
+
+      if (me.role == UserRole.student) {
+        final targetId = me.id.isNotEmpty ? me.id : (me.studentId ?? '');
+        final rawGrades = await _teacherService.getGradesForStudent(targetId);
+        gradesList = rawGrades.where((g) {
+          final gid = g.studentId.trim().toLowerCase();
+          return gid == targetId.trim().toLowerCase() ||
+              (me.studentId != null && gid == me.studentId!.trim().toLowerCase());
+        }).toList();
+        attList = await _attendanceService.getStudentAttendance(targetId);
+      } else if (me.role == UserRole.parent) {
+        final students = await _parentService.getMyStudents();
+        if (students.isNotEmpty) {
+          final s = students.first;
+          final targetId = s.studentId;
+          final rawGrades = await _teacherService.getGradesForStudent(targetId);
+          gradesList = rawGrades.where((g) {
+            final gid = g.studentId.trim().toLowerCase();
+            return gid == targetId.trim().toLowerCase();
+          }).toList();
+          attList = await _attendanceService.getStudentAttendance(targetId);
+        }
+      } else {
+        gradesList = await _teacherService.getGradeEntries();
+        attList = await _attendanceService.getTeacherAttendance();
+      }
+
       if (mounted) {
         setState(() {
-          _grades = list;
+          _grades = gradesList;
+          _attendanceRecords = attList;
           _loading = false;
         });
       }
@@ -41,6 +83,11 @@ class _ReportsPageState extends State<ReportsPage> {
 
   @override
   Widget build(BuildContext context) {
+    int totalAtt = _attendanceRecords.length;
+    int presentAtt = _attendanceRecords.where((r) => r.status == AttendanceStatus.present).length;
+    int lateAtt = _attendanceRecords.where((r) => r.status == AttendanceStatus.late).length;
+    double attRate = totalAtt > 0 ? ((presentAtt + lateAtt) / totalAtt * 100) : 100.0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -48,7 +95,7 @@ class _ReportsPageState extends State<ReportsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadGrades,
+            onPressed: _loadData,
             tooltip: 'Refresh Reports',
           ),
         ],
@@ -65,14 +112,14 @@ class _ReportsPageState extends State<ReportsPage> {
                     borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
                     border: Border.all(color: KukieAccent.cardBorder),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.analytics_outlined, color: KukieAccent.violet),
-                      const SizedBox(width: AppSpacing.sm),
+                      Icon(Icons.analytics_outlined, color: KukieAccent.violet),
+                      SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           'View real academic evaluations, attendance metrics, and teacher recommendations stored in your database.',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: KukieAccent.ink,
                             fontSize: 12.5,
                             height: 1.4,
@@ -101,9 +148,11 @@ class _ReportsPageState extends State<ReportsPage> {
                 _ReportCardTile(
                   icon: Icons.event_available_outlined,
                   title: 'Attendance Report',
-                  subtitle: 'Daily attendance history, punctuality, and patterns.',
-                  badgeText: '96.5% Present',
-                  badgeColor: Colors.green.shade700,
+                  subtitle: totalAtt > 0
+                      ? '$totalAtt records · ${attRate.toStringAsFixed(1)}% attendance rate'
+                      : 'Daily attendance history, punctuality, and patterns.',
+                  badgeText: totalAtt > 0 ? '${attRate.toStringAsFixed(1)}% Present' : '0 Records',
+                  badgeColor: attRate >= 80 ? Colors.green.shade700 : Colors.orange.shade700,
                   onTap: () => _showAttendanceReport(context),
                 ),
 
@@ -112,7 +161,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   icon: Icons.favorite_border_outlined,
                   title: 'Wellbeing Report',
                   subtitle: 'Classroom engagement and social-emotional feedback.',
-                  badgeText: 'Excellent',
+                  badgeText: 'Active',
                   badgeColor: Colors.blue.shade700,
                   onTap: () => _showWellbeingReport(context),
                 ),
@@ -131,12 +180,20 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   void _showAttendanceReport(BuildContext context) {
+    int total = _attendanceRecords.length;
+    int present = _attendanceRecords.where((r) => r.status == AttendanceStatus.present).length;
+    int late = _attendanceRecords.where((r) => r.status == AttendanceStatus.late).length;
+    int absent = _attendanceRecords.where((r) => r.status == AttendanceStatus.absent).length;
+    int excused = _attendanceRecords.where((r) => r.status == AttendanceStatus.excused).length;
+
+    double attRate = total > 0 ? ((present + late) / total * 100) : 100.0;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.65,
+        height: MediaQuery.of(context).size.height * 0.7,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -174,32 +231,41 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             const Divider(),
             const SizedBox(height: AppSpacing.md),
+
+            // Dynamic Header Card
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: attRate >= 80 ? Colors.green.shade50 : Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(color: attRate >= 80 ? Colors.green.shade200 : Colors.orange.shade200),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green.shade700, size: 36),
+                  Icon(
+                    attRate >= 80 ? Icons.check_circle : Icons.warning_amber_rounded,
+                    color: attRate >= 80 ? Colors.green.shade700 : Colors.orange.shade700,
+                    size: 36,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '96.5% Overall Attendance Rate',
+                          '${attRate.toStringAsFixed(1)}% Overall Attendance Rate',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green.shade900,
+                            color: attRate >= 80 ? Colors.green.shade900 : Colors.orange.shade900,
                           ),
                         ),
                         Text(
-                          '19 Days Present · 1 Day Late · 0 Unexcused Absences',
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                          '$present Days Present · $late Days Late · $absent Absences ($excused Excused)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: attRate >= 80 ? Colors.green.shade800 : Colors.orange.shade800,
+                          ),
                         ),
                       ],
                     ),
@@ -209,30 +275,48 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             const SizedBox(height: AppSpacing.lg),
             const Text(
-              'Recent Attendance Entries',
+              'Recent Attendance Entries from Database',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+
             Expanded(
-              child: ListView(
-                children: const [
-                  ListTile(
-                    leading: Icon(Icons.check_circle_outline, color: Colors.green),
-                    title: Text('Today · Grade 9 - Section A'),
-                    subtitle: Text('Present - Standard Arrival (8:55 AM)'),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.access_time, color: Colors.orange),
-                    title: Text('Yesterday · Grade 9 - Section A'),
-                    subtitle: Text('Late - Arrived at 9:15 AM (Traffic delay)'),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.check_circle_outline, color: Colors.green),
-                    title: Text('2 Days Ago · Grade 9 - Section A'),
-                    subtitle: Text('Present - Standard Arrival (8:50 AM)'),
-                  ),
-                ],
-              ),
+              child: _attendanceRecords.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today_outlined, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 12),
+                          const Text('No attendance records logged in database yet.', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _attendanceRecords.length,
+                      itemBuilder: (context, index) {
+                        final item = _attendanceRecords[index];
+                        final isPresent = item.status == AttendanceStatus.present;
+                        final isLate = item.status == AttendanceStatus.late;
+
+                        final icon = isPresent
+                            ? Icons.check_circle_outline
+                            : (isLate ? Icons.access_time : Icons.cancel_outlined);
+
+                        final color = isPresent
+                            ? Colors.green
+                            : (isLate ? Colors.orange : Colors.red);
+
+                        return ListTile(
+                          leading: Icon(icon, color: color),
+                          title: Text('Date: ${item.date}'),
+                          subtitle: Text(
+                            'Status: ${item.status.displayName}${item.note != null && item.note!.isNotEmpty ? ' (${item.note})' : ''}',
+                            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -241,6 +325,21 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   void _showWellbeingReport(BuildContext context) {
+    final noteWithComment = _grades.firstWhere(
+      (g) => g.parentRecommendation != null && g.parentRecommendation!.isNotEmpty,
+      orElse: () => GradeEntry(
+        id: '',
+        studentId: '',
+        studentName: '',
+        subject: '',
+        assessmentType: AssessmentType.assignment,
+        score: 0,
+        maxScore: 100,
+        term: '',
+        createdAt: DateTime.now(),
+      ),
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -300,7 +399,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Wellbeing Score: 9.2 / 10',
+                          'Wellbeing Status: Active',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -308,7 +407,7 @@ class _ReportsPageState extends State<ReportsPage> {
                           ),
                         ),
                         Text(
-                          'High engagement, active participation, positive peer relations.',
+                          'Classroom engagement and social-emotional growth tracked.',
                           style: TextStyle(fontSize: 12, color: Colors.blue.shade800),
                         ),
                       ],
@@ -330,9 +429,11 @@ class _ReportsPageState extends State<ReportsPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: const Text(
-                '"Demonstrates exceptional teamwork and creative problem-solving during STEM group projects. Consistently respectful to peers and instructors."',
-                style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+              child: Text(
+                noteWithComment.parentRecommendation != null && noteWithComment.parentRecommendation!.isNotEmpty
+                    ? '"${noteWithComment.parentRecommendation}"'
+                    : '"Demonstrates active participation and positive engagement in daily academic activities."',
+                style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
               ),
             ),
           ],
@@ -445,7 +546,7 @@ class _AcademicGradeDetailCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Student: ${grade.studentName} (${grade.studentId})',
+                        'Student: ${grade.studentName}',
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                       ),
                     ],
@@ -644,22 +745,30 @@ class _AcademicReportModalState extends State<_AcademicReportModal> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Term: ${widget.initialGrades.first.term}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: honorsColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                        Expanded(
                           child: Text(
-                            honorsStatus,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            'Term: ${widget.initialGrades.first.term}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: honorsColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              honorsStatus,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ),

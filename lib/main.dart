@@ -32,6 +32,7 @@ import 'screens/student/student_portal_dashboard_page.dart';
 import 'screens/teacher/add_grade_page.dart';
 import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
+import 'screens/student/homework_ai_assistant_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
 
@@ -296,6 +297,12 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case MyClassesPage.routeName:
             return MaterialPageRoute(builder: (_) => const MyClassesPage());
+
+          case HomeworkAiAssistantPage.routeName:
+            final hw = settings.arguments;
+            if (hw == null) return MaterialPageRoute(builder: (_) => const LandingPage());
+            return MaterialPageRoute(
+                builder: (_) => HomeworkAiAssistantPage(homework: hw as dynamic));
 
           case AccountRejectedPage.routeName:
             final reason = settings.arguments as String?;

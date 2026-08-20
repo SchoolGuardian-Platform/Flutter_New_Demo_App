@@ -31,14 +31,14 @@ class StudentClassInfo {
 
     final rawCode = json['studentCode'] as String? ??
         (json['student'] is Map ? json['student']['studentId'] as String? : null);
-    final rawId = json['studentId'] as String? ?? '';
-    final realId = (rawCode != null && rawCode.isNotEmpty) ? rawCode : rawId;
+    final rawId = json['studentId'] as String? ??
+        (json['student'] is Map ? json['student']['id'] as String? : '');
 
     return StudentClassInfo(
       id: json['id'] as String? ?? '',
-      studentId: realId,
+      studentId: (rawId != null && rawId.isNotEmpty) ? rawId : (json['id'] as String? ?? ''),
       studentName: name.isNotEmpty ? name : 'Student',
-      studentCode: realId,
+      studentCode: rawCode ?? rawId,
       classId: json['classId'] as String? ?? '',
       academicYear: json['academicYear'] as String?,
       enrolledAt: json['createdAt'] != null
