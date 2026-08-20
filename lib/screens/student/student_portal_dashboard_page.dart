@@ -314,6 +314,42 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       drawer: !isDesktop ? Drawer(child: sidebar) : null,
+      bottomNavigationBar: !isDesktop
+          ? BottomNavigationBar(
+              currentIndex: _getBottomNavIndex(_selectedRoute),
+              selectedItemColor: KukieAccent.violet,
+              unselectedItemColor: Colors.grey.shade600,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              elevation: 8,
+              onTap: (index) {
+                switch (index) {
+                  case 0:
+                    setState(() => _selectedRoute = '/dashboard');
+                    break;
+                  case 1:
+                    setState(() => _selectedRoute = '/schedule');
+                    break;
+                  case 2:
+                    setState(() => _selectedRoute = '/portfolio');
+                    break;
+                  case 3:
+                    setState(() => _selectedRoute = '/resources');
+                    break;
+                  case 4:
+                    setState(() => _selectedRoute = '/settings');
+                    break;
+                }
+              },
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Overview'),
+                BottomNavigationBarItem(icon: Icon(Icons.calendar_today_rounded), label: 'Schedule'),
+                BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Tasks'),
+                BottomNavigationBarItem(icon: Icon(Icons.folder_outlined), label: 'Resources'),
+                BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
+              ],
+            )
+          : null,
       body: Row(
         children: [
           if (isDesktop) sidebar,
@@ -367,6 +403,22 @@ class _StudentPortalDashboardPageState extends State<StudentPortalDashboardPage>
         ],
       ),
     );
+  }
+
+  int _getBottomNavIndex(String route) {
+    switch (route) {
+      case '/schedule':
+        return 1;
+      case '/portfolio':
+        return 2;
+      case '/resources':
+        return 3;
+      case '/settings':
+        return 4;
+      case '/dashboard':
+      default:
+        return 0;
+    }
   }
 
   Widget _buildStudentSummaryHeader(String displayName) {

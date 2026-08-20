@@ -14,7 +14,6 @@ import '../../services/student_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
-import '../../widgets/bento_grid_section.dart';
 import '../../widgets/class_schedule_timetable.dart';
 import '../../widgets/dashboard_grid_cards.dart';
 import '../landing_page.dart';
@@ -150,54 +149,66 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
         .where((r) => r.status == AttendanceStatus.excused)
         .length;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics()),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          children: [
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          if (_loading && _guardians == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
             // Top App Bar & Profile Greeting
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Welcome back, ',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Welcome back, ',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
-                        ),
-                        Text(
-                          user.firstName,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF6366F1),
+                          Expanded(
+                            child: Text(
+                              user.firstName,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF6366F1),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      user.studentId != null && user.studentId!.isNotEmpty
-                          ? 'Student ID: ${user.studentId} • ${user.email}'
-                          : user.email,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        user.studentId != null && user.studentId!.isNotEmpty
+                            ? 'Student ID: ${user.studentId} • ${user.email}'
+                            : user.email,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Row(
                   children: [
                     Container(
@@ -246,7 +257,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                           ],
                         ),
                         child: const Center(
-                          child: Text('🥑', style: TextStyle(fontSize: 22)),
+                          child: Icon(Icons.person_rounded, color: Color(0xFF6366F1), size: 22),
                         ),
                       ),
                     ),
@@ -390,8 +401,10 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceAround,
                       children: [
                         _attendanceChip(
                             'Present', presentCount, KukieAccent.success),
@@ -503,10 +516,14 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(g.subject,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14)),
+                                    Expanded(
+                                      child: Text(g.subject,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14),
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}',
                                       style: const TextStyle(
@@ -521,10 +538,15 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                        '${g.assessmentType.label} • Term: ${g.term}',
-                                        style: const TextStyle(
-                                            fontSize: 12, color: Colors.grey)),
+                                    Expanded(
+                                      child: Text(
+                                          '${g.assessmentType.label} • Term: ${g.term}',
+                                          style: const TextStyle(
+                                              fontSize: 12, color: Colors.grey),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Text(g.letterGrade,
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
@@ -550,9 +572,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             ),
             const SizedBox(height: 24),
 
-            // Quick-Access Bento / Module Grid
-            BentoGridSection(user: user),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
             // Modern Card Grid Dashboard Section
             const DashboardGridCardsSection(),
@@ -691,7 +711,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             ),
             const SizedBox(height: 20),
           ],
-        ),
+        ],
       ),
     );
   }
