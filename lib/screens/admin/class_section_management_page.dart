@@ -108,6 +108,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   menuMaxHeight: 280,
                   decoration: const InputDecoration(
                     labelText: 'Grade Level (1 - 12) *',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.grade_outlined),
                   ),
                   items: List.generate(
@@ -127,6 +128,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Section Name / Code *',
                     hintText: 'e.g. A, B, C, 101',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.meeting_room_outlined),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Section is required' : null,
@@ -140,6 +142,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         decoration: const InputDecoration(
                           labelText: 'Room Number',
                           hintText: 'e.g. Room 204',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
                       ),
                     ),
@@ -151,6 +154,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         decoration: const InputDecoration(
                           labelText: 'Max Capacity',
                           hintText: '35',
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) return null;
@@ -168,6 +172,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Academic Year',
                     hintText: '2025/2026',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                     prefixIcon: Icon(Icons.calendar_today_outlined),
                   ),
                 ),
@@ -178,6 +183,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                   decoration: const InputDecoration(
                     labelText: 'Description / Notes (Optional)',
                     hintText: 'e.g. Natural Science Stream Section',
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
                   ),
                 ),
               ],
@@ -854,7 +860,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                         : 'SG-${DateTime.now().year}-${(100000 + (DateTime.now().millisecondsSinceEpoch % 899999))}');
 
                 final studentId = selectedTab == 0
-                    ? (selectedStudent!.studentId ?? selectedStudent!.id)
+                    ? selectedStudent!.id
                     : realCode;
                 final studentName = selectedTab == 0
                     ? selectedStudent!.fullName

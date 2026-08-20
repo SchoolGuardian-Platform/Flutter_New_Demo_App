@@ -44,14 +44,25 @@ class _ReportsPageState extends State<ReportsPage> {
       List<AttendanceRecord> attList = [];
 
       if (me.role == UserRole.student) {
-        gradesList = await _teacherService.getGradesForStudent(me.id);
-        attList = await _attendanceService.getStudentAttendance(me.id);
+        final targetId = me.id.isNotEmpty ? me.id : (me.studentId ?? '');
+        final rawGrades = await _teacherService.getGradesForStudent(targetId);
+        gradesList = rawGrades.where((g) {
+          final gid = g.studentId.trim().toLowerCase();
+          return gid == targetId.trim().toLowerCase() ||
+              (me.studentId != null && gid == me.studentId!.trim().toLowerCase());
+        }).toList();
+        attList = await _attendanceService.getStudentAttendance(targetId);
       } else if (me.role == UserRole.parent) {
         final students = await _parentService.getMyStudents();
         if (students.isNotEmpty) {
-          final firstStudentId = students.first.studentId;
-          gradesList = await _teacherService.getGradesForStudent(firstStudentId);
-          attList = await _attendanceService.getStudentAttendance(firstStudentId);
+          final s = students.first;
+          final targetId = s.studentId;
+          final rawGrades = await _teacherService.getGradesForStudent(targetId);
+          gradesList = rawGrades.where((g) {
+            final gid = g.studentId.trim().toLowerCase();
+            return gid == targetId.trim().toLowerCase();
+          }).toList();
+          attList = await _attendanceService.getStudentAttendance(targetId);
         }
       } else {
         gradesList = await _teacherService.getGradeEntries();
@@ -734,22 +745,30 @@ class _AcademicReportModalState extends State<_AcademicReportModal> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Term: ${widget.initialGrades.first.term}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: honorsColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                        Expanded(
                           child: Text(
-                            honorsStatus,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            'Term: ${widget.initialGrades.first.term}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: honorsColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              honorsStatus,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ),

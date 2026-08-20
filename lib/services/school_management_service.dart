@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_client.dart';
@@ -168,10 +169,13 @@ class SchoolManagementService {
       final res =
           await _apiClient.get('/admin/school/classes', requireAuth: true);
       final rawList = res['data'] is List ? res['data'] as List : null;
-      if (rawList != null) {
-        for (final item in rawList) {
-          if (item is Map<String, dynamic>) {
-            final cls = SchoolClass.fromJson(item);
+      if (rawList != null && rawList.isNotEmpty) {
+        final fetched = rawList
+            .whereType<Map<String, dynamic>>()
+            .map((item) => SchoolClass.fromJson(item))
+            .toList();
+        if (fetched.isNotEmpty) {
+          for (final cls in fetched) {
             final idx = _mockClasses.indexWhere((c) =>
                 c.id == cls.id ||
                 (c.grade == cls.grade &&
@@ -182,6 +186,7 @@ class SchoolManagementService {
               _mockClasses.add(cls);
             }
           }
+          await _persistClasses();
         }
       }
     } catch (_) {}
@@ -197,7 +202,7 @@ class SchoolManagementService {
           .where((c) =>
               c.displayName.toLowerCase().contains(q) ||
               (c.roomNumber ?? '').toLowerCase().contains(q) ||
-              (c.section ?? '').toLowerCase().contains(q))
+              c.section.toLowerCase().contains(q))
           .toList();
     }
 
@@ -534,11 +539,10 @@ class SchoolManagementService {
         requireAuth: true,
       );
 
-      final data = res['data'] is Map<String, dynamic>
-          ? res['data'] as Map<String, dynamic>
-          : res;
-      if (data is Map<String, dynamic>) {
-        newEnrollment = StudentClassInfo.fromJson(data);
+      if (res['data'] is Map<String, dynamic>) {
+        newEnrollment = StudentClassInfo.fromJson(res['data'] as Map<String, dynamic>);
+      } else {
+        newEnrollment = StudentClassInfo.fromJson(res);
       }
     } catch (_) {
       // Local fallback
@@ -574,11 +578,11 @@ class SchoolManagementService {
     }
 
     try {
-      if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(enrollmentId)) {
-        await _apiClient.delete('/admin/school/assign-student/$enrollmentId',
-            requireAuth: true);
-      }
-    } catch (_) {}
+      await _apiClient.delete('/admin/school/assign-student/$enrollmentId',
+          requireAuth: true);
+    } catch (e) {
+      debugPrint('Failed to delete student assignment from DB: $e');
+    }
   }
 
   /// Assign a teacher and subject to a class.
@@ -671,11 +675,10 @@ class SchoolManagementService {
           requireAuth: true,
         );
 
-        final data = res['data'] is Map<String, dynamic>
-            ? res['data'] as Map<String, dynamic>
-            : res;
-        if (data is Map<String, dynamic>) {
-          newAssignment = TeacherSubjectInfo.fromJson(data);
+        if (res['data'] is Map<String, dynamic>) {
+          newAssignment = TeacherSubjectInfo.fromJson(res['data'] as Map<String, dynamic>);
+        } else {
+          newAssignment = TeacherSubjectInfo.fromJson(res);
         }
       }
     } on ApiException {
@@ -722,10 +725,10 @@ class SchoolManagementService {
     }
 
     try {
-      if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(assignmentId)) {
-        await _apiClient.delete('/admin/school/assign-teacher/$assignmentId',
-            requireAuth: true);
-      }
-    } catch (_) {}
+      await _apiClient.delete('/admin/school/assign-teacher/$assignmentId',
+          requireAuth: true);
+    } catch (e) {
+      debugPrint('Failed to delete teacher assignment from DB: $e');
+    }
   }
 }

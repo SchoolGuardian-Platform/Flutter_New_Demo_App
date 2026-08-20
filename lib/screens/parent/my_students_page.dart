@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/api_exception.dart';
 import '../../models/account_status.dart';
 import '../../models/attendance_record.dart';
 import '../../models/grade_entry.dart';
+import '../../models/homework_entry.dart';
 import '../../models/student_link.dart';
 import '../../services/attendance_service.dart';
+import '../../services/homework_service.dart';
 import '../../services/parent_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
@@ -68,10 +71,38 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Linked Students')),
       body: _buildBody(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0,
+        selectedItemColor: KukieAccent.violet,
+        unselectedItemColor: Colors.grey.shade600,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 8,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              // Already on Students
+              break;
+            case 1:
+              _openLinkStudent();
+              break;
+            case 2:
+              Navigator.of(context).pushNamed('/reports');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'My Students'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_link_outlined), label: 'Link Student'),
+          BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: 'Reports'),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openLinkStudent,
         icon: const Icon(Icons.add),
         label: const Text('Link a Student'),
+        backgroundColor: KukieAccent.violet,
+        foregroundColor: Colors.white,
       ),
     );
   }
@@ -148,20 +179,23 @@ class _StudentLinkCardState extends State<_StudentLinkCard> {
   bool _loadingDetails = false;
   List<AttendanceRecord> _attendance = [];
   List<GradeEntry> _grades = [];
+  List<HomeworkEntry> _homework = [];
 
   Future<void> _toggleExpand() async {
     final newExpanded = !_expanded;
     setState(() => _expanded = newExpanded);
 
-    if (newExpanded && _attendance.isEmpty && _grades.isEmpty) {
+    if (newExpanded && _attendance.isEmpty && _grades.isEmpty && _homework.isEmpty) {
       setState(() => _loadingDetails = true);
       try {
         final attList = await AttendanceService().getStudentAttendance(widget.link.studentId);
         final gradeList = await TeacherService().getGradesForStudent(widget.link.studentId);
+        final hwList = await HomeworkService().getStudentHomeworks(widget.link.studentId);
         if (mounted) {
           setState(() {
             _attendance = attList;
             _grades = gradeList;
+            _homework = hwList;
             _loadingDetails = false;
           });
         }
@@ -307,17 +341,67 @@ class _StudentLinkCardState extends State<_StudentLinkCard> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(g.subject, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              Text('${g.assessmentType.label} (${g.term})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(g.subject, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text('${g.assessmentType.label} (${g.term})', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
                           ),
                           Text('${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet, fontSize: 13)),
                         ],
                       ),
                     )),
+              const SizedBox(height: 12),
+
+              // Homework Section for Parent
+              const Row(
+                children: [
+                  Icon(Icons.assignment_outlined, size: 16, color: KukieAccent.violet),
+                  SizedBox(width: 6),
+                  Text('Homework Assignments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (_homework.isEmpty)
+                const Text('No pending homework assignments.', style: TextStyle(fontSize: 12, color: Colors.grey))
+              else
+                ..._homework.map((hw) {
+                  final dueFormatted = DateFormat('MMM d').format(hw.dueDate);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text('${hw.subject} • Due $dueFormatted', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: KukieAccent.violetTint,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(hw.subject, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KukieAccent.violet)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ],
         ],
