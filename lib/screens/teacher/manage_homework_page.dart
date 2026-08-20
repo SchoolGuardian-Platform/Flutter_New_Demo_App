@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../core/api_exception.dart';
 import '../../models/homework_entry.dart';
 import '../../models/school_class.dart';
 import '../../services/homework_service.dart';
@@ -102,17 +103,51 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
   Future<void> _showCreateHomeworkDialog() async {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
+    final profile = await _teacherService.getTeacherProfile();
+
     SchoolClass? selectedClass = _classes.isNotEmpty ? _classes.first : null;
-    String selectedSubject = _teacherSubjects.isNotEmpty ? _teacherSubjects.first : 'General';
+    
+    List<String> getAvailableSubjects(SchoolClass? cls) {
+      if (cls != null && cls.teachers.isNotEmpty) {
+        final classSubjs = <String>[];
+        for (final t in cls.teachers) {
+          final matchesTeacher = t.teacherId == profile.id ||
+              t.teacherName.toLowerCase() == profile.fullName.toLowerCase();
+          if (matchesTeacher && t.subjectName.trim().isNotEmpty) {
+            classSubjs.add(t.subjectName.trim());
+          }
+        }
+        if (classSubjs.isEmpty) {
+          for (final t in cls.teachers) {
+            if (t.subjectName.trim().isNotEmpty) {
+              classSubjs.add(t.subjectName.trim());
+            }
+          }
+        }
+        if (classSubjs.isNotEmpty) {
+          return classSubjs.toSet().toList()..sort();
+        }
+      }
+      return _teacherSubjects;
+    }
+
+    List<String> initialSubjects = getAvailableSubjects(selectedClass);
+    String selectedSubject = initialSubjects.isNotEmpty ? initialSubjects.first : 'General';
     DateTime selectedDueDate = DateTime.now().add(const Duration(days: 2));
 
     final formKey = GlobalKey<FormState>();
+
+    if (!mounted) return;
 
     await showDialog(
       context: context,
       barrierDismissible: true,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final currentSubjects = getAvailableSubjects(selectedClass);
+          if (currentSubjects.isNotEmpty && !currentSubjects.contains(selectedSubject)) {
+            selectedSubject = currentSubjects.first;
+          }
           final dateStr = DateFormat('EEE, MMM d, yyyy').format(selectedDueDate);
 
           return AlertDialog(
@@ -150,7 +185,7 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                     const SizedBox(height: 10),
                     if (_classes.isNotEmpty)
                       DropdownButtonFormField<SchoolClass>(
-                        value: selectedClass,
+                        initialValue: selectedClass,
                         isExpanded: true,
                         decoration: _dialogInputDecoration('Target Class *', Icons.class_outlined),
                         items: _classes
@@ -159,17 +194,25 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                                   child: Text(c.displayName, overflow: TextOverflow.ellipsis),
                                 ))
                             .toList(),
-                        onChanged: (val) => setDialogState(() => selectedClass = val),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            selectedClass = val;
+                            final subs = getAvailableSubjects(val);
+                            if (subs.isNotEmpty) {
+                              selectedSubject = subs.first;
+                            }
+                          });
+                        },
                       ),
                     const SizedBox(height: 12),
 
-                    // Dynamic Subject Dropdown suggested directly from teacher's assigned subjects
-                    if (_teacherSubjects.isNotEmpty)
+                    // Dynamic Subject Dropdown suggested directly from teacher's assigned subjects for selected class
+                    if (currentSubjects.isNotEmpty)
                       DropdownButtonFormField<String>(
-                        value: _teacherSubjects.contains(selectedSubject) ? selectedSubject : _teacherSubjects.first,
+                        initialValue: currentSubjects.contains(selectedSubject) ? selectedSubject : currentSubjects.first,
                         isExpanded: true,
                         decoration: _dialogInputDecoration('Subject *', Icons.book_outlined),
-                        items: _teacherSubjects
+                        items: currentSubjects
                             .map((subj) => DropdownMenuItem(
                                   value: subj,
                                   child: Text(subj, overflow: TextOverflow.ellipsis),
@@ -257,20 +300,53 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
               ElevatedButton(
                 onPressed: () async {
                   if (formKey.currentState!.validate() && selectedClass != null) {
-                    await _homeworkService.createHomework(
-                      classId: selectedClass!.id,
-                      className: selectedClass!.displayName,
-                      subject: selectedSubject,
-                      title: titleCtrl.text.trim(),
-                      description: descCtrl.text.trim(),
-                      dueDate: selectedDueDate,
-                    );
-                    if (!mounted) return;
-                    Navigator.of(dialogCtx).pop();
-                    _loadData();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Homework assignment published!'), backgroundColor: KukieAccent.success),
-                    );
+                    final messenger = ScaffoldMessenger.of(context);
+                    final nav = Navigator.of(dialogCtx);
+                    try {
+                      await _homeworkService.createHomework(
+                        classId: selectedClass!.id,
+                        className: selectedClass!.displayName,
+                        subject: selectedSubject,
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim(),
+                        dueDate: selectedDueDate,
+                      );
+                      nav.pop();
+                      _loadData();
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Homework assignment published and saved!'), backgroundColor: KukieAccent.success),
+                      );
+                    } on ApiException catch (e) {
+                      // 401 = teacher has a stale/mock session token — must re-login
+                      if (e.statusCode == 401) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.white),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Session expired. Please log out and log back in.',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: Colors.deepOrange.shade700,
+                            duration: const Duration(seconds: 5),
+                          ),
+                        );
+                      } else {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+                        );
+                      }
+                    } catch (e) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Error saving to DB: $e'), backgroundColor: Colors.red),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -278,7 +354,7 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
-                child: const Text('Publish Homework'),
+                child: const Text('Publish Assignment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -306,94 +382,99 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
         icon: const Icon(Icons.add),
         label: const Text('New Homework'),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _homeworks.isEmpty
-              ? Center(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
-                          const Text('No homework assignments published yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: _showCreateHomeworkDialog,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create First Homework'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: KukieAccent.violet,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  itemCount: _homeworks.length,
-                  itemBuilder: (context, index) {
-                    final hw = _homeworks[index];
-                    final dueStr = DateFormat('EEE, MMM d, yyyy').format(hw.dueDate);
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _homeworks.isEmpty
+                ? Center(
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(24),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: KukieAccent.violetTint,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    hw.subject,
-                                    style: const TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                                  onPressed: () => _deleteHomework(hw.id),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 4),
-                            Text(hw.description, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-                            const Divider(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Target: ${hw.className ?? 'Class'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.event, size: 14, color: Colors.orange),
-                                    const SizedBox(width: 4),
-                                    Text('Due: $dueStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange)),
-                                  ],
-                                ),
-                              ],
+                            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            const Text('No homework assignments published yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                            const SizedBox(height: 20),
+                            ElevatedButton.icon(
+                              onPressed: _showCreateHomeworkDialog,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Create First Homework'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: KukieAccent.violet,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    itemCount: _homeworks.length,
+                    itemBuilder: (context, index) {
+                      final hw = _homeworks[index];
+                      final dueStr = DateFormat('EEE, MMM d, yyyy').format(hw.dueDate);
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: KukieAccent.violetTint,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      hw.subject,
+                                      style: const TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                    onPressed: () => _deleteHomework(hw.id),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(height: 4),
+                              Text(hw.description, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                              const Divider(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Target: ${hw.className ?? 'Class'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.event, size: 14, color: Colors.orange),
+                                      const SizedBox(width: 4),
+                                      Text('Due: $dueStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
     );
   }
 }

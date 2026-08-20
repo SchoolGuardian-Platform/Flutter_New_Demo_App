@@ -160,10 +160,16 @@ class TeacherService {
         final dbGrades = await getGradeEntries();
         final gradeSubjects = dbGrades.map((g) => g.subject.trim()).where((s) => s.isNotEmpty).toList();
 
-        final mergedClasses = <String>{..._profile.assignedClasses, ...teacherClasses}.toList();
-        final mergedSubjects = <String>{..._profile.assignedSubjects, ...adminSubjects, ...gradeSubjects}
-            .where((s) => s.trim().isNotEmpty)
-            .toList();
+        final mergedClasses = teacherClasses.isNotEmpty
+            ? teacherClasses.toSet().toList()
+            : _profile.assignedClasses;
+        final mergedSubjects = adminSubjects.isNotEmpty
+            ? <String>{...adminSubjects, ...gradeSubjects}
+                .where((s) => s.trim().isNotEmpty && s.toLowerCase() != 'maths')
+                .toList()
+            : <String>{..._profile.assignedSubjects, ...gradeSubjects}
+                .where((s) => s.trim().isNotEmpty && s.toLowerCase() != 'maths')
+                .toList();
 
         _profile = TeacherProfile(
           id: me.id,

@@ -122,15 +122,6 @@ class _AddGradePageState extends State<AddGradePage> {
     final profile = await _teacherService.getTeacherProfile();
     final subjectList = List<String>.from(profile.assignedSubjects);
 
-    try {
-      final dbSubjects = await SchoolManagementService().getSubjects();
-      for (final s in dbSubjects) {
-        if (s.name.isNotEmpty && !subjectList.contains(s.name)) {
-          subjectList.add(s.name);
-        }
-      }
-    } catch (_) {}
-
     List<SchoolClass> allSchoolClasses = [];
     try {
       allSchoolClasses = await SchoolManagementService().getClasses();
@@ -165,6 +156,21 @@ class _AddGradePageState extends State<AddGradePage> {
 
       _onStudentIdChanged();
     }
+  }
+
+  List<String> get _recommendedSubjectsForSelectedClass {
+    if (_selectedClass == null) return _teacherSubjects;
+
+    final classSpecificSubjects = _selectedClass!.teachers
+        .map((t) => t.subjectName.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (classSpecificSubjects.isNotEmpty) {
+      return classSpecificSubjects;
+    }
+    return _teacherSubjects;
   }
 
   void _updateKnownStudents() {
@@ -486,16 +492,16 @@ class _AddGradePageState extends State<AddGradePage> {
               DropdownButtonFormField<SchoolClass>(
                 initialValue: _selectedClass,
                 isExpanded: true,
-                isDense: true,
                 borderRadius: BorderRadius.circular(12),
                 dropdownColor: Colors.white,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
                 decoration: InputDecoration(
                   labelText: 'Assigned Class / Section *',
                   hintText: 'Select assigned class',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   prefixIcon: const Icon(Icons.class_outlined, size: 18),
                   fillColor: Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
                 items: _assignedClasses.map((sc) {
                   return DropdownMenuItem<SchoolClass>(
@@ -528,8 +534,9 @@ class _AddGradePageState extends State<AddGradePage> {
                 decoration: InputDecoration(
                   labelText: 'Student ID * (Type or Select)',
                   hintText: 'e.g. SG-2026-000001',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   prefixIcon: const Icon(Icons.badge_outlined, size: 18),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   suffixIcon: PopupMenuButton<String>(
                     enabled: _isTeacherAssigned,
                     icon: const Icon(Icons.person_search_outlined, color: KukieAccent.violet, size: 20),
@@ -602,8 +609,9 @@ class _AddGradePageState extends State<AddGradePage> {
                 decoration: const InputDecoration(
                   labelText: 'Student Full Name * (Auto-filled on ID match)',
                   hintText: 'e.g. Abebe Bikila',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
                   prefixIcon: Icon(Icons.person_outline, size: 18),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Student name is required'
@@ -619,28 +627,29 @@ class _AddGradePageState extends State<AddGradePage> {
                     decoration: const InputDecoration(
                       labelText: 'Subject / Course *',
                       hintText: 'e.g. Mathematics',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       prefixIcon: Icon(Icons.book_outlined, size: 18),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
                         ? 'Subject is required'
                         : null,
                   ),
-                  if (_teacherSubjects.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Suggest from your assigned teaching subjects:',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w600,
+                    if (_recommendedSubjectsForSelectedClass.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Suggest from your assigned teaching subjects:',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: _teacherSubjects.map((subject) {
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: _recommendedSubjectsForSelectedClass.map((subject) {
                         final isSelected = _subjectController.text.trim().toLowerCase() ==
                             subject.trim().toLowerCase();
                         return ChoiceChip(
@@ -677,15 +686,15 @@ class _AddGradePageState extends State<AddGradePage> {
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedYear,
                       isExpanded: true,
-                      isDense: true,
                       borderRadius: BorderRadius.circular(12),
                       dropdownColor: Colors.white,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
                       decoration: InputDecoration(
                         labelText: 'Academic Year *',
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
                         prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
                         fillColor: Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       ),
                       items: const [
                         DropdownMenuItem(value: '2024/2025', child: Text('2024/2025', style: TextStyle(fontSize: 12.5))),
@@ -710,15 +719,15 @@ class _AddGradePageState extends State<AddGradePage> {
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedSemester,
                       isExpanded: true,
-                      isDense: true,
                       borderRadius: BorderRadius.circular(12),
                       dropdownColor: Colors.white,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
                       decoration: InputDecoration(
                         labelText: 'Semester *',
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
                         prefixIcon: const Icon(Icons.school_outlined, size: 18),
                         fillColor: Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       ),
                       items: const [
                         DropdownMenuItem(value: 'Semester 1', child: Text('Semester 1', style: TextStyle(fontSize: 12.5))),

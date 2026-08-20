@@ -295,6 +295,40 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
         backgroundColor: KukieAccent.violet,
         foregroundColor: Colors.white,
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0,
+        selectedItemColor: KukieAccent.violet,
+        unselectedItemColor: Colors.grey.shade600,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 8,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              // Already on Grades / Main Dashboard
+              break;
+            case 1:
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MarkAttendancePage()),
+              );
+              break;
+            case 2:
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ManageHomeworkPage()),
+              );
+              break;
+            case 3:
+              Navigator.of(context).pushNamed('/reports');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.grade_outlined), label: 'Grades'),
+          BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Attendance'),
+          BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Homework'),
+          BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: 'Reports'),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -309,43 +343,6 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
                   const SizedBox(height: AppSpacing.lg),
                   _StatsRow(gradesCount: _grades.length),
                   const SizedBox(height: AppSpacing.md),
-
-                  // Quick Actions Row (Attendance & Homework)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const MarkAttendancePage()),
-                            );
-                          },
-                          icon: const Icon(Icons.fact_check_outlined, color: KukieAccent.violet, size: 18),
-                          label: const Text('Mark Attendance', style: TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 13)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: KukieAccent.violet, width: 1.2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ManageHomeworkPage()),
-                            );
-                          },
-                          icon: const Icon(Icons.assignment_outlined, color: KukieAccent.violet, size: 18),
-                          label: const Text('Homework', style: TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 13)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: KukieAccent.violet, width: 1.2),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: AppSpacing.lg),
 
                   // --- Subject / Course Teaching Bars ---

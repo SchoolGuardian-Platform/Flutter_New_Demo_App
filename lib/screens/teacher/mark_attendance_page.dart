@@ -87,7 +87,20 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
 
     if (_selectedClass == null) return;
 
-    // 1. Get real students directly assigned to the selected class section from database
+    // Refresh classes from database service to ensure latest student assignments for this section
+    try {
+      final updatedClasses = await _schoolService.getClasses();
+      final freshClass = updatedClasses.firstWhere(
+        (c) =>
+            c.id == _selectedClass!.id ||
+            (c.grade == _selectedClass!.grade &&
+                c.section.toUpperCase() == _selectedClass!.section.toUpperCase()),
+        orElse: () => _selectedClass!,
+      );
+      _selectedClass = freshClass;
+    } catch (_) {}
+
+    // 1. Get real students directly assigned to the selected class section
     if (_selectedClass!.students.isNotEmpty) {
       for (final s in _selectedClass!.students) {
         _currentRoster.add(_DisplayStudent(
@@ -96,10 +109,8 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
           code: s.studentCode,
         ));
       }
-    }
-
-    // 2. Fetch real active student accounts from PostgreSQL database
-    if (_currentRoster.isEmpty) {
+    } else {
+      // 2. Fallback: load active students for attendance roster
       try {
         final activeStudents = await _adminService.getActive(UserRole.student);
         for (final st in activeStudents) {
@@ -222,7 +233,7 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
                             const Text('No teaching classes assigned yet.', style: TextStyle(color: Colors.grey))
                           else
                             DropdownButtonFormField<SchoolClass>(
-                              value: _selectedClass,
+                              initialValue: _selectedClass,
                               isExpanded: true,
                               decoration: _dropdownDecoration('Target Class', Icons.class_outlined),
                               items: _classes
