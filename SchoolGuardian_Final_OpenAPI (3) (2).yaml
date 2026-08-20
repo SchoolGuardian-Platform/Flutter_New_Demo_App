@@ -1,0 +1,1832 @@
+openapi: 3.1.0
+
+info:
+  title: SchoolGuardian API
+  version: 1.0.0
+  description: |
+    SchoolGuardian API for parent, student, teacher, and administrator
+    education and child-safety management.
+
+    Implemented: authentication, registration approvals, and
+    parent-student relationship verification.
+
+    Planned contracts: attendance, grades, homework, notes, notifications,
+    location, geofencing, digital wellbeing, and reports.
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+
+tags:
+  - name: Authentication
+  - name: Student Approval
+  - name: Teacher Approval
+  - name: Parent Approval
+  - name: Relationships
+  - name: Attendance
+  - name: Grades
+  - name: Homework
+  - name: Teacher Notes
+  - name: Notifications
+  - name: Location
+  - name: Geofences
+  - name: Digital Wellbeing
+  - name: Reports
+  - name: Parent-Teacher Chat
+  - name: Appointments
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new Parent/Guardian and link or create a student
+      description: |
+        Endpoint for the final registration form. 
+        Step 1 handles parent info.
+        Step 2 chooses NEW_STUDENT or EXISTING_STUDENT.
+        Step 3A/3B provides corresponding student information.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParentRegistrationRequest'
+      responses:
+        '201':
+          description: Registration successful, returns user and auth tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { description: Too many registration attempts }
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Too many login attempts }
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204': { description: Logout successful }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /admin/students/pending:
+    get:
+      tags: [Student Approval]
+      summary: Get pending student registrations
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Pending students
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/students/{id}:
+    get:
+      tags: [Student Approval]
+      summary: Get student by ID
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/students/{id}/approve:
+    patch:
+      tags: [Student Approval]
+      summary: Approve student registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Student approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/students/{id}/reject:
+    patch:
+      tags: [Student Approval]
+      summary: Reject student registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Student rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/teachers/pending:
+    get:
+      tags: [Teacher Approval]
+      summary: Get pending teacher registrations
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Pending teachers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/teachers/{id}:
+    get:
+      tags: [Teacher Approval]
+      summary: Get teacher by ID
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Teacher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/teachers/{id}/approve:
+    patch:
+      tags: [Teacher Approval]
+      summary: Approve teacher registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Teacher approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/teachers/{id}/reject:
+    patch:
+      tags: [Teacher Approval]
+      summary: Reject teacher registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Teacher rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/parents/pending:
+    get:
+      tags: [Parent Approval]
+      summary: Get pending parent registrations
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Pending parents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/parents/{id}:
+    get:
+      tags: [Parent Approval]
+      summary: Get parent by ID
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Parent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/parents/{id}/approve:
+    patch:
+      tags: [Parent Approval]
+      summary: Approve parent registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Parent approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/parents/{id}/reject:
+    patch:
+      tags: [Parent Approval]
+      summary: Reject parent registration
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Parent rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /parents/relationships:
+    post:
+      tags: [Relationships]
+      summary: Request parent-student relationship
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRelationshipRequest'
+      responses:
+        '201':
+          description: Relationship request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /parents/link-student:
+    post:
+      tags: [Relationships]
+      summary: Link student
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRelationshipRequest'
+      responses:
+        '201':
+          description: Relationship request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /parents/my-students:
+    get:
+      tags: [Relationships]
+      summary: Get verified students
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Verified students
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /students/my-guardians:
+    get:
+      tags: [Relationships]
+      summary: Get verified guardians
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Verified guardians
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/relationships/pending:
+    get:
+      tags: [Relationships]
+      summary: Get pending relationship requests
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Pending relationships
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/relationships/{id}:
+    get:
+      tags: [Relationships]
+      summary: Get relationship by ID
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Relationship
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/relationships/{id}/approve:
+    patch:
+      tags: [Relationships]
+      summary: Approve parent-student relationship
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Relationship approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/relationships/{id}/reject:
+    patch:
+      tags: [Relationships]
+      summary: Reject parent-student relationship
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectionRequest'
+      responses:
+        '200':
+          description: Relationship rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /attendance:
+    post:
+      tags: [Attendance]
+      summary: Record attendance
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+      responses:
+        '201': { description: Attendance recorded }
+    get:
+      tags: [Attendance]
+      summary: List attendance records
+      x-implementation-status: planned
+      responses:
+        '200':
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceListResponse'
+
+  /attendance/student/{studentId}:
+    get:
+      tags: [Attendance]
+      summary: Get student attendance
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceListResponse'
+
+  /attendance/student/{studentId}/summary:
+    get:
+      tags: [Attendance]
+      summary: Get attendance summary
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Attendance summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummaryResponse'
+
+  /attendance/{id}:
+    patch:
+      tags: [Attendance]
+      summary: Update attendance
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceUpdateRequest'
+      responses:
+        '200': { description: Attendance updated }
+
+  /grades:
+    post:
+      tags: [Grades]
+      summary: Create grade
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeRequest'
+      responses:
+        '201': { description: Grade created }
+
+  /grades/student/{studentId}:
+    get:
+      tags: [Grades]
+      summary: Get student grades
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Grades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeListResponse'
+
+  /grades/student/{studentId}/summary:
+    get:
+      tags: [Grades]
+      summary: Get grade summary
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Grade summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeSummaryResponse'
+
+  /grades/{id}:
+    patch:
+      tags: [Grades]
+      summary: Update grade
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeRequest'
+      responses:
+        '200': { description: Grade updated }
+    delete:
+      tags: [Grades]
+      summary: Delete grade
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Grade deleted }
+
+  /homework:
+    post:
+      tags: [Homework]
+      summary: Create homework
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeworkRequest'
+      responses:
+        '201': { description: Homework created }
+    get:
+      tags: [Homework]
+      summary: List homework
+      x-implementation-status: planned
+      responses:
+        '200':
+          description: Homework list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeworkListResponse'
+
+  /homework/student/{studentId}:
+    get:
+      tags: [Homework]
+      summary: Get student homework
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Homework
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeworkListResponse'
+
+  /homework/{id}:
+    patch:
+      tags: [Homework]
+      summary: Update homework
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeworkRequest'
+      responses:
+        '200': { description: Homework updated }
+    delete:
+      tags: [Homework]
+      summary: Delete homework
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Homework deleted }
+
+  /notes:
+    post:
+      tags: [Teacher Notes]
+      summary: Create teacher note
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteRequest'
+      responses:
+        '201': { description: Note created }
+
+  /notes/student/{studentId}:
+    get:
+      tags: [Teacher Notes]
+      summary: Get student notes
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Notes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteListResponse'
+
+  /notes/{id}:
+    delete:
+      tags: [Teacher Notes]
+      summary: Delete teacher note
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Note deleted }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get notifications
+      x-implementation-status: planned
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': { description: Notification marked as read }
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      x-implementation-status: planned
+      responses:
+        '200': { description: Notifications marked as read }
+
+  /location/check-in:
+    post:
+      tags: [Location]
+      summary: Submit lightweight child location check-in
+      description: Records important events such as school arrival/departure and home arrival.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCheckInRequest'
+      responses:
+        '201': { description: Check-in recorded }
+
+  /location/student/{studentId}/history:
+    get:
+      tags: [Location]
+      summary: Get student check-in history
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Location history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationHistoryResponse'
+
+  /geofences:
+    post:
+      tags: [Geofences]
+      summary: Create safe location
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeofenceRequest'
+      responses:
+        '201': { description: Geofence created }
+    get:
+      tags: [Geofences]
+      summary: List safe locations
+      x-implementation-status: planned
+      responses:
+        '200':
+          description: Geofences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeofenceListResponse'
+
+  /geofences/{id}:
+    patch:
+      tags: [Geofences]
+      summary: Update safe location
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeofenceRequest'
+      responses:
+        '200': { description: Geofence updated }
+    delete:
+      tags: [Geofences]
+      summary: Delete safe location
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Geofence deleted }
+
+  /wellbeing/usage:
+    post:
+      tags: [Digital Wellbeing]
+      summary: Submit digital wellbeing usage
+      description: |
+        Records usage statistics supplied by a supported client.
+        This is a monitoring/reporting API; it does not itself provide
+        operating-system-level app blocking.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WellbeingUsageRequest'
+      responses:
+        '201': { description: Usage recorded }
+
+  /wellbeing/student/{studentId}:
+    get:
+      tags: [Digital Wellbeing]
+      summary: Get wellbeing summary
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Wellbeing summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellbeingResponse'
+
+  /wellbeing/student/{studentId}/weekly:
+    get:
+      tags: [Digital Wellbeing]
+      summary: Get weekly wellbeing report
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Weekly wellbeing report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellbeingWeeklyResponse'
+
+  /reports/student/{studentId}/academic:
+    get:
+      tags: [Reports]
+      summary: Get academic report
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200': { description: Academic report }
+
+  /reports/student/{studentId}/attendance:
+    get:
+      tags: [Reports]
+      summary: Get attendance report
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200': { description: Attendance report }
+
+  /reports/student/{studentId}/wellbeing:
+    get:
+      tags: [Reports]
+      summary: Get wellbeing report
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200': { description: Wellbeing report }
+
+
+  /conversations:
+    post:
+      tags: [Parent-Teacher Chat]
+      summary: Create a parent-teacher conversation
+      description: Creates a conversation between a parent and a teacher connected to the same verified student.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [Parent-Teacher Chat]
+      summary: List current user's conversations
+      x-implementation-status: planned
+      responses:
+        '200':
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /conversations/{id}:
+    get:
+      tags: [Parent-Teacher Chat]
+      summary: Get conversation
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /conversations/{id}/messages:
+    get:
+      tags: [Parent-Teacher Chat]
+      summary: Get conversation messages
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Parent-Teacher Chat]
+      summary: Send message
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /messages/{id}/read:
+    patch:
+      tags: [Parent-Teacher Chat]
+      summary: Mark message as read
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Message marked as read
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /appointments/slots:
+    post:
+      tags: [Appointments]
+      summary: Create teacher availability slot
+      description: A teacher creates a time slot that parents can book.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentSlotRequest'
+      responses:
+        '201':
+          description: Appointment slot created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentSlotResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [Appointments]
+      summary: List available appointment slots
+      x-implementation-status: planned
+      parameters:
+        - name: teacherId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentSlotListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /appointments/slots/{id}:
+    patch:
+      tags: [Appointments]
+      summary: Update appointment slot
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAppointmentSlotRequest'
+      responses:
+        '200':
+          description: Appointment slot updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentSlotResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Appointments]
+      summary: Delete appointment slot
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Appointment slot deleted
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /appointments/book:
+    post:
+      tags: [Appointments]
+      summary: Book an appointment slot
+      description: A verified parent books an available teacher slot for one of their verified students.
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookAppointmentRequest'
+      responses:
+        '201':
+          description: Appointment booked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Slot is already booked
+
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments for current user
+      x-implementation-status: planned
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+      responses:
+        '200':
+          description: Appointments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /appointments/{id}:
+    get:
+      tags: [Appointments]
+      summary: Get appointment details
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Appointment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /appointments/{id}/confirm:
+    patch:
+      tags: [Appointments]
+      summary: Confirm appointment
+      description: Teacher confirms a parent appointment request.
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Appointment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /appointments/{id}/cancel:
+    patch:
+      tags: [Appointments]
+      summary: Cancel appointment
+      x-implementation-status: planned
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelAppointmentRequest'
+      responses:
+        '200':
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StudentId:
+      name: studentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    ParentRegistrationRequest:
+      type: object
+      required: [firstName, lastName, email, phoneNumber, password, confirmPassword, studentRegistrationType]
+      properties:
+        firstName: { type: string }
+        middleName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        phoneNumber: { type: string }
+        password: { type: string, format: password }
+        confirmPassword: { type: string, format: password }
+        studentRegistrationType:
+          type: string
+          enum: [NEW_STUDENT, EXISTING_STUDENT]
+          description: "Indicates whether adding a new student or linking an existing one"
+        newStudentInfo:
+          $ref: '#/components/schemas/NewStudentInfo'
+        existingStudentInfo:
+          $ref: '#/components/schemas/ExistingStudentInfo'
+
+    NewStudentInfo:
+      type: object
+      required: [firstName, lastName, gender, dateOfBirth, gradeClass, schoolId, relationshipToStudent]
+      description: "Information required when registering a New Student"
+      properties:
+        firstName: { type: string }
+        middleName: { type: string }
+        lastName: { type: string }
+        gender: { type: string }
+        dateOfBirth: { type: string, format: date }
+        gradeClass: { type: string }
+        schoolId: { type: string, description: "The school selected by the parent" }
+        relationshipToStudent: { $ref: '#/components/schemas/RelationshipType' }
+
+    ExistingStudentInfo:
+      type: object
+      required: [studentId, schoolCode, relationshipToStudent]
+      description: "Information required when linking to an Existing Student"
+      properties:
+        studentId: { type: string, description: "Student's unique ID provided by the school" }
+        schoolCode: { type: string, description: "School's unique identifier" }
+        relationshipToStudent: { $ref: '#/components/schemas/RelationshipType' }
+
+    Role:
+      type: string
+      enum: [ADMIN, PARENT, STUDENT, TEACHER]
+
+    AccountStatus:
+      type: string
+      enum: [PENDING, ACTIVE, REJECTED, SUSPENDED]
+
+    RelationshipType:
+      type: string
+      enum: [MOTHER, FATHER, GUARDIAN, OTHER]
+
+    RelationshipStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
+    AttendanceStatus:
+      type: string
+      enum: [PRESENT, ABSENT, LATE, EXCUSED]
+
+    LocationEventType:
+      type: string
+      enum:
+        - SCHOOL_ARRIVAL
+        - SCHOOL_DEPARTURE
+        - HOME_ARRIVAL
+        - HOME_DEPARTURE
+        - GEOFENCE_ENTRY
+        - GEOFENCE_EXIT
+
+    User:
+      type: object
+      required: [id, name, email, role, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        studentId: { type: string, description: "Generated custom ID for students (e.g. STU-10025)", nullable: true }
+        schoolCode: { type: string, description: "Generated school code for students (e.g. ABC-001)", nullable: true }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/User' }
+
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: [string, 'null']
+
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            user: { $ref: '#/components/schemas/User' }
+
+    RejectionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    CreateRelationshipRequest:
+      type: object
+      required: [studentId, relationshipType]
+      properties:
+        studentId: { type: string, format: uuid }
+        relationshipType: { $ref: '#/components/schemas/RelationshipType' }
+
+    Relationship:
+      type: object
+      required: [id, parentId, studentId, relationshipType, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        parentId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        relationshipType: { $ref: '#/components/schemas/RelationshipType' }
+        status: { $ref: '#/components/schemas/RelationshipStatus' }
+        verifiedBy: { type: [string, 'null'], format: uuid }
+        verifiedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RelationshipResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Relationship' }
+
+    RelationshipListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Relationship' }
+
+    AttendanceRequest:
+      type: object
+      required: [studentId, date, status]
+      properties:
+        studentId: { type: string, format: uuid }
+        date: { type: string, format: date }
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        note: { type: string }
+
+    AttendanceUpdateRequest:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/AttendanceStatus' }
+        note: { type: string }
+
+    AttendanceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              date: { type: string, format: date }
+              status: { $ref: '#/components/schemas/AttendanceStatus' }
+              note: { type: string }
+              createdAt: { type: string, format: date-time }
+
+    AttendanceSummaryResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            totalDays: { type: integer }
+            present: { type: integer }
+            absent: { type: integer }
+            late: { type: integer }
+            excused: { type: integer }
+            attendanceRate: { type: number }
+
+    GradeRequest:
+      type: object
+      required: [studentId, subject, score]
+      properties:
+        studentId: { type: string, format: uuid }
+        subject: { type: string }
+        assessment: { type: string }
+        score: { type: number, minimum: 0, maximum: 100 }
+        maxScore: { type: number, minimum: 1, default: 100 }
+        comment: { type: string }
+
+    GradeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              subject: { type: string }
+              assessment: { type: string }
+              score: { type: number }
+              maxScore: { type: number }
+              comment: { type: string }
+              createdAt: { type: string, format: date-time }
+
+    GradeSummaryResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            averageScore: { type: number }
+            totalAssessments: { type: integer }
+
+    HomeworkRequest:
+      type: object
+      required: [title, description, dueDate]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        dueDate: { type: string, format: date-time }
+        subject: { type: string }
+
+    HomeworkListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              description: { type: string }
+              subject: { type: string }
+              dueDate: { type: string, format: date-time }
+              createdAt: { type: string, format: date-time }
+
+    NoteRequest:
+      type: object
+      required: [studentId, content]
+      properties:
+        studentId: { type: string, format: uuid }
+        content: { type: string }
+
+    NoteListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              teacherId: { type: string, format: uuid }
+              content: { type: string }
+              createdAt: { type: string, format: date-time }
+
+    NotificationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              message: { type: string }
+              read: { type: boolean }
+              createdAt: { type: string, format: date-time }
+
+    LocationCheckInRequest:
+      type: object
+      required: [studentId, eventType, latitude, longitude]
+      properties:
+        studentId: { type: string, format: uuid }
+        eventType: { $ref: '#/components/schemas/LocationEventType' }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        accuracyMeters: { type: number, minimum: 0 }
+
+    LocationHistoryResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              studentId: { type: string, format: uuid }
+              eventType: { $ref: '#/components/schemas/LocationEventType' }
+              latitude: { type: number }
+              longitude: { type: number }
+              accuracyMeters: { type: number }
+              createdAt: { type: string, format: date-time }
+
+    GeofenceRequest:
+      type: object
+      required: [name, latitude, longitude, radiusMeters]
+      properties:
+        name: { type: string, example: School }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        radiusMeters: { type: number, minimum: 10 }
+
+    GeofenceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              latitude: { type: number }
+              longitude: { type: number }
+              radiusMeters: { type: number }
+              createdAt: { type: string, format: date-time }
+
+    WellbeingUsageRequest:
+      type: object
+      required: [studentId, date, screenTimeMinutes]
+      properties:
+        studentId: { type: string, format: uuid }
+        date: { type: string, format: date }
+        screenTimeMinutes: { type: integer, minimum: 0 }
+        studyMinutes: { type: integer, minimum: 0 }
+        gamingMinutes: { type: integer, minimum: 0 }
+        socialMediaMinutes: { type: integer, minimum: 0 }
+        educationalMinutes: { type: integer, minimum: 0 }
+        mostUsedApp: { type: string }
+
+    WellbeingResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            screenTimeMinutes: { type: integer }
+            studyMinutes: { type: integer }
+            gamingMinutes: { type: integer }
+            socialMediaMinutes: { type: integer }
+            educationalMinutes: { type: integer }
+            mostUsedApp: { type: string }
+
+    WellbeingWeeklyResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            totalScreenTimeMinutes: { type: integer }
+            averageDailyMinutes: { type: number }
+            studyMinutes: { type: integer }
+            gamingMinutes: { type: integer }
+            socialMediaMinutes: { type: integer }
+            educationalMinutes: { type: integer }
+
+    CreateConversationRequest:
+      type: object
+      required: [teacherId, studentId]
+      properties:
+        teacherId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+
+    Conversation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        parentId: { type: string, format: uuid }
+        teacherId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ConversationResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Conversation' }
+
+    ConversationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Conversation' }
+
+    SendMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+
+    Message:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        conversationId: { type: string, format: uuid }
+        senderId: { type: string, format: uuid }
+        content: { type: string }
+        readAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    MessageResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Message' }
+
+    MessageListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+
+    CreateAppointmentSlotRequest:
+      type: object
+      required: [startAt, endAt]
+      properties:
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+
+    UpdateAppointmentSlotRequest:
+      type: object
+      properties:
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        available:
+          type: boolean
+
+    AppointmentSlot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        teacherId: { type: string, format: uuid }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        available: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    AppointmentSlotResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/AppointmentSlot' }
+
+    AppointmentSlotListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AppointmentSlot' }
+
+    BookAppointmentRequest:
+      type: object
+      required: [slotId, studentId, purpose]
+      properties:
+        slotId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        purpose: { type: string }
+
+    CancelAppointmentRequest:
+      type: object
+      properties:
+        reason: { type: string }
+
+    Appointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slotId: { type: string, format: uuid }
+        parentId: { type: string, format: uuid }
+        teacherId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        purpose: { type: string }
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AppointmentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Appointment' }
+
+    AppointmentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Appointment' }
+
+    ErrorResponse:
+      type: object
+      properties:
+        message: { type: string }
+        code: { type: string }
