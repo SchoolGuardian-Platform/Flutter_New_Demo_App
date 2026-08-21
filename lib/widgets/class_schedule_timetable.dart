@@ -283,9 +283,9 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
     );
   }
 
-  Widget? _buildEventCardForSlot(int dayIdx, int timeIdx) {
+  Widget _buildEventCardForSlot(int dayIdx, int timeIdx) {
     final matches = _events.where((e) => e.dayIndex == dayIdx && e.startHourIndex == timeIdx).toList();
-    if (matches.isEmpty) return null;
+    if (matches.isEmpty) return const SizedBox.shrink();
 
     final event = matches.first;
     return GestureDetector(
@@ -327,22 +327,25 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
             ),
           ],
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 3,
-                decoration: BoxDecoration(
-                  color: event.color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        // Fixed height row — NO IntrinsicHeight to avoid hit-test failures
+        // when nested inside SingleChildScrollView > ListView.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 3,
+              height: 48,
+              decoration: BoxDecoration(
+                color: event.color,
+                borderRadius: BorderRadius.circular(2),
               ),
+            ),
             const SizedBox(width: 5),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -373,7 +376,6 @@ class _ClassScheduleTimetableWidgetState extends State<ClassScheduleTimetableWid
           ],
         ),
       ),
-    ),
-  );
+    );
   }
 }

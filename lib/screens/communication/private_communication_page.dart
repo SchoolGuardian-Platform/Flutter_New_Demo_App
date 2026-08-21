@@ -479,7 +479,8 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
   }
 
   Widget _buildNotifBanner() {
-    if (_activeNotif == null) return const SizedBox.shrink();
+    final notif = _activeNotif;
+    if (notif == null) return const SizedBox.shrink();
 
     return Material(
       color: Colors.transparent,
@@ -489,11 +490,11 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: Color(0x40000000),
               blurRadius: 16,
-              offset: const Offset(0, 6),
+              offset: Offset(0, 6),
             ),
           ],
           border: Border.all(color: const Color(0xFF334155), width: 1),
@@ -515,8 +516,8 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                 ),
                 child: Center(
                   child: Text(
-                    _activeNotif!.senderName.isNotEmpty
-                        ? _activeNotif!.senderName[0].toUpperCase()
+                    notif.senderName.isNotEmpty
+                        ? notif.senderName[0].toUpperCase()
                         : '💬',
                     style: const TextStyle(
                       color: Colors.white,
@@ -536,7 +537,7 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            _activeNotif!.senderName,
+                            notif.senderName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -561,7 +562,7 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _activeNotif!.content,
+                      notif.content,
                       style: const TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: 13,
@@ -605,11 +606,25 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                 final sel = c.studentId == _selectedChild?.studentId;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(c.fullName, style: const TextStyle(fontSize: 12)),
-                    selected: sel,
-                    selectedColor: KukieAccent.violetTint,
-                    onSelected: (_) { setState(() { _selectedChild = c; }); _loadChildSubjects(c.studentId); },
+                  child: InkWell(
+                    onTap: () { setState(() { _selectedChild = c; }); _loadChildSubjects(c.studentId); },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel ? KukieAccent.violetTint : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: sel ? KukieAccent.violet : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        c.fullName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: sel ? FontWeight.bold : FontWeight.w500,
+                          color: sel ? KukieAccent.violet : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
                   ),
                 );
               }).toList()),
@@ -696,7 +711,7 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 4))],
+                boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 4))],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -833,7 +848,7 @@ class _PrivateCommunicationPageState extends State<PrivateCommunicationPage> {
                 bottomLeft: Radius.circular(isMe ? 16 : 4),
                 bottomRight: Radius.circular(isMe ? 4 : 16),
               ),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2))],
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               if (!isMe) ...[

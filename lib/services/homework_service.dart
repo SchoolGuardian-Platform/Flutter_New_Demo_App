@@ -83,18 +83,16 @@ class HomeworkService {
     try {
       final res = await _apiClient.get('/homework/teacher', requireAuth: true);
       final rawList = _extractList(res);
-      if (rawList.isNotEmpty) {
-        final fetched = <HomeworkEntry>[];
-        for (final item in rawList) {
-          if (item is Map<String, dynamic>) {
-            fetched.add(HomeworkEntry.fromJson(item));
-          }
+      final fetched = <HomeworkEntry>[];
+      for (final item in rawList) {
+        if (item is Map<String, dynamic>) {
+          fetched.add(HomeworkEntry.fromJson(item));
         }
-        _localCache.clear();
-        _localCache.addAll(fetched);
-        await _persistCache();
-        return List.unmodifiable(_localCache);
       }
+      _localCache.clear();
+      _localCache.addAll(fetched);
+      await _persistCache();
+      return List.unmodifiable(_localCache);
     } catch (_) {}
     return List.unmodifiable(_localCache);
   }

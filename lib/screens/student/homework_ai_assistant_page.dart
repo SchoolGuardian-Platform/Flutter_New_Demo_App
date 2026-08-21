@@ -51,10 +51,9 @@ Keep responses concise (2-4 paragraphs max) unless detailed explanation is neede
     // Add a welcome message from the AI
     _messages.add(_ChatMessage(
       role: 'model',
-      text: '👋 Hi! I\'m your AI study assistant for this assignment.\n\n'
-          '📚 **${widget.homework.subject}** — *${widget.homework.title}*\n\n'
-          'Ask me anything about this homework — I\'ll guide you step by step without '
-          'just giving away the answers. What would you like help with?',
+      text: '👋 Hi! I\'m your Gemini AI Study Assistant.\n\n'
+          'I can answer **any question** you have — whether it\'s about your ${widget.homework.subject} assignment (*${widget.homework.title}*), math calculations, science, literature, history, general trivia, or study tips!\n\n'
+          'What would you like to ask today? 😊',
     ));
   }
 
@@ -269,30 +268,62 @@ Keep responses concise (2-4 paragraphs max) unless detailed explanation is neede
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF475569), width: 1.5),
-              ),
-              child: TextField(
-                controller: _textController,
-                cursorColor: const Color(0xFF8B5CF6),
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF334155),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFF475569), width: 1.5),
                 ),
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  hintText: 'Ask me about your homework…',
-                  hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 14),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  border: InputBorder.none,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    inputDecorationTheme: const InputDecorationTheme(
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _textController,
+                    cursorColor: const Color(0xFF8B5CF6),
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFF334155),
+                      hintText: 'Ask me any question (math, science, history, tips)…',
+                      hintStyle: GoogleFonts.inter(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 14,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
                 ),
-                onSubmitted: (_) => _sendMessage(),
               ),
             ),
           ),
@@ -459,7 +490,7 @@ class _TypingBubble extends StatelessWidget {
             const SizedBox(width: 8),
             AnimatedBuilder(
               animation: animCtrl,
-              builder: (_, __) {
+              builder: (context, child) {
                 return Row(
                   children: List.generate(3, (i) {
                     final delay = i / 3;

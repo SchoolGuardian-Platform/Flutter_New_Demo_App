@@ -10,16 +10,12 @@ import '../../models/homework_entry.dart';
 import '../../models/school_class.dart';
 import '../../models/user.dart';
 import '../../services/attendance_service.dart';
-import '../../services/auth_service.dart';
 import '../../services/homework_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/student_service.dart';
 import '../../services/teacher_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
-import '../../widgets/class_schedule_timetable.dart';
-import '../../widgets/dashboard_grid_cards.dart';
-import '../landing_page.dart';
 import 'homework_ai_assistant_page.dart';
 import 'student_profile_page.dart';
 
@@ -36,10 +32,14 @@ class StudentOverviewTab extends StatefulWidget {
 class StudentOverviewTabState extends State<StudentOverviewTab> {
   final _studentService = StudentService();
   final _schoolService = SchoolManagementService();
-  final _authService = AuthService();
   final _attendanceService = AttendanceService();
   final _teacherService = TeacherService();
   final _homeworkService = HomeworkService();
+
+  final _scrollController = ScrollController();
+  final _attendanceKey = GlobalKey();
+  final _homeworkKey = GlobalKey();
+  final _gradesKey = GlobalKey();
 
   List<GuardianLink>? _guardians;
   SchoolClass? _assignedClass;
@@ -50,13 +50,44 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
   bool _notificationDismissed = false;
 
   bool _loading = true;
-  bool _loggingOut = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void scrollToSection(String section) {
+    if (section == 'top') {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+      return;
+    }
+
+    GlobalKey? key;
+    if (section == 'attendance') key = _attendanceKey;
+    if (section == 'homework') key = _homeworkKey;
+    if (section == 'grades') key = _gradesKey;
+
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> refresh() => _load();
@@ -103,50 +134,6 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     }
   }
 
-  Future<void> _logout() async {
-    setState(() => _loggingOut = true);
-    try {
-      await _authService.logout();
-    } catch (_) {
-    } finally {
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          LandingPage.routeName,
-          (route) => false,
-        );
-      }
-    }
-  }
-
-  Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Log out?'),
-        content: const Text(
-            'Are you sure you want to log out of your School Guardian account?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Log Out'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) _logout();
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
@@ -168,6 +155,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -369,7 +357,7 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.verified_user_rounded,
-                    label: 'Account status',
+                    label: 'Account Status',
                     value: user.status != null
                         ? _statusLabel(user.status!)
                         : 'Active',
@@ -381,111 +369,251 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Attendance Overview Card
-            Card(
-              elevation: 1,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // ── Web-Identical My Attendance Records Section ──
+            Column(
+              key: _attendanceKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.calendar_today,
-                                color: KukieAccent.violet, size: 20),
-                            SizedBox(width: 8),
-                            Text('Attendance History',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16)),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: KukieAccent.violetTint,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text('${_attendanceRecords.length} records',
-                              style: const TextStyle(
-                                  color: KukieAccent.violet,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.spaceAround,
-                      children: [
-                        _attendanceChip(
-                            'Present', presentCount, KukieAccent.success),
-                        _attendanceChip('Absent', absentCount, Colors.red),
-                        _attendanceChip('Late', lateCount, Colors.orange),
-                        _attendanceChip('Excused', excusedCount, Colors.blue),
-                      ],
-                    ),
-                    if (_attendanceRecords.isNotEmpty) ...[
-                      const Divider(height: 24),
-                      const Text('Recent Records:',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey)),
-                      const SizedBox(height: 8),
-                      ..._attendanceRecords.take(3).map((r) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(r.date,
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: r.status == AttendanceStatus.present
-                                        ? KukieAccent.success
-                                            .withValues(alpha: 0.15)
-                                        : r.status == AttendanceStatus.absent
-                                            ? Colors.red
-                                                .withValues(alpha: 0.15)
-                                            : Colors.orange
-                                                .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    r.status.displayName,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: r.status == AttendanceStatus.present
-                                          ? KukieAccent.success
-                                          : r.status == AttendanceStatus.absent
-                                              ? Colors.red
-                                              : Colors.orange,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'My Attendance Records',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
                             ),
-                          )),
-                    ],
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Track your daily attendance history, tardiness records, and attendance percentage.',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _load,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: const Size(0, 32),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF475569)),
+                      label: const Text('Refresh', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 14),
+
+                // 4 Web-Style Metric Cards Grid (2x2)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _webStatCard(
+                        label: 'ATTENDANCE RATE',
+                        value: _attendanceRecords.isNotEmpty
+                            ? '${(((presentCount + excusedCount) / _attendanceRecords.length) * 100).toStringAsFixed(0)}%'
+                            : '100%',
+                        labelColor: const Color(0xFF6366F1),
+                        valueColor: const Color(0xFF4338CA),
+                        bgColor: const Color(0xFFEEF2FF),
+                        borderColor: const Color(0xFFE0E7FF),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _webStatCard(
+                        label: 'PRESENT',
+                        value: '$presentCount days',
+                        labelColor: const Color(0xFF10B981),
+                        valueColor: const Color(0xFF047857),
+                        bgColor: const Color(0xFFECFDF5),
+                        borderColor: const Color(0xFFA7F3D0),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _webStatCard(
+                        label: 'ABSENT',
+                        value: '$absentCount days',
+                        labelColor: const Color(0xFFEF4444),
+                        valueColor: const Color(0xFFB91C1C),
+                        bgColor: const Color(0xFFFEF2F2),
+                        borderColor: const Color(0xFFFECACA),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _webStatCard(
+                        label: 'TARDY / LATE',
+                        value: '$lateCount days',
+                        labelColor: const Color(0xFFD97706),
+                        valueColor: const Color(0xFFB45309),
+                        bgColor: const Color(0xFFFFFBEB),
+                        borderColor: const Color(0xFFFDE68A),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // ── Attendance Log Container Table ──
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Attendance Log',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Table Header Row
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Row(
+                          children: const [
+                            Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5))),
+                            Expanded(flex: 2, child: Text('STATUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5))),
+                            Expanded(flex: 3, child: Text('TEACHER REMARK / REASON', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5))),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      if (_attendanceRecords.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              'No attendance logs recorded yet.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._attendanceRecords.map((r) => Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFF1F5F9)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      r.date,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: r.status == AttendanceStatus.present
+                                              ? const Color(0xFFDCFCE7)
+                                              : r.status == AttendanceStatus.absent
+                                                  ? const Color(0xFFFEF2F2)
+                                                  : const Color(0xFFFEF3C7),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.circle,
+                                              size: 6,
+                                              color: r.status == AttendanceStatus.present
+                                                  ? const Color(0xFF15803D)
+                                                  : r.status == AttendanceStatus.absent
+                                                      ? const Color(0xFFDC2626)
+                                                      : const Color(0xFFD97706),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              r.status == AttendanceStatus.late ? 'LATE' : r.status.toDbString(),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                color: r.status == AttendanceStatus.present
+                                                    ? const Color(0xFF15803D)
+                                                    : r.status == AttendanceStatus.absent
+                                                        ? const Color(0xFFDC2626)
+                                                        : const Color(0xFFD97706),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      (r.note != null && r.note!.isNotEmpty) ? r.note! : '—',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
 
             // ── New Homework Notification Banner ──
             if (_newHomeworks.isNotEmpty && !_notificationDismissed)
@@ -495,131 +623,18 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
             _buildHomeworkSection(),
             const SizedBox(height: AppSpacing.md),
 
-            // Academic Grades Card
-            Card(
-              elevation: 1,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.assessment_outlined,
-                            color: KukieAccent.violet, size: 20),
-                        SizedBox(width: 8),
-                        Text('Academic Grades',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_gradeEntries.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                          child: Text(
-                              'No grade reports submitted by teachers yet.',
-                              style:
-                                  TextStyle(fontSize: 13, color: Colors.grey)),
-                        ),
-                      )
-                    else
-                      ..._gradeEntries.map((g) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(g.subject,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14),
-                                          overflow: TextOverflow.ellipsis),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: KukieAccent.violet,
-                                          fontSize: 14),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                          '${g.assessmentType.label} • Term: ${g.term}',
-                                          style: const TextStyle(
-                                              fontSize: 12, color: Colors.grey),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(g.letterGrade,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13)),
-                                  ],
-                                ),
-                                if (g.parentRecommendation != null &&
-                                    g.parentRecommendation!.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                      'Teacher note: "${g.parentRecommendation}"',
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          fontStyle: FontStyle.italic,
-                                          color: Colors.black87)),
-                                ],
-                              ],
-                            ),
-                          )),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            const SizedBox(height: 12),
-
-            // Modern Card Grid Dashboard Section
-            const DashboardGridCardsSection(),
-            const SizedBox(height: 24),
-
-            // Interactive Weekly Timetable Schedule Matrix
-            const ClassScheduleTimetableWidget(),
-            const SizedBox(height: 28),
-
-            // Account & Utilities Section
+            // ── Modern Academic Grades Card ──
             Container(
+              key: _gradesKey,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
+                    blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -627,117 +642,239 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Account & System Utilities',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // My Profile & Settings Row
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => StudentProfilePage(initialUser: user),
-                    )),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.assessment_rounded,
+                                  color: KukieAccent.violet, size: 20),
                             ),
-                            child: const Icon(Icons.person_outline_rounded,
-                                color: Color(0xFF475569), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'My Profile & Settings',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1E293B)),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Academic Grades & Reports',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Color(0xFF0F172A),
                                 ),
-                                Text(
-                                  'Edit account details & security',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Color(0xFF64748B)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '${_gradeEntries.length} Subjects',
+                          style: const TextStyle(
+                            color: KukieAccent.violet,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_gradeEntries.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'No grade reports submitted by teachers yet.',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._gradeEntries.map((g) {
+                      final progress = (g.maxScore > 0) ? (g.score / g.maxScore).clamp(0.0, 1.0) : 0.0;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                                        child: Text(
+                                          g.subject.isNotEmpty ? g.subject[0].toUpperCase() : 'S',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: Color(0xFF6366F1),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              g.subject,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '${g.assessmentType.label} • Term ${g.term}',
+                                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF6366F1),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'Grade ${g.letterGrade}',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF15803D),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios,
-                              size: 14, color: Color(0xFFCBD5E1)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 24),
-
-                  // Log Out Action Button
-                  InkWell(
-                    onTap: _confirmLogout,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(10),
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 6,
+                                backgroundColor: const Color(0xFFE2E8F0),
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                              ),
                             ),
-                            child: const Icon(Icons.logout_rounded,
-                                color: Color(0xFFEF4444), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Log Out',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFFEF4444)),
+                            if (g.parentRecommendation != null && g.parentRecommendation!.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: const Border(
+                                    left: BorderSide(color: Color(0xFF6366F1), width: 3),
+                                  ),
                                 ),
-                                Text(
-                                  'Sign out of School Guardian',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Color(0xFF94A3B8)),
+                                child: Text(
+                                  'Teacher remark: "${g.parentRecommendation}"',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: Color(0xFF334155),
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          if (_loggingOut)
-                            const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                          else
-                            const Icon(Icons.arrow_forward_ios,
-                                size: 14, color: Color(0xFFCBD5E1)),
-                        ],
-                      ),
-                    ),
-                  ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _webStatCard({
+    required String label,
+    required String value,
+    required Color labelColor,
+    required Color valueColor,
+    required Color bgColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: labelColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: valueColor,
+            ),
+          ),
         ],
       ),
     );
@@ -825,23 +962,12 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
     );
   }
 
-  Widget _attendanceChip(String label, int count, Color color) {
-    return Column(
-      children: [
-        Text('$count',
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-
   String _statusLabel(AccountStatus status) =>
       status == AccountStatus.active ? 'Active' : status.name;
 
   Widget _buildHomeworkSection() {
     return Card(
+      key: _homeworkKey,
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(

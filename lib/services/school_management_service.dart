@@ -116,49 +116,7 @@ class SchoolManagementService {
   }
 
   static void _ensureInitialClasses() {
-    if (_mockClasses.isEmpty) {
-      _mockClasses.addAll([
-        SchoolClass(
-          id: 'cls-9-a',
-          grade: 9,
-          section: 'A',
-          academicYear: '2025/2026',
-          roomNumber: 'Room 101',
-          maxCapacity: 35,
-          description: 'Main Grade 9 Section A',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          students: [],
-          teachers: [],
-        ),
-        SchoolClass(
-          id: 'cls-9-b',
-          grade: 9,
-          section: 'B',
-          academicYear: '2025/2026',
-          roomNumber: 'Room 102',
-          maxCapacity: 35,
-          description: 'Grade 9 Section B',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          students: [],
-          teachers: [],
-        ),
-        SchoolClass(
-          id: 'cls-9-c',
-          grade: 9,
-          section: 'C',
-          academicYear: '2025/2026',
-          roomNumber: 'Room 103',
-          maxCapacity: 35,
-          description: 'Grade 9 Section C',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          students: [],
-          teachers: [],
-        ),
-      ]);
-    }
+    // Only seed initial mock classes if never initialized from backend
   }
 
   /// Fetch all registered classes/sections, filtered optionally by grade or search string.
@@ -169,25 +127,14 @@ class SchoolManagementService {
       final res =
           await _apiClient.get('/admin/school/classes', requireAuth: true);
       final rawList = res['data'] is List ? res['data'] as List : null;
-      if (rawList != null && rawList.isNotEmpty) {
+      if (rawList != null) {
         final fetched = rawList
             .whereType<Map<String, dynamic>>()
             .map((item) => SchoolClass.fromJson(item))
             .toList();
-        if (fetched.isNotEmpty) {
-          for (final cls in fetched) {
-            final idx = _mockClasses.indexWhere((c) =>
-                c.id == cls.id ||
-                (c.grade == cls.grade &&
-                    c.section.toUpperCase() == cls.section.toUpperCase()));
-            if (idx != -1) {
-              _mockClasses[idx] = cls;
-            } else {
-              _mockClasses.add(cls);
-            }
-          }
-          await _persistClasses();
-        }
+        _mockClasses.clear();
+        _mockClasses.addAll(fetched);
+        await _persistClasses();
       }
     } catch (_) {}
 
@@ -315,10 +262,7 @@ class SchoolManagementService {
     await _persistClasses();
 
     try {
-      if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(classId)) {
-        await _apiClient.delete('/admin/school/classes/$classId',
-            requireAuth: true);
-      }
+      await _apiClient.delete('/admin/school/classes/$classId', requireAuth: true);
     } catch (_) {}
   }
 
@@ -331,26 +275,14 @@ class SchoolManagementService {
           await _apiClient.get('/admin/school/subjects', requireAuth: true);
       final rawList = res['data'] is List ? res['data'] as List : null;
       if (rawList != null) {
+        final List<Subject> fetched = [];
         for (final item in rawList) {
           if (item is Map<String, dynamic>) {
-            final dbSubj = Subject.fromJson(item);
-
-            final idx = _mockSubjects.indexWhere(
-              (m) =>
-                  m.id == dbSubj.id ||
-                  m.name.toLowerCase() == dbSubj.name.toLowerCase(),
-            );
-            if (idx != -1) {
-              final existing = _mockSubjects[idx];
-              _mockSubjects[idx] = existing.copyWith(
-                id: dbSubj.id,
-                name: dbSubj.name,
-              );
-            } else {
-              _mockSubjects.add(dbSubj);
-            }
+            fetched.add(Subject.fromJson(item));
           }
         }
+        _mockSubjects.clear();
+        _mockSubjects.addAll(fetched);
         await _persistSubjects();
       }
     } catch (_) {}
@@ -456,10 +388,7 @@ class SchoolManagementService {
     await _persistSubjects();
 
     try {
-      if (RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(subjectId)) {
-        await _apiClient.delete('/admin/school/subjects/$subjectId',
-            requireAuth: true);
-      }
+      await _apiClient.delete('/admin/school/subjects/$subjectId', requireAuth: true);
     } catch (_) {}
 
     // 1. Remove subject from Teacher profiles / My Teaching Subjects
@@ -534,7 +463,7 @@ class SchoolManagementService {
         body: {
           'studentId': studentId,
           'classId': classId,
-          if (academicYear != null) 'academicYear': academicYear,
+          'academicYear': academicYear,
         },
         requireAuth: true,
       );
@@ -670,7 +599,7 @@ class SchoolManagementService {
             'teacherId': realTeacherId,
             'classId': realClassId,
             'subjectId': realSubjectId,
-            if (academicYear != null) 'academicYear': academicYear,
+            'academicYear': academicYear,
           },
           requireAuth: true,
         );

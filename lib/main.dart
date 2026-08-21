@@ -30,8 +30,18 @@ import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
 import 'screens/student/student_portal_dashboard_page.dart';
 import 'screens/teacher/add_grade_page.dart';
+import 'screens/teacher/manage_homework_page.dart';
+import 'screens/teacher/mark_attendance_page.dart';
 import 'screens/teacher/my_classes_page.dart';
+import 'screens/teacher/teacher_appointments_page.dart';
+import 'screens/teacher/teacher_notes_page.dart';
 import 'screens/teacher/teacher_portal_page.dart';
+import 'screens/admin/class_section_management_page.dart';
+import 'screens/admin/verified_users_page.dart';
+import 'screens/parent/my_students_page.dart';
+import 'screens/parent/link_student_page.dart';
+import 'screens/student/guardians_page.dart';
+import 'screens/student/student_profile_page.dart';
 import 'screens/student/homework_ai_assistant_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
@@ -122,13 +132,14 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
   }
 
   void _handleIncomingLink(Uri uri) {
-    // Matches schoolguardian://reset-password?token=... — "reset-password"
-    // parses as the URI's host for a custom scheme, not its path.
-    final isResetPasswordLink = uri.host == 'reset-password';
-    // Matches schoolguardian://verify-email?token=..., same shape as the
-    // reset-password link above (see VERIFY_EMAIL_URL, mirroring
-    // RESET_PASSWORD_URL, on the backend .env).
-    final isVerifyEmailLink = uri.host == 'verify-email';
+    // Matches custom schemes (schoolguardian://reset-password?token=...)
+    // as well as HTTPS App Links (https://.../reset-password?token=...)
+    final isResetPasswordLink = uri.host == 'reset-password' ||
+        uri.path == '/reset-password' ||
+        uri.path.endsWith('/reset-password');
+    final isVerifyEmailLink = uri.host == 'verify-email' ||
+        uri.path == '/verify-email' ||
+        uri.path.endsWith('/verify-email');
     if (!isResetPasswordLink && !isVerifyEmailLink) return;
 
     final token = uri.queryParameters['token'];
@@ -289,6 +300,26 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case ReportsPage.routeName:
             return MaterialPageRoute(builder: (_) => const ReportsPage());
 
+          case ClassSectionManagementPage.routeName:
+            return MaterialPageRoute(
+                builder: (_) => const ClassSectionManagementPage());
+
+          case VerifiedUsersPage.routeName:
+            return MaterialPageRoute(builder: (_) => const VerifiedUsersPage());
+
+          case MyStudentsPage.routeName:
+            return MaterialPageRoute(builder: (_) => const MyStudentsPage());
+
+          case LinkStudentPage.routeName:
+            return MaterialPageRoute(builder: (_) => const LinkStudentPage());
+
+          case GuardiansPage.routeName:
+            return MaterialPageRoute(builder: (_) => const GuardiansPage());
+
+          case StudentProfilePage.routeName:
+            final u = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => StudentProfilePage(initialUser: u));
+
           case TeacherPortalPage.routeName:
             return MaterialPageRoute(builder: (_) => const TeacherPortalPage());
 
@@ -297,6 +328,18 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case MyClassesPage.routeName:
             return MaterialPageRoute(builder: (_) => const MyClassesPage());
+
+          case ManageHomeworkPage.routeName:
+            return MaterialPageRoute(builder: (_) => const ManageHomeworkPage());
+
+          case MarkAttendancePage.routeName:
+            return MaterialPageRoute(builder: (_) => const MarkAttendancePage());
+
+          case TeacherNotesPage.routeName:
+            return MaterialPageRoute(builder: (_) => const TeacherNotesPage());
+
+          case TeacherAppointmentsPage.routeName:
+            return MaterialPageRoute(builder: (_) => const TeacherAppointmentsPage());
 
           case HomeworkAiAssistantPage.routeName:
             final hw = settings.arguments;

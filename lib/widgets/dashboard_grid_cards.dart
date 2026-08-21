@@ -119,11 +119,7 @@ class _DashboardGridCardsSectionState extends State<DashboardGridCardsSection> {
     ),
   ];
 
-  final PageController _tasksPageController = PageController();
-  final PageController _announcementsPageController = PageController();
-
   int _taskPageIndex = 0;
-  int _announcementPageIndex = 0;
 
   void _addNewTaskDialog() {
     final titleController = TextEditingController();
@@ -246,119 +242,81 @@ class _DashboardGridCardsSectionState extends State<DashboardGridCardsSection> {
               ),
               const SizedBox(height: 14),
 
-              SizedBox(
-                height: 110,
-                child: PageView.builder(
-                  controller: _tasksPageController,
-                  itemCount: _tasks.length,
-                  onPageChanged: (idx) => setState(() => _taskPageIndex = idx),
-                  itemBuilder: (context, idx) {
+              // Horizontal swipe cards — uses SingleChildScrollView instead of
+              // PageView so vertical scroll is NOT intercepted by this widget.
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_tasks.length, (idx) {
                     final item = _tasks[idx];
                     final isDone = item.status == 'Done';
-                    return Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isDone ? Colors.green.shade50 : Colors.amber.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: isDone ? Colors.green.shade200 : Colors.amber.shade300,
+                    return GestureDetector(
+                      onTap: () => setState(() => _taskPageIndex = idx),
+                      child: Container(
+                        width: 240,
+                        margin: EdgeInsets.only(right: idx < _tasks.length - 1 ? 10 : 0),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _taskPageIndex == idx
+                              ? const Color(0xFFF0EEFF)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _taskPageIndex == idx
+                                ? const Color(0xFFA5B4FC)
+                                : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: isDone ? Colors.green.shade50 : Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isDone ? Colors.green.shade200 : Colors.amber.shade300,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    item.status,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDone ? Colors.green.shade800 : Colors.amber.shade900,
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  item.status,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDone ? Colors.green.shade800 : Colors.amber.shade900,
-                                  ),
-                                ),
-                              ),
-                              Icon(Icons.more_horiz, color: Colors.grey.shade400, size: 20),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Due date: ${item.dueDate}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                          ),
-                        ],
+                                Icon(Icons.more_horiz, color: Colors.grey.shade400, size: 20),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Due: ${item.dueDate}',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
                       ),
                     );
-                  },
+                  }),
                 ),
               ),
-              const SizedBox(height: 12),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${_tasks.length} total tasks  •  $completedCount completed  •  $inProgressCount in progress',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                  ),
-                  Row(
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          if (_taskPageIndex > 0) {
-                            _tasksPageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.chevron_left, size: 18),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () {
-                          if (_taskPageIndex < _tasks.length - 1) {
-                            _tasksPageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.chevron_right, size: 18),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              const SizedBox(height: 10),
+              Text(
+                '${_tasks.length} total  •  $completedCount done  •  $inProgressCount in progress',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -507,148 +465,96 @@ class _DashboardGridCardsSectionState extends State<DashboardGridCardsSection> {
               ),
               const SizedBox(height: 12),
 
-              SizedBox(
-                height: 175,
-                child: PageView.builder(
-                  controller: _announcementsPageController,
-                  itemCount: _announcements.length,
-                  onPageChanged: (idx) => setState(() => _announcementPageIndex = idx),
-                  itemBuilder: (context, idx) {
-                    final item = _announcements[idx];
-                    return Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: KukieAccent.violetTint,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  item.category,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: KukieAccent.violet,
-                                  ),
+              // Announcements list — Column instead of PageView to avoid
+              // hijacking vertical scroll from the parent ListView.
+              Column(
+                children: List.generate(_announcements.length, (idx) {
+                  final item = _announcements[idx];
+                  return Container(
+                    margin: EdgeInsets.only(bottom: idx < _announcements.length - 1 ? 10 : 0),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: KukieAccent.violetTint,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                item.category,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: KukieAccent.violet,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                          ),
-                          const Spacer(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                item.timeAgo,
-                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                              ),
-                              OutlinedButton(
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: Text(item.title),
-                                      content: Text(item.description),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx),
-                                          child: const Text('Close'),
-                                        ),
-                                      ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              item.timeAgo,
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(item.title),
+                                  content: Text(item.description),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('Close'),
                                     ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ],
                                 ),
-                                child: const Text('Read more >', style: TextStyle(fontSize: 11)),
-                              ),
-                            ],
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Read more >', style: TextStyle(fontSize: 11)),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ),
-              const SizedBox(height: 12),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Showing Last 7 days',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                  ),
-                  Row(
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          if (_announcementPageIndex > 0) {
-                            _announcementsPageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.chevron_left, size: 18),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () {
-                          if (_announcementPageIndex < _announcements.length - 1) {
-                            _announcementsPageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.chevron_right, size: 18),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              const SizedBox(height: 8),
+              Text(
+                'Showing last 7 days',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
               ),
             ],
           ),

@@ -230,6 +230,29 @@ class AuthService {
       rethrow;
     }
   }
+  /// `PATCH /users/me` — updates personal details (firstName, middleName, lastName, phoneNumber, gender, dateOfBirth)
+  Future<User> updateProfile({
+    String? firstName,
+    String? middleName,
+    String? lastName,
+    String? phoneNumber,
+    Gender? gender,
+    String? dateOfBirth,
+  }) async {
+    final body = <String, dynamic>{
+      if (firstName != null && firstName.isNotEmpty) 'firstName': firstName,
+      if (middleName != null && middleName.isNotEmpty) 'middleName': middleName,
+      if (lastName != null && lastName.isNotEmpty) 'lastName': lastName,
+      if (phoneNumber != null && phoneNumber.isNotEmpty) 'phoneNumber': phoneNumber,
+      if (gender != null) 'gender': gender.apiValue,
+      if (dateOfBirth != null && dateOfBirth.isNotEmpty) 'dateOfBirth': dateOfBirth,
+    };
+    final json = await _apiClient.patch('/users/me', body: body, requireAuth: true);
+    final userJson = json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : json;
+    final user = User.fromJson(userJson);
+    _lastLoggedInUser = user;
+    return user;
+  }
 
   Future<bool> isLoggedIn() async =>
       (await _tokenStorage.readAccessToken()) != null;

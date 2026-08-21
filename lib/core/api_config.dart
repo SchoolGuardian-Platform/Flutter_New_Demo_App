@@ -71,12 +71,13 @@ class ApiConfig {
   // Student (src/routes/student.routes.ts): '/students/...'
 
   // ---- Gemini AI (Google AI Studio free tier) ----
-  // Get your free API key at: https://aistudio.google.com/app/apikey
-  // Pass via: flutter run --dart-define=GEMINI_API_KEY=your_key_here
+  // Gemini API Key can be passed at build/run time:
+  // flutter run --dart-define=GEMINI_API_KEY=your_key_here
   static final String geminiApiKey = const String.fromEnvironment('GEMINI_API_KEY').isNotEmpty
       ? const String.fromEnvironment('GEMINI_API_KEY')
       : '';
 
+  // Gemini 2.0 Flash — free tier, fast, accurate
   static const String geminiBaseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 }

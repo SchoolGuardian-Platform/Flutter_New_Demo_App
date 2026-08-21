@@ -4,7 +4,6 @@ import '../../core/api_exception.dart';
 import '../../models/relationship.dart';
 import '../../models/school_class.dart';
 import '../../models/user.dart';
-import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../services/school_management_service.dart';
 import '../../theme/app_theme.dart';
@@ -71,20 +70,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         }
       }
 
-      // If still not matched, fallback default enrollment for Grade 9-A
-      if (foundClass == null && classes.isNotEmpty) {
-        foundClass = classes.first;
-        foundEnrollment = StudentClassInfo(
-          id: 'sc-default-${sId.substring(0, 4)}',
-          studentId: sCode ?? sId,
-          studentName: widget.student.fullName,
-          studentCode: sCode ?? 'SG-2026-000001',
-          classId: foundClass.id,
-          academicYear: '2026',
-          enrolledAt: DateTime.now(),
-        );
-      }
-
       // 2. Fetch Guardian relationships
       final pending = await _adminService.getPendingRelationships();
       final pendingForStudent = pending.where((r) =>
@@ -101,46 +86,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       for (final r in [...pendingForStudent, ...known, ...knownByCode]) {
         byId[r.id] = r;
       }
-      var mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
-
-      // If no relationship found yet, check active parents for potential DB links
-      if (mine.isEmpty) {
-        try {
-          final activeParents = await _adminService.getActive(UserRole.parent);
-          if (activeParents.isNotEmpty) {
-            for (final p in activeParents) {
-              final synthId = 'rel-${p.id}-$sId';
-              final synthRel = Relationship(
-                id: synthId,
-                parentId: p.id,
-                studentId: sId,
-                relationshipType: RelationshipType.guardian,
-                status: RelationshipStatus.verified,
-                createdAt: DateTime.now(),
-                verifiedAt: DateTime.now(),
-                parent: RelationshipParty(
-                  id: p.id,
-                  firstName: p.firstName,
-                  middleName: p.middleName,
-                  lastName: p.lastName,
-                  email: p.email,
-                  status: p.status,
-                ),
-                student: RelationshipParty(
-                  id: sId,
-                  firstName: widget.student.firstName,
-                  middleName: widget.student.middleName,
-                  lastName: widget.student.lastName,
-                  email: widget.student.email,
-                  status: widget.student.status,
-                ),
-              );
-              byId[synthId] = synthRel;
-            }
-            mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
-          }
-        } catch (_) {}
-      }
+      final mine = byId.values.toList()..sort(_byPendingFirstThenMostRecent);
 
       if (!mounted) return;
       setState(() {

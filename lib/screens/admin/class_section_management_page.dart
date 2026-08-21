@@ -322,6 +322,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                           label: const Text('Add Subject'),
                           onPressed: () async {
                             if (nameCtrl.text.trim().isEmpty) return;
+                            final messenger = ScaffoldMessenger.of(ctx);
                             try {
                               await _schoolService.createSubject(
                                 name: nameCtrl.text.trim(),
@@ -337,7 +338,7 @@ class _ClassSectionManagementPageState extends State<ClassSectionManagementPage>
                               });
                               _loadData();
                             } on ApiException catch (e) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(e.message)));
+                              messenger.showSnackBar(SnackBar(content: Text(e.message)));
                             }
                           },
                         ),

@@ -6,6 +6,7 @@ import '../../models/user_role.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/kukie_accent.dart';
 import '../../widgets/app_logo.dart';
 import '../admin/admin_notifications_page.dart';
 import '../admin/admin_overview_tab.dart';
@@ -16,13 +17,15 @@ import '../admin/manage_users_page.dart';
 import '../admin/verified_users_page.dart';
 import '../landing_page.dart';
 import '../parent/my_students_page.dart';
+import '../parent/parent_overview_tab.dart';
+import '../parent/parent_profile_page.dart';
 import '../communication/private_communication_page.dart';
 import '../reports/reports_page.dart';
 import '../student/guardians_page.dart';
+import '../student/student_academic_hub_page.dart';
 import '../student/student_overview_tab.dart';
 import '../student/student_portal_dashboard_page.dart';
 import '../student/student_profile_page.dart';
-import '../student/student_status_tab.dart';
 import '../analytics/academic_gpa_progression_page.dart';
 import '../biometrics/biometric_health_overview_page.dart';
 import '../biometrics/stress_level_dashboard_page.dart';
@@ -60,6 +63,7 @@ class _DashboardPageState extends State<DashboardPage> {
   /// assembled client-side rather than from a single endpoint.
   int _pendingCount = 0;
   int _studentTabIndex = 0;
+  int _parentTabIndex = 0;
 
   /// Admin-only bottom nav. "Overview" (index 0) renders inline; the other
   /// three ("Manage", "Users", "Profile") are shortcuts that push the
@@ -189,38 +193,26 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadPendingCount();
   }
 
-  Future<void> _onStudentTabTapped(int index) async {
-    if (index == 0) {
-      setState(() => _studentTabIndex = 0);
-      _studentOverviewKey.currentState?.refresh();
-      return;
-    }
+  void _onStudentTabTapped(int index) {
     setState(() => _studentTabIndex = index);
-    switch (index) {
-      case 1:
-        await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => StudentProfilePage(initialUser: _user),
-        ));
-        break;
-      case 2:
-        await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => const GuardiansPage(),
-        ));
-        break;
-      case 3:
-        await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => const ReportsPage(),
-        ));
-        break;
-    }
-    if (mounted) setState(() => _studentTabIndex = 0);
-    _studentOverviewKey.currentState?.refresh();
+  }
+
+  void _onParentTabTapped(int index) {
+    setState(() => _parentTabIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
     final isAdmin = _user.role == UserRole.admin;
     final isStudent = _user.role == UserRole.student;
+    final isTeacher = _user.role == UserRole.teacher;
+
+    final isParent = _user.role == UserRole.parent;
+
+    if (isTeacher) {
+      return const TeacherPortalPage();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const AppWordmark(),
@@ -277,32 +269,106 @@ class _DashboardPageState extends State<DashboardPage> {
             )
           else
             PopupMenuButton<String>(
-              icon: const Icon(Icons.account_circle_outlined),
+              icon: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: KukieAccent.violet.withValues(alpha: 0.3), width: 1.5),
+                ),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: KukieAccent.violetTint,
+                  child: Text(
+                    _user.firstName.isNotEmpty ? _user.firstName[0].toUpperCase() : 'U',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                  ),
+                ),
+              ),
+              color: Colors.white,
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
               onSelected: (value) {
                 if (value == 'logout') {
                   _confirmLogout();
                 } else if (value == 'profile') {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => AdminProfilePage(initialUser: _user),
-                  ));
+                  if (isStudent) {
+                    setState(() => _studentTabIndex = 3);
+                  } else if (isParent) {
+                    setState(() => _parentTabIndex = 3);
+                  } else {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => AdminProfilePage(initialUser: _user),
+                    ));
+                  }
                 }
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
                   enabled: false,
-                  child: Text(
-                    _user.fullName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: KukieAccent.violet,
+                          child: Text(
+                            _user.firstName.isNotEmpty ? _user.firstName[0].toUpperCase() : 'U',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _user.fullName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                _user.role.label.toUpperCase(),
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const PopupMenuItem(
+                const PopupMenuDivider(height: 1),
+                PopupMenuItem(
                   value: 'profile',
-                  child: Text('View profile'),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.person_outline_rounded, size: 18, color: KukieAccent.violet),
+                      SizedBox(width: 10),
+                      Text(
+                        'View profile',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'logout',
-                  child: Text('Log Out'),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                      SizedBox(width: 10),
+                      Text(
+                        'Log Out',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFEF4444)),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -311,31 +377,50 @@ class _DashboardPageState extends State<DashboardPage> {
       body: isAdmin
           ? AdminOverviewTab(key: _overviewKey)
           : isStudent
-              ? StudentOverviewTab(key: _studentOverviewKey, user: _user)
-              : RefreshIndicator(
-                  onRefresh: _refreshProfile,
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    children: [
-                      _WelcomeCard(user: _user),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        'Overview & Primary Actions',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A),
-                            ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      _RoleSections(role: _user.role, user: _user),
-                      if (_user.role == UserRole.student) ...[
-                        const SizedBox(height: AppSpacing.xl),
-                        _QuickFeatureLaunchHub(user: _user),
+              ? IndexedStack(
+                  index: _studentTabIndex.clamp(0, 3),
+                  children: [
+                    StudentOverviewTab(key: _studentOverviewKey, user: _user),
+                    StudentAcademicHubPage(user: _user),
+                    const GuardiansPage(),
+                    StudentProfilePage(initialUser: _user),
+                  ],
+                )
+              : isParent
+                  ? IndexedStack(
+                      index: _parentTabIndex.clamp(0, 3),
+                      children: [
+                        ParentOverviewTab(
+                          user: _user,
+                          onNavigateToChildTab: () => setState(() => _parentTabIndex = 1),
+                        ),
+                        const MyStudentsPage(),
+                        PrivateCommunicationPage(user: _user),
+                        ParentProfilePage(initialUser: _user),
                       ],
-                    ],
-                  ),
-                ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _refreshProfile,
+                      child: ListView(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        children: [
+                          _WelcomeCard(user: _user),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text(
+                            'Overview & Primary Actions',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          _RoleSections(role: _user.role, user: _user),
+                          const SizedBox(height: AppSpacing.xl),
+                          _QuickFeatureLaunchHub(user: _user),
+                        ],
+                      ),
+                    ),
       bottomNavigationBar: isAdmin
           ? FriendAdminBottomNav(
               currentIndex: 0,
@@ -344,30 +429,60 @@ class _DashboardPageState extends State<DashboardPage> {
           : isStudent
               ? BottomNavigationBar(
                   type: BottomNavigationBarType.fixed,
-                  currentIndex: _studentTabIndex,
-                  selectedItemColor: AppColors.primary,
-                  unselectedItemColor: AppColors.outline,
+                  currentIndex: _studentTabIndex.clamp(0, 3),
+                  selectedItemColor: KukieAccent.violet,
+                  unselectedItemColor: const Color(0xFF64748B),
+                  selectedFontSize: 11,
+                  unselectedFontSize: 11,
                   onTap: _onStudentTabTapped,
                   items: const [
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.dashboard_outlined),
-                      label: 'Overview',
+                      icon: Icon(Icons.home_rounded),
+                      label: 'Home',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.badge_outlined),
-                      label: 'My Profile',
+                      icon: Icon(Icons.school_rounded),
+                      label: 'Academic Hub',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.family_restroom),
+                      icon: Icon(Icons.family_restroom_rounded),
                       label: 'Guardians',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.description_outlined),
-                      label: 'Reports',
+                      icon: Icon(Icons.person_rounded),
+                      label: 'Profile',
                     ),
                   ],
                 )
-              : null,
+              : isParent
+                  ? BottomNavigationBar(
+                      type: BottomNavigationBarType.fixed,
+                      currentIndex: _parentTabIndex.clamp(0, 3),
+                      selectedItemColor: KukieAccent.violet,
+                      unselectedItemColor: const Color(0xFF64748B),
+                      selectedFontSize: 11,
+                      unselectedFontSize: 11,
+                      onTap: _onParentTabTapped,
+                      items: const [
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.home_rounded),
+                          label: 'Home',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.school_rounded),
+                          label: 'My Child',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.chat_bubble_rounded),
+                          label: 'Messages',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(Icons.person_rounded),
+                          label: 'Profile',
+                        ),
+                      ],
+                    )
+                  : null,
     );
   }
 }
