@@ -139,3 +139,121 @@ class AppUsageItem {
     );
   }
 }
+
+/// Represents total screen time for a specific date.
+class DailyScreenTime {
+  final String date; // 'YYYY-MM-DD'
+  final int totalMinutes;
+  final List<AppUsageItem> appUsages;
+
+  const DailyScreenTime({
+    required this.date,
+    required this.totalMinutes,
+    required this.appUsages,
+  });
+
+  Map<AppCategory, int> get categoryTotals {
+    final totals = <AppCategory, int>{};
+    for (final app in appUsages) {
+      totals[app.category] = (totals[app.category] ?? 0) + app.minutesUsed;
+    }
+    return totals;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'totalMinutes': totalMinutes,
+      'appUsages': appUsages.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  factory DailyScreenTime.fromJson(Map<String, dynamic> json) {
+    final list = json['appUsages'] is List
+        ? (json['appUsages'] as List)
+            .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
+            .toList()
+        : <AppUsageItem>[];
+    return DailyScreenTime(
+      date: json['date'] as String? ?? '',
+      totalMinutes: (json['totalMinutes'] as num?)?.toInt() ?? 0,
+      appUsages: list,
+    );
+  }
+}
+
+/// Parent or student configured daily screen time goal & downtime schedule.
+class ScreenTimeGoal {
+  final int dailyLimitMinutes; // Total daily screen time limit in minutes
+  final String downtimeStart; // e.g. "21:00"
+  final String downtimeEnd; // e.g. "07:00"
+  final bool isDowntimeEnabled;
+
+  const ScreenTimeGoal({
+    this.dailyLimitMinutes = 180, // Default 3 hours
+    this.downtimeStart = '21:00',
+    this.downtimeEnd = '07:00',
+    this.isDowntimeEnabled = true,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dailyLimitMinutes': dailyLimitMinutes,
+      'downtimeStart': downtimeStart,
+      'downtimeEnd': downtimeEnd,
+      'isDowntimeEnabled': isDowntimeEnabled,
+    };
+  }
+
+  factory ScreenTimeGoal.fromJson(Map<String, dynamic> json) {
+    return ScreenTimeGoal(
+      dailyLimitMinutes:
+          (json['dailyLimitMinutes'] as num?)?.toInt() ?? 180,
+      downtimeStart: json['downtimeStart'] as String? ?? '21:00',
+      downtimeEnd: json['downtimeEnd'] as String? ?? '07:00',
+      isDowntimeEnabled: json['isDowntimeEnabled'] as bool? ?? true,
+    );
+  }
+}
+
+/// Overall screen time analytics summary.
+class ScreenTimeSummary {
+  final int todayMinutes;
+  final int yesterdayMinutes;
+  final int weeklyAverageMinutes;
+  final AppCategory topCategory;
+  final List<AppUsageItem> appUsages;
+  final List<DailyScreenTime> weeklyLogs;
+  final ScreenTimeGoal goal;
+
+  const ScreenTimeSummary({
+    required this.todayMinutes,
+    required this.yesterdayMinutes,
+    required this.weeklyAverageMinutes,
+    required this.topCategory,
+    required this.appUsages,
+    required this.weeklyLogs,
+    required this.goal,
+  });
+
+  bool get isLimitExceeded => todayMinutes > goal.dailyLimitMinutes;
+
+  double get todayLimitRatio =>
+      goal.dailyLimitMinutes > 0 ? (todayMinutes / goal.dailyLimitMinutes) : 0.0;
+
+  String get formattedTodayUsage {
+    final hours = todayMinutes ~/ 60;
+    final mins = todayMinutes % 60;
+    if (hours == 0) return '${mins}m';
+    return '${hours}h ${mins}m';
+  }
+
+  Map<AppCategory, int> get categoryBreakdown {
+    final map = <AppCategory, int>{};
+    for (final app in appUsages) {
+      map[app.category] = (map[app.category] ?? 0) + app.minutesUsed;
+    }
+    return map;
+  }
+}
+
