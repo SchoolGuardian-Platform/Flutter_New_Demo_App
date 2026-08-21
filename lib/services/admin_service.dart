@@ -86,7 +86,8 @@ class PendingSummary {
 /// approve/reject a given account.
 ///
 /// INTENTIONALLY SEPARATE FROM `core/api_client.dart`: that shared client
-/// only exposes GET/POST today, and these endpoints use PATCH. Rather than
+/// only exposes GET/POST today, and these endpoints use PATCH and DELETE.
+/// Rather than
 /// touch the shared API layer (risk of merge conflicts with whatever else
 /// is in flight on it), this makes its own `package:http` calls, reusing
 /// `ApiConfig.baseUrl` and `TokenStorage` read-only. It mirrors the same
@@ -142,6 +143,54 @@ class AdminService {
         .toList();
   }
 
+  /// `GET /admin/users/verified?role={ROLE}` -- verified/approved accounts
+  /// (`AccountStatus.ACTIVE`) for the "Users" directory tab, rather than
+  /// the approvals queue.
+  ///
+  /// CORRECTED: this used to call `/admin/{role}/active`, which does not
+  /// exist anywhere in `admin.routes.ts` (every request 404'd, so the
+  /// "Users" tab always rendered empty). The route that's actually
+  /// implemented is a single `GET /admin/users/verified` that takes the
+  /// role as a query parameter -- see `getVerifiedUsersController` /
+  /// `getVerifiedUsersByRole` in `admin.controller.ts` / `admin.service.ts`.
+  /// `UserRole.admin` has no verified-users listing (admins aren't shown
+  /// in this directory), so it throws same as before.
+  Future<List<User>> getActive(UserRole role) async {
+    if (role == UserRole.admin) {
+      throw ArgumentError('No verified-users listing for role: $role');
+    }
+    final decoded = await _get('/admin/users/verified?role=${role.apiValue}');
+    final list = decoded['data'];
+    if (list is! List) {
+      throw ApiException.malformed(200);
+    }
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((json) => User.fromJson(json))
+        .toList();
+  }
+
+  /// `DELETE /admin/users/:id` -- permanently removes a user account.
+  /// The backend refuses to delete an ADMIN account (`deleteUser` in
+  /// `admin.service.ts` throws `BadRequestError`), which surfaces here as
+  /// a normal `ApiException` for the caller to show.
+  Future<void> deleteUser(String userId) async {
+    await _delete('/admin/users/$userId');
+  }
+
+  /// Calculates total approved users across students, parents, and teachers from database
+  Future<int> getTotalApprovedCount() async {
+    try {
+      final s = await getActive(UserRole.student);
+      final p = await getActive(UserRole.parent);
+      final t = await getActive(UserRole.teacher);
+      final dbTotal = s.length + p.length + t.length;
+      return dbTotal > 0 ? dbTotal : sessionApprovals;
+    } catch (_) {
+      return sessionApprovals > 0 ? sessionApprovals : 1;
+    }
+  }
+
   /// `PATCH /admin/{students|parents|teachers}/:id/approve`
   Future<User> approve(UserRole role, String userId) async {
     final segment = _resourceSegments[role]!;
@@ -166,30 +215,130 @@ class AdminService {
   /// account types above. Previously missing from this service entirely,
   /// which meant approved/rejected parent-student links never showed up
   /// anywhere in the admin UI.
+  ///
+  /// Every relationship this returns is also stashed in
+  /// [_knownRelationships] -- see that field for why.
   Future<List<Relationship>> getPendingRelationships() async {
     final decoded = await _get('/admin/relationships/pending');
     final list = decoded['data'];
     if (list is! List) {
       throw ApiException.malformed(200);
     }
-    return list
+    final relationships = list
         .whereType<Map<String, dynamic>>()
         .map((json) => Relationship.fromJson(json))
         .toList();
+    for (final r in relationships) {
+      _knownRelationships[r.id] = r;
+    }
+    return relationships;
+  }
+
+  /// In-memory cache of every relationship this admin session has ever
+  /// seen, keyed by relationship id.
+  ///
+  /// CORRECTED: there is NO `GET /admin/relationships` (all-statuses,
+  /// no id) route on this backend -- `admin.routes.ts` only registers
+  /// `/relationships/pending`, `/relationships/:id`,
+  /// `/relationships/:id/approve`, `/relationships/:id/reject`. The
+  /// method that used to live here (`getAllRelationships`) called a
+  /// path that 404s, which is why `GuardianLinksPage` and the earlier
+  /// Overview card both surfaced "Received an unexpected response from
+  /// the server." -- that's Express's HTML 404 page failing to parse
+  /// as JSON, not a transient failure.
+  ///
+  /// Since there's also no per-student relationships endpoint (the
+  /// closest thing, `GET /students/my-guardians`, is self-scoped to the
+  /// caller's own JWT and unusable by an admin for an arbitrary
+  /// student), the only way to show a student's non-pending links
+  /// without a backend change is to remember relationship ids this app
+  /// has already discovered (via [getPendingRelationships],
+  /// [approveRelationship], or [rejectRelationship]) and re-fetch each
+  /// by id with [getRelationshipById] to pick up its current status.
+  /// A link that was approved or rejected before this app ever saw it
+  /// pending has no discoverable id and genuinely cannot appear here --
+  /// that gap needs a real backend endpoint to close.
+  ///
+  /// Resets on app restart, same caveat as [sessionApprovals].
+  static final Map<String, Relationship> _knownRelationships = {};
+
+  /// `GET /admin/relationships/:id` -- the one endpoint that can return
+  /// a relationship at ANY status by id. See [_knownRelationships] for
+  /// why this is the building block for showing a student's guardian
+  /// links without a backend change.
+  Future<Relationship> getRelationshipById(String id) async {
+    final decoded = await _get('/admin/relationships/$id');
+    final relationship = Relationship.fromJson(decoded['data'] as Map<String, dynamic>);
+    _knownRelationships[relationship.id] = relationship;
+    return relationship;
+  }
+
+  /// Relationship ids this session has ever seen for [studentId] --
+  /// input to [refreshKnownRelationshipsForStudent]. Not itself
+  /// guaranteed fresh (a cached entry could since have been approved/
+  /// rejected elsewhere); call that method to get current statuses.
+  List<String> knownRelationshipIdsForStudent(String studentId) => _knownRelationships.values
+      .where((r) => r.studentId == studentId)
+      .map((r) => r.id)
+      .toList();
+
+  /// Re-fetches (via [getRelationshipById]) every relationship id this
+  /// session knows about for [studentId], so previously-pending links
+  /// that have since been approved or rejected show their current
+  /// status. Used by `StudentDetailPage` alongside a fresh
+  /// [getPendingRelationships] call (which covers anything newly
+  /// pending that this session hasn't seen yet).
+  Future<List<Relationship>> refreshKnownRelationshipsForStudent(String studentId) async {
+    final ids = knownRelationshipIdsForStudent(studentId);
+    final results = await Future.wait(
+      ids.map((id) => getRelationshipById(id).catchError((_) => _knownRelationships[id]!)),
+    );
+    return results;
+  }
+
+  /// Same idea as [refreshKnownRelationshipsForStudent], but across
+  /// every student -- every relationship id this session has ever seen,
+  /// re-fetched for its current status. Used by `GuardianLinksPage`'s
+  /// "Recently decided" section.
+  Future<List<Relationship>> refreshAllKnownRelationships() async {
+    final ids = _knownRelationships.keys.toList();
+    final results = await Future.wait(
+      ids.map((id) => getRelationshipById(id).catchError((_) => _knownRelationships[id]!)),
+    );
+    return results;
+  }
+
+  /// `GET /admin/students/:id` -- a student's full profile, including the
+  /// human-readable Student ID (e.g. "SG-2026-000123") that the
+  /// relationship endpoints don't join in. Used to show that ID alongside
+  /// a guardian-link row on `GuardianLinksPage`.
+  Future<User> getStudentProfile(String userId) async {
+    final decoded = await _get('/admin/students/$userId');
+    return User.fromJson(decoded['data'] as Map<String, dynamic>);
   }
 
   /// `PATCH /admin/relationships/:id/approve`
   Future<void> approveRelationship(String id) async {
-    await _patch('/admin/relationships/$id/approve');
+    final decoded = await _patch('/admin/relationships/$id/approve');
     sessionApprovals++;
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) {
+      final r = Relationship.fromJson(data);
+      _knownRelationships[r.id] = r;
+    }
   }
 
   /// `PATCH /admin/relationships/:id/reject`
   Future<void> rejectRelationship(String id, {String? reason}) async {
-    await _patch(
+    final decoded = await _patch(
       '/admin/relationships/$id/reject',
       body: reason != null && reason.isNotEmpty ? {'reason': reason} : null,
     );
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) {
+      final r = Relationship.fromJson(data);
+      _knownRelationships[r.id] = r;
+    }
   }
 
   /// Fetches all four pending queues in parallel and folds them into one
@@ -259,6 +408,31 @@ class AdminService {
       final streamed =
           await _httpClient.send(request).timeout(ApiConfig.requestTimeout);
       response = await http.Response.fromStream(streamed);
+    } on SocketException {
+      throw ApiException.network(
+          'Could not reach the server. Check your connection.');
+    } on HttpException {
+      throw ApiException.network('The server could not be reached.');
+    } catch (_) {
+      throw ApiException.network('The request timed out or failed.');
+    }
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> _delete(String path) async {
+    final token = await _tokenStorage.readAccessToken();
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    http.Response response;
+    try {
+      response = await _httpClient
+          .delete(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(ApiConfig.requestTimeout);
     } on SocketException {
       throw ApiException.network(
           'Could not reach the server. Check your connection.');

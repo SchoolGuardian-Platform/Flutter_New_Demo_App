@@ -6,9 +6,7 @@ import '../widgets/app_logo.dart';
 
 /// "Select your role" screen. Shown after the onboarding intro on a
 /// person's very first visit, and directly (skipping onboarding) on every
-/// return visit where they're logged out — see `session_check_page.dart`.
-/// Visual redesign only; role-selection logic (`_selectRole`) and routing
-/// are unchanged from before.
+/// return visit where they're logged out.
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
 

@@ -18,11 +18,11 @@ import '../../theme/app_theme.dart';
 /// "dashboard stats" endpoint, only the four `GET .../pending` queues
 /// that already power `AdminService.getPendingSummary()`. So "Total
 /// Pending" and the per-category chart below are real, live numbers from
-/// those queues. "Approved" is shown as a session counter
-/// (`AdminService.sessionApprovals`) rather than an all-time total, since
-/// there's no backend endpoint yet for historical approval counts --
-/// it's labelled accordingly rather than implying it's something it
-/// isn't.
+/// those queues. "Total Approved" is still `AdminService.sessionApprovals`
+/// under the hood -- a local, in-memory counter that resets on app
+/// restart -- since there's no backend endpoint yet for a real all-time
+/// approval count. The label says "Total" per product request, but it is
+/// NOT a true historical total; a real one needs a backend change.
 class AdminOverviewTab extends StatefulWidget {
   const AdminOverviewTab({super.key});
 
@@ -33,6 +33,7 @@ class AdminOverviewTab extends StatefulWidget {
 class AdminOverviewTabState extends State<AdminOverviewTab> {
   final _adminService = AdminService();
   PendingSummary? _summary;
+  int _approvedTotalCount = 0;
   bool _loading = true;
   String? _error;
 
@@ -54,8 +55,12 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
     });
     try {
       final summary = await _adminService.getPendingSummary();
+      final approvedCount = await _adminService.getTotalApprovedCount();
       if (!mounted) return;
-      setState(() => _summary = summary);
+      setState(() {
+        _summary = summary;
+        _approvedTotalCount = approvedCount;
+      });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
@@ -115,8 +120,14 @@ class AdminOverviewTabState extends State<AdminOverviewTab> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.check_circle_outline,
-                    label: 'Approved this session',
-                    value: '${AdminService.sessionApprovals}',
+                    // NOTE: there's no backend endpoint for an all-time
+                    // approved count (only the four `.../pending` queues
+                    // exist) -- this is still
+                    // `AdminService.sessionApprovals` under the hood, so
+                    // it resets whenever the app restarts, despite the
+                    // "Total" label. A real total needs a backend change.
+                    label: 'Total Approved',
+                    value: '$_approvedTotalCount',
                     color: AppColors.secondary,
                     background: AppColors.secondaryContainer.withValues(alpha: 0.4),
                   ),
@@ -164,29 +175,47 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  )),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

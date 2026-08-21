@@ -7,6 +7,9 @@ import '../../models/user.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
+import '../../widgets/friend_admin_bottom_nav.dart';
+import 'manage_users_page.dart';
+import 'verified_users_page.dart';
 
 /// Admin's own profile screen. Reuses `GET /auth/me` (already implemented
 /// and used by `SessionCheckPage`/`DashboardPage`) rather than adding a
@@ -69,8 +72,30 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   Widget build(BuildContext context) {
     final user = _user;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Profile')),
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      bottomNavigationBar: (user?.role == UserRole.admin || widget.initialUser?.role == UserRole.admin)
+          ? FriendAdminBottomNav(
+              currentIndex: 3,
+              onTap: (index) {
+                if (index == 0) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                } else if (index == 1) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const ManageUsersPage()),
+                  );
+                } else if (index == 2) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const VerifiedUsersPage()),
+                  );
+                }
+              },
+            )
+          : null,
       body: user == null
           ? Center(
               child: _loading
@@ -85,7 +110,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   Center(
                     child: Column(
                       children: [
-                        const AppLogoBadge(size: 88, filled: true),
+                        // filled: false renders the crest in its real
+                        // navy/gold artwork instead of the solid-blue
+                        // silhouette `filled: true` produces.
+                        const AppLogoBadge(size: 88),
                         const SizedBox(height: AppSpacing.md),
                         Text(user.fullName,
                             style: Theme.of(context).textTheme.headlineSmall),

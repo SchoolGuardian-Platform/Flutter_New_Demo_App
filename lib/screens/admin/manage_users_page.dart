@@ -4,20 +4,20 @@ import '../../core/api_exception.dart';
 import '../../services/admin_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
+import '../../widgets/friend_admin_bottom_nav.dart';
+import 'admin_profile_page.dart';
+import 'class_section_management_page.dart';
 import 'pending_approvals_page.dart';
+import 'verified_users_page.dart';
 
-/// Admin's "Manage Users" hub.
+/// Admin's "Manage Users" hub -- reviewing and acting on every account/link
+/// waiting on a decision, grouped by category with live counts.
 ///
-/// HONEST SCOPE NOTE: the backend does not yet expose a "list every
-/// existing account" endpoint (only `GET /admin/{role}/pending`,
-/// `GET /admin/{role}/:id`, and the approve/reject actions are
-/// implemented -- see `SchoolGuardian_Final_OpenAPI.yaml`). So this hub
-/// currently focuses on what IS live today: reviewing and acting on every
-/// account/link waiting on a decision, grouped by category with live
-/// counts. A full searchable directory of active accounts can be added
-/// here as soon as a `GET /admin/users` (or similar) endpoint exists on
-/// the backend -- this page is structured so that's a new card, not a
-/// rewrite.
+/// This is deliberately separate from the "Users" tab (`VerifiedUsersPage`,
+/// reachable from the dashboard nav bar), which is the searchable directory
+/// of already-verified accounts backed by `GET /admin/users/verified` and
+/// supports removing an account. This hub stays focused on the pending
+/// queues; browsing/removing verified accounts lives on that other page.
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({super.key});
 
@@ -66,29 +66,58 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
   Widget build(BuildContext context) {
     final summary = _summary;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Manage Users')),
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        title: const Text('Manage Users', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      bottomNavigationBar: FriendAdminBottomNav(
+        currentIndex: 1,
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.of(context).pop();
+          } else if (index == 2) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const VerifiedUsersPage()),
+            );
+          } else if (index == 3) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AdminProfilePage()),
+            );
+          }
+        },
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.all(16),
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [KukieAccent.violet, KukieAccent.violetDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+                color: const Color(0xFF5B5BF7),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF5B5BF7).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.manage_accounts_outlined,
-                      color: Colors.white, size: 32),
-                  const SizedBox(width: AppSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: Colors.white24,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.manage_accounts_outlined, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,13 +129,13 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 2),
                         const Text(
                           'Review new registrations and guardian links.',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),
@@ -114,10 +143,10 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: 20),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Text(_error!, style: const TextStyle(color: AppColors.error)),
               ),
             _CategoryCard(
@@ -143,6 +172,36 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
               title: 'Guardian Links',
               count: summary?.relationships.length ?? 0,
               onTap: () => _openTab(3),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ClassSectionManagementPage()),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEEF2FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.class_outlined, color: Color(0xFF5B5BF7)),
+                ),
+                title: const Text('Class & Section Registration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                subtitle: const Text(
+                  'Manage classes, sections, rooms, student rosters & teacher assignments.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+              ),
             ),
           ],
         ),

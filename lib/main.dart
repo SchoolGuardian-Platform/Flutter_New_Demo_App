@@ -10,12 +10,18 @@ import 'models/user_role.dart';
 import 'screens/account_rejected_page.dart';
 import 'screens/admin/admin_notifications_page.dart';
 import 'screens/admin/admin_profile_page.dart';
+import 'screens/admin/guardian_links_page.dart';
 import 'screens/admin/manage_users_page.dart';
 import 'screens/admin/pending_approvals_page.dart';
 import 'screens/dashboard/dashboard_page.dart';
 import 'screens/forgot_password_page.dart';
 import 'screens/landing_page.dart';
 import 'screens/login_page.dart';
+import 'screens/analytics/academic_gpa_progression_page.dart';
+import 'screens/communication/private_communication_page.dart';
+import 'screens/biometrics/biometric_health_overview_page.dart';
+import 'screens/biometrics/stress_level_dashboard_page.dart';
+import 'screens/nutrition/calorie_nutrition_dashboard_page.dart';
 import 'screens/onboarding/onboarding_page.dart';
 import 'screens/parent/parent_my_children_page.dart';
 import 'screens/pending_approval_page.dart';
@@ -23,10 +29,15 @@ import 'screens/reports/reports_page.dart';
 import 'screens/reset_password_page.dart';
 import 'screens/session_check_page.dart';
 import 'screens/signup/signup_page.dart';
+import 'screens/student/homework_ai_assistant_page.dart';
+import 'screens/student/student_portal_dashboard_page.dart';
 import 'screens/student_attendance_page.dart';
+import 'screens/teacher/add_grade_page.dart';
+import 'screens/teacher/my_classes_page.dart';
 import 'screens/teacher/teacher_attendance_page.dart';
 import 'screens/teacher/teacher_grades_page.dart';
 import 'screens/teacher/teacher_homework_page.dart';
+import 'screens/teacher/teacher_portal_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
 
@@ -162,7 +173,7 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'SchoolGuardian',
+      title: 'School Guard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       // Every launch starts at SessionCheckPage, which decides between
@@ -192,6 +203,30 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case DashboardPage.routeName:
             final user = settings.arguments as User;
             return MaterialPageRoute(builder: (_) => DashboardPage(user: user));
+
+          case StudentPortalDashboardPage.routeName:
+            final user = settings.arguments as User;
+            return MaterialPageRoute(builder: (_) => StudentPortalDashboardPage(user: user));
+
+          case CalorieNutritionDashboardPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => CalorieNutritionDashboardPage(user: user));
+
+          case StressLevelDashboardPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => StressLevelDashboardPage(user: user));
+
+          case BiometricHealthOverviewPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => BiometricHealthOverviewPage(user: user));
+
+          case AcademicGpaProgressionPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => AcademicGpaProgressionPage(user: user));
+
+          case PrivateCommunicationPage.routeName:
+            final user = settings.arguments as User?;
+            return MaterialPageRoute(builder: (_) => PrivateCommunicationPage(user: user!));
 
           case LoginPage.routeName:
             final role = settings.arguments as UserRole?;
@@ -248,6 +283,9 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
           case ManageUsersPage.routeName:
             return MaterialPageRoute(builder: (_) => const ManageUsersPage());
 
+          case GuardianLinksPage.routeName:
+            return MaterialPageRoute(builder: (_) => const GuardianLinksPage());
+
           case AdminProfilePage.routeName:
             final user = settings.arguments as User?;
             return MaterialPageRoute(
@@ -255,6 +293,21 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
 
           case ReportsPage.routeName:
             return MaterialPageRoute(builder: (_) => const ReportsPage());
+
+          case TeacherPortalPage.routeName:
+            return MaterialPageRoute(builder: (_) => const TeacherPortalPage());
+
+          case AddGradePage.routeName:
+            return MaterialPageRoute(builder: (_) => const AddGradePage());
+
+          case MyClassesPage.routeName:
+            return MaterialPageRoute(builder: (_) => const MyClassesPage());
+
+          case HomeworkAiAssistantPage.routeName:
+            final hw = settings.arguments;
+            if (hw == null) return MaterialPageRoute(builder: (_) => const LandingPage());
+            return MaterialPageRoute(
+                builder: (_) => HomeworkAiAssistantPage(homework: hw as dynamic));
 
           case AccountRejectedPage.routeName:
             final reason = settings.arguments as String?;

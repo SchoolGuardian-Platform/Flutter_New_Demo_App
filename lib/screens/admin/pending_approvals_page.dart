@@ -101,11 +101,33 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
     }
   }
 
+  /// Replaces the entry for [userId] in `_pendingUsers[role]` with
+  /// [updated], leaving its position in the list untouched. Returns
+  /// silently if the id isn't found (shouldn't happen in practice).
+  void _updateUserInList(UserRole role, String userId, User updated) {
+    final list = _pendingUsers[role];
+    if (list == null) return;
+    final index = list.indexWhere((u) => u.id == userId);
+    if (index == -1) return;
+    list[index] = updated;
+  }
+
+  void _updateRelationshipInList(String id, Relationship updated) {
+    final index = _pendingRelationships.indexWhere((r) => r.id == id);
+    if (index == -1) return;
+    _pendingRelationships[index] = updated;
+  }
+
   Future<void> _approveUser(UserRole role, User user) async {
     try {
       await _adminService.approve(role, user.id);
       if (!mounted) return;
-      setState(() => _pendingUsers[role]?.removeWhere((u) => u.id == user.id));
+      // THIS IS THE FIX: the row used to be removed from the list on
+      // approval, so it just vanished from this page with no trace. Now
+      // it stays in place with its status swapped to "Approved" so the
+      // admin can still see the decision was made.
+      setState(() => _updateUserInList(
+          role, user.id, user.copyWith(status: AccountStatus.active)));
       _showSnack('${user.fullName} approved.');
     } on ApiException catch (e) {
       _showSnack(e.message);
@@ -120,7 +142,8 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
     try {
       await _adminService.reject(role, user.id, reason: reason.isEmpty ? null : reason);
       if (!mounted) return;
-      setState(() => _pendingUsers[role]?.removeWhere((u) => u.id == user.id));
+      setState(() => _updateUserInList(
+          role, user.id, user.copyWith(status: AccountStatus.rejected)));
       _showSnack('${user.fullName} rejected.');
     } on ApiException catch (e) {
       _showSnack(e.message);
@@ -133,8 +156,8 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
     try {
       await _adminService.approveRelationship(relationship.id);
       if (!mounted) return;
-      setState(() =>
-          _pendingRelationships.removeWhere((r) => r.id == relationship.id));
+      setState(() => _updateRelationshipInList(relationship.id,
+          relationship.copyWith(status: RelationshipStatus.verified)));
       _showSnack('Guardian link approved.');
     } on ApiException catch (e) {
       _showSnack(e.message);
@@ -150,8 +173,8 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
       await _adminService.rejectRelationship(relationship.id,
           reason: reason.isEmpty ? null : reason);
       if (!mounted) return;
-      setState(() =>
-          _pendingRelationships.removeWhere((r) => r.id == relationship.id));
+      setState(() => _updateRelationshipInList(relationship.id,
+          relationship.copyWith(status: RelationshipStatus.rejected)));
       _showSnack('Guardian link rejected.');
     } on ApiException catch (e) {
       _showSnack(e.message);
@@ -163,6 +186,10 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
   /// Tapping a card opens the same Approve/Reject choice used on the
   /// Notifications page, instead of relying only on the inline buttons.
   Future<void> _respondToUser(UserRole role, User user) async {
+    if (user.status != null && user.status != AccountStatus.pending) {
+      _showSnack('${user.fullName} is already ${user.status!.name}.');
+      return;
+    }
     final decision = await showDialog<_Decision>(
       context: context,
       builder: (context) => _DecisionDialog(
@@ -180,6 +207,11 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
 
   /// Same tap-to-decide pattern for guardian-link requests.
   Future<void> _respondToRelationship(Relationship relationship) async {
+    if (relationship.status != RelationshipStatus.pending) {
+      _showSnack(
+          'This guardian link is already ${relationship.status.name}.');
+      return;
+    }
     final decision = await showDialog<_Decision>(
       context: context,
       builder: (context) => _DecisionDialog(
@@ -310,55 +342,74 @@ class _PendingApprovalsPageState extends State<PendingApprovalsPage>
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
             final user = users[index];
-            return Material(
-              color: AppColors.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              child: InkWell(
-                onTap: () => _respondToUser(role, user),
+            final decided =
+                user.status != null && user.status != AccountStatus.pending;
+            return Opacity(
+              opacity: decided ? 0.7 : 1,
+              child: Material(
+                color: AppColors.surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border:
-                        Border.all(color: AppColors.outlineVariant, width: 1),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    user.fullName,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelLarge,
+                child: InkWell(
+                  onTap: () => _respondToUser(role, user),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border:
+                          Border.all(color: AppColors.outlineVariant, width: 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      user.fullName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelLarge,
+                                    ),
                                   ),
-                                ),
-                                _StatusBadge(status: user.status),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              user.email,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                                  _StatusBadge(status: user.status),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user.email,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(left: AppSpacing.sm, top: 4),
-                        child: Icon(Icons.arrow_forward_ios,
-                            size: 14, color: AppColors.outline),
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              left: AppSpacing.sm, top: 4),
+                          // A decided row is no longer actionable, so it
+                          // gets a plain check/cancel glyph instead of the
+                          // "tap to act on this" arrow.
+                          child: decided
+                              ? Icon(
+                                  user.status == AccountStatus.active
+                                      ? Icons.check_circle
+                                      : Icons.cancel,
+                                  size: 16,
+                                  color: user.status == AccountStatus.active
+                                      ? AppColors.secondary
+                                      : AppColors.error,
+                                )
+                              : const Icon(Icons.arrow_forward_ios,
+                                  size: 14, color: AppColors.outline),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -464,6 +515,7 @@ class _StatusBadge extends StatelessWidget {
     // assumed) since [status] is nullable and this card should still
     // render sensibly if that ever changes.
     final label = switch (status) {
+      AccountStatus.unverified => 'Unverified',
       AccountStatus.pending => 'Pending',
       AccountStatus.active => 'Approved',
       AccountStatus.rejected => 'Rejected',
@@ -471,6 +523,7 @@ class _StatusBadge extends StatelessWidget {
       null => 'Unknown',
     };
     final color = switch (status) {
+      AccountStatus.unverified => AppColors.outline,
       AccountStatus.pending => AppColors.warning,
       AccountStatus.active => AppColors.secondary,
       AccountStatus.rejected => AppColors.error,
@@ -507,45 +560,106 @@ class _PendingRelationshipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: onTap,
+    final decided = relationship.status != RelationshipStatus.pending;
+    return Opacity(
+      opacity: decided ? 0.7 : 1,
+      child: Material(
+        color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.outlineVariant),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${relationship.relationshipType.label} link request',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 2),
-                    Text('Parent ID: ${relationship.parentId}',
-                        style: Theme.of(context).textTheme.bodySmall),
-                    Text('Student ID: ${relationship.studentId}',
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.outlineVariant),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${relationship.relationshipType.label} link request',
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                          ),
+                          _RelationshipStatusBadge(
+                              status: relationship.status),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Parent ID: ${relationship.parentId}',
+                          style: Theme.of(context).textTheme.bodySmall),
+                      Text('Student ID: ${relationship.studentId}',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(left: AppSpacing.sm, top: 4),
-                child: Icon(Icons.arrow_forward_ios,
-                    size: 14, color: AppColors.outline),
-              ),
-            ],
+                Padding(
+                  padding:
+                      const EdgeInsets.only(left: AppSpacing.sm, top: 4),
+                  child: decided
+                      ? Icon(
+                          relationship.status == RelationshipStatus.verified
+                              ? Icons.check_circle
+                              : Icons.cancel,
+                          size: 16,
+                          color:
+                              relationship.status == RelationshipStatus.verified
+                                  ? AppColors.secondary
+                                  : AppColors.error,
+                        )
+                      : const Icon(Icons.arrow_forward_ios,
+                          size: 14, color: AppColors.outline),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RelationshipStatusBadge extends StatelessWidget {
+  const _RelationshipStatusBadge({required this.status});
+
+  final RelationshipStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (status) {
+      RelationshipStatus.pending => 'Pending',
+      RelationshipStatus.verified => 'Approved',
+      RelationshipStatus.rejected => 'Rejected',
+    };
+    final color = switch (status) {
+      RelationshipStatus.pending => AppColors.warning,
+      RelationshipStatus.verified => AppColors.secondary,
+      RelationshipStatus.rejected => AppColors.error,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

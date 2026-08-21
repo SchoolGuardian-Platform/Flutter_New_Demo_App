@@ -7,14 +7,12 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('SchoolGuardian'),
+            child: Text('School Guardian'),
           ),
         ),
       ),
     );
 
-    expect(find.text('SchoolGuardian'), findsOneWidget);
+    expect(find.text('School Guardian'), findsOneWidget);
   });
 }
-
-

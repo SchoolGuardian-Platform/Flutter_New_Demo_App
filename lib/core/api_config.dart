@@ -8,21 +8,32 @@
 /// per environment (local dev vs staging vs prod) without touching code.
 /// Run/build with e.g.:
 /// ```
-/// flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api
-/// flutter build apk --dart-define=API_BASE_URL=https://api.schoolguardian.app/api
+/// flutter run --dart-define=API_BASE_URL=[http://10.0.2.2:3000/api](http://10.0.2.2:3000/api)
+/// flutter build apk --dart-define=API_BASE_URL=[https://api.schoolguardian.app/api](https://api.schoolguardian.app/api)
 /// ```
 /// If nothing is passed, it falls back to the local-dev Android-emulator
 /// address below (10.0.2.2 maps to the host machine's localhost — use your
 /// machine's LAN IP for a physical device).
+library;
+
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   ApiConfig._();
 
-  static const String _fallbackBaseUrl = 'http://10.0.2.2:3000/api';
+  static String get _fallbackBaseUrl {
+    if (kIsWeb) return 'http://localhost:3000/api';
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
+    } catch (_) {}
+    return 'http://localhost:3000/api';
+  }
 
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: _fallbackBaseUrl,
-  );
+  static final String baseUrl =
+      const String.fromEnvironment('API_BASE_URL').isNotEmpty
+          ? const String.fromEnvironment('API_BASE_URL')
+          : _fallbackBaseUrl;
 
   static const Duration requestTimeout = Duration(seconds: 15);
 
@@ -94,4 +105,15 @@ class ApiConfig {
   // ---- Parent (src/routes/parent.routes.ts) ----
   static const String parentMyStudents = '/parents/my-students';
   static const String parentLinkStudent = '/parents/link-student';
+
+  // ---- Gemini AI (Google AI Studio free tier) ----
+  // Get your free API key at: https://aistudio.google.com/app/apikey
+  // Pass via: flutter run --dart-define=GEMINI_API_KEY=your_key_here
+  static final String geminiApiKey =
+      const String.fromEnvironment('GEMINI_API_KEY').isNotEmpty
+          ? const String.fromEnvironment('GEMINI_API_KEY')
+          : '';
+
+  static const String geminiBaseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
 }
