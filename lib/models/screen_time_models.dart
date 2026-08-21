@@ -85,32 +85,32 @@ class AppUsageItem {
     this.iconUrl,
   });
 
-  /// High-resolution real app logo URL for recognized apps or custom iconUrl.
+  /// High-resolution real app logo URL (PNG format for native Flutter Image.network support).
   String get realLogoUrl {
     if (iconUrl != null && iconUrl!.isNotEmpty) return iconUrl!;
     final name = appName.toLowerCase();
     final pkg = packageName.toLowerCase();
 
     if (name.contains('tiktok') || pkg.contains('musically')) {
-      return 'https://cdn.simpleicons.org/tiktok/FE2C55';
+      return 'https://api.iconify.design/logos:tiktok-icon.png?width=128';
     } else if (name.contains('roblox') || pkg.contains('roblox')) {
-      return 'https://cdn.simpleicons.org/roblox/000000';
+      return 'https://api.iconify.design/logos:roblox-icon.png?width=128';
     } else if (name.contains('classroom') || pkg.contains('classroom')) {
-      return 'https://cdn.simpleicons.org/googleclassroom/0F9D58';
+      return 'https://api.iconify.design/logos:google-classroom.png?width=128';
     } else if (name.contains('youtube') || pkg.contains('youtube')) {
-      return 'https://cdn.simpleicons.org/youtube/FF0000';
+      return 'https://api.iconify.design/logos:youtube-icon.png?width=128';
     } else if (name.contains('duolingo') || pkg.contains('duolingo')) {
-      return 'https://cdn.simpleicons.org/duolingo/58CC02';
+      return 'https://api.iconify.design/logos:duolingo.png?width=128';
     } else if (name.contains('instagram') || pkg.contains('instagram')) {
-      return 'https://cdn.simpleicons.org/instagram/E4405F';
+      return 'https://api.iconify.design/logos:instagram-icon.png?width=128';
     } else if (name.contains('notion') || pkg.contains('notion')) {
-      return 'https://cdn.simpleicons.org/notion/000000';
+      return 'https://api.iconify.design/logos:notion-icon.png?width=128';
     } else if (name.contains('snapchat') || pkg.contains('snapchat')) {
-      return 'https://cdn.simpleicons.org/snapchat/FFFC00';
+      return 'https://api.iconify.design/logos:snapchat-icon.png?width=128';
     } else if (name.contains('spotify') || pkg.contains('spotify')) {
-      return 'https://cdn.simpleicons.org/spotify/1DB954';
+      return 'https://api.iconify.design/logos:spotify-icon.png?width=128';
     } else if (name.contains('school') || pkg.contains('schoolguardian')) {
-      return 'https://cdn.simpleicons.org/flutter/02569B';
+      return 'https://api.iconify.design/logos:flutter.png?width=128';
     }
     return '';
   }
