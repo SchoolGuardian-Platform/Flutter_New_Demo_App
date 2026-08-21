@@ -1,392 +1,281 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
 import '../../models/school_class.dart';
+import '../../models/teacher_profile.dart';
 import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
 class AddGradePage extends StatefulWidget {
-  const AddGradePage({super.key, this.existingEntry});
+  const AddGradePage({
+    super.key,
+    this.existingEntry,
+    this.initialStudentId,
+    this.initialStudentName,
+  });
 
   static const routeName = '/teacher/add-grade';
   final GradeEntry? existingEntry;
+  final String? initialStudentId;
+  final String? initialStudentName;
 
   @override
   State<AddGradePage> createState() => _AddGradePageState();
 }
 
-class _ComponentInputRow {
-  _ComponentInputRow({
-    required String name,
-    required double score,
-    required double maxScore,
-  })  : nameController = TextEditingController(text: name),
-        scoreController = TextEditingController(text: score > 0 ? score.toStringAsFixed(0) : ''),
-        maxScoreController = TextEditingController(text: maxScore > 0 ? maxScore.toStringAsFixed(0) : '');
-
-  final TextEditingController nameController;
-  final TextEditingController scoreController;
-  final TextEditingController maxScoreController;
-
-  void dispose() {
-    nameController.dispose();
-    scoreController.dispose();
-    maxScoreController.dispose();
-  }
-}
-
 class _AddGradePageState extends State<AddGradePage> {
   final _formKey = GlobalKey<FormState>();
   final _teacherService = TeacherService();
+  final _schoolService = SchoolManagementService();
 
-  late final TextEditingController _studentIdController;
-  late final TextEditingController _studentNameController;
   late final TextEditingController _subjectController;
-  late final TextEditingController _termController;
-  late final TextEditingController _recommendationController;
+  late final TextEditingController _scoreController;
+  late final TextEditingController _maxScoreController;
+  late final TextEditingController _academicYearController;
+  late final TextEditingController _commentController;
 
-  final List<_ComponentInputRow> _componentRows = [];
+  List<SchoolClass> _availableClasses = [];
+  String? _selectedClassId;
+  String? _selectedStudentId;
+  String? _selectedStudentName;
+  String _selectedSemester = '1st Semester';
+  String _assessmentTypeLabel = 'Assignment';
 
-  AssessmentType _assessmentType = AssessmentType.composite;
-  bool _submitting = false;
-
+  List<StudentClassInfo> _classStudents = [];
   List<String> _teacherSubjects = [];
-  String _selectedYear = '2025/2026';
-  String _selectedSemester = 'Semester 1';
 
-  List<SchoolClass> _assignedClasses = [];
-  SchoolClass? _selectedClass;
-  bool _isTeacherAssigned = true;
-
-  final Map<String, String> _knownStudents = {};
+  bool _loading = true;
+  bool _submitting = false;
 
   bool get _isEditing => widget.existingEntry != null;
 
-  static const List<Map<String, dynamic>> _presetAssessments = [
-    {'name': 'Attendance & Participation', 'defaultMax': 10.0},
-    {'name': 'Midterm Exam', 'defaultMax': 30.0},
-    {'name': 'Assignments & Tasks', 'defaultMax': 10.0},
-    {'name': 'Final Exam', 'defaultMax': 50.0},
-    {'name': 'Project & Practical', 'defaultMax': 20.0},
-    {'name': 'Quizzes & Short Tests', 'defaultMax': 10.0},
+  static const List<Map<String, String>> _assessmentTypes = [
+    {'value': 'ASSIGNMENT', 'label': 'Assignment'},
+    {'value': 'QUIZ', 'label': 'Quiz'},
+    {'value': 'MIDTERM', 'label': 'Midterm'},
+    {'value': 'FINAL', 'label': 'Final'},
+    {'value': 'PROJECT', 'label': 'Project'},
+    {'value': 'OTHER', 'label': 'Other'},
   ];
+
+  TeacherProfile? _teacherProfile;
+
+  List<String> _getSubjectsForSelectedClass(SchoolClass? sc, TeacherProfile? profile) {
+    if (sc != null && sc.teachers.isNotEmpty) {
+      final classSubjs = <String>[];
+      if (profile != null) {
+        for (final t in sc.teachers) {
+          final matches = (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
+              (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase());
+          if (matches && t.subjectName.trim().isNotEmpty) {
+            classSubjs.add(t.subjectName.trim());
+          }
+        }
+      }
+      if (classSubjs.isEmpty) {
+        for (final t in sc.teachers) {
+          if (t.subjectName.trim().isNotEmpty) {
+            classSubjs.add(t.subjectName.trim());
+          }
+        }
+      }
+      if (classSubjs.isNotEmpty) {
+        return classSubjs.toSet().toList()..sort();
+      }
+    }
+    if (_teacherSubjects.isNotEmpty) {
+      return _teacherSubjects;
+    }
+    return [];
+  }
 
   @override
   void initState() {
     super.initState();
     final entry = widget.existingEntry;
 
-    if (entry != null && entry.term.isNotEmpty) {
-      if (entry.term.contains('Semester 2')) {
-        _selectedSemester = 'Semester 2';
+    _selectedStudentId = entry?.studentId ?? widget.initialStudentId;
+    _selectedStudentName = entry?.studentName ?? widget.initialStudentName;
+
+    if (entry?.term != null && entry!.term.isNotEmpty) {
+      if (entry.term.contains('2nd Semester')) {
+        _selectedSemester = '2nd Semester';
       } else {
-        _selectedSemester = 'Semester 1';
-      }
-      final parts = entry.term.split(' - ');
-      if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
-        final candidateYear = parts[0].trim();
-        if (['2024/2025', '2025/2026', '2026/2027', '2027/2028'].contains(candidateYear)) {
-          _selectedYear = candidateYear;
-        }
+        _selectedSemester = '1st Semester';
       }
     }
 
-    final initialTerm = '$_selectedYear - $_selectedSemester';
-
-    _studentIdController = TextEditingController(text: entry?.studentId ?? '');
-    _studentNameController = TextEditingController(text: entry?.studentName ?? '');
     _subjectController = TextEditingController(text: entry?.subject ?? '');
-    _termController = TextEditingController(text: entry?.term.isNotEmpty == true ? entry!.term : initialTerm);
-    _recommendationController = TextEditingController(text: entry?.parentRecommendation ?? '');
-
-    _studentIdController.addListener(_onStudentIdChanged);
-    _loadTeacherSubjectsAndStudents();
+    _scoreController = TextEditingController(text: entry?.score != null && entry!.score > 0 ? entry.score.toStringAsFixed(0) : '85');
+    _maxScoreController = TextEditingController(text: entry?.maxScore != null && entry!.maxScore > 0 ? entry.maxScore.toStringAsFixed(0) : '100');
+    _academicYearController = TextEditingController(text: '2026-2027');
+    _commentController = TextEditingController(text: entry?.parentRecommendation ?? '');
 
     if (entry != null) {
-      _assessmentType = entry.assessmentType;
-      final active = entry.activeComponents;
-      if (active.isNotEmpty) {
-        for (final c in active) {
-          _addComponentRow(name: c.name, score: c.score, maxScore: c.maxScore);
-        }
-      } else {
-        _loadStandardPreset();
-      }
-    } else {
-      _loadStandardPreset();
-    }
-  }
-
-  Future<void> _loadTeacherSubjectsAndStudents() async {
-    final profile = await _teacherService.getTeacherProfile();
-    final subjectList = List<String>.from(profile.assignedSubjects);
-
-    List<SchoolClass> allSchoolClasses = [];
-    try {
-      allSchoolClasses = await SchoolManagementService().getClasses();
-    } catch (_) {}
-
-    // Filter classes to ONLY those where this teacher is explicitly assigned by the Admin
-    final teacherAssignedClasses = allSchoolClasses.where((sc) {
-      final isTeacherInClassList = sc.teachers.any((t) =>
-          (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
-          (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase()));
-      final isClassInProfileList = profile.assignedClasses.any((ac) {
-        final cleanAc = ac.trim().toLowerCase();
-        return cleanAc == sc.displayName.trim().toLowerCase() ||
-               cleanAc == sc.id.trim().toLowerCase() ||
-               cleanAc == sc.shortLabel.trim().toLowerCase();
-      });
-      return isTeacherInClassList || isClassInProfileList;
-    }).toList();
-
-    if (mounted) {
-      setState(() {
-        _teacherSubjects = subjectList;
-        _assignedClasses = teacherAssignedClasses;
-        _isTeacherAssigned = teacherAssignedClasses.isNotEmpty;
-        if (teacherAssignedClasses.isNotEmpty && _selectedClass == null) {
-          _selectedClass = teacherAssignedClasses.first;
-        } else if (teacherAssignedClasses.isEmpty) {
-          _selectedClass = null;
-        }
-        _updateKnownStudents();
-      });
-
-      _onStudentIdChanged();
-    }
-  }
-
-  List<String> get _recommendedSubjectsForSelectedClass {
-    if (_selectedClass == null) return _teacherSubjects;
-
-    final classSpecificSubjects = _selectedClass!.teachers
-        .map((t) => t.subjectName.trim())
-        .where((s) => s.isNotEmpty)
-        .toSet()
-        .toList();
-
-    if (classSpecificSubjects.isNotEmpty) {
-      return classSpecificSubjects;
-    }
-    return _teacherSubjects;
-  }
-
-  void _updateKnownStudents() {
-    _knownStudents.clear();
-    if (_selectedClass != null) {
-      for (final s in _selectedClass!.students) {
-        if (s.studentId.isNotEmpty) {
-          _knownStudents[s.studentId.trim().toUpperCase()] = s.studentName;
-        }
-        final code = s.studentCode;
-        if (code != null && code.isNotEmpty) {
-          _knownStudents[code.trim().toUpperCase()] = s.studentName;
-        }
+      switch (entry.assessmentType) {
+        case AssessmentType.midterm:
+          _assessmentTypeLabel = 'Midterm';
+          break;
+        case AssessmentType.finalExam:
+          _assessmentTypeLabel = 'Final';
+          break;
+        case AssessmentType.quiz:
+          _assessmentTypeLabel = 'Quiz';
+          break;
+        case AssessmentType.project:
+          _assessmentTypeLabel = 'Project';
+          break;
+        case AssessmentType.assignment:
+          _assessmentTypeLabel = 'Assignment';
+          break;
+        case AssessmentType.composite:
+          _assessmentTypeLabel = 'Other';
+          break;
       }
     }
+
+    _scoreController.addListener(_updateState);
+    _maxScoreController.addListener(_updateState);
+    _loadInitialData();
   }
 
-  void _onStudentIdChanged() {
-    final query = _studentIdController.text.trim().toUpperCase();
-    if (query.isEmpty) return;
-
-    if (_knownStudents.containsKey(query)) {
-      final matchedName = _knownStudents[query]!;
-      if (_studentNameController.text.trim() != matchedName) {
-        _studentNameController.text = matchedName;
-      }
-    }
-  }
-
-  void _updateTermText() {
-    _termController.text = '$_selectedYear - $_selectedSemester';
-  }
-
-  void _loadStandardPreset() {
-    _clearComponentRows();
-    _addComponentRow(name: 'Attendance', score: 0, maxScore: 10);
-    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 30);
-    _addComponentRow(name: 'Assignments', score: 0, maxScore: 10);
-    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 50);
-  }
-
-  void _loadProjectPreset() {
-    _clearComponentRows();
-    _addComponentRow(name: 'Attendance', score: 0, maxScore: 10);
-    _addComponentRow(name: 'Project & Practical', score: 0, maxScore: 20);
-    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 30);
-    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 40);
-  }
-
-  void _loadMidtermFinalPreset() {
-    _clearComponentRows();
-    _addComponentRow(name: 'Midterm Exam', score: 0, maxScore: 50);
-    _addComponentRow(name: 'Final Exam', score: 0, maxScore: 50);
-  }
-
-  void _clearComponentRows() {
-    for (final row in _componentRows) {
-      row.dispose();
-    }
-    setState(() => _componentRows.clear());
-  }
-
-  void _addComponentRow({required String name, required double score, required double maxScore}) {
-    final row = _ComponentInputRow(name: name, score: score, maxScore: maxScore);
-    row.scoreController.addListener(_updateSummation);
-    row.maxScoreController.addListener(_updateSummation);
-    row.nameController.addListener(_updateSummation);
-    setState(() => _componentRows.add(row));
-  }
-
-  void _removeComponentRow(int index) {
-    if (_componentRows.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('At least one assessment section is required.')),
-      );
-      return;
-    }
-    final row = _componentRows.removeAt(index);
-    row.dispose();
-    setState(() {});
-  }
-
-  void _updateSummation() {
+  void _updateState() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadInitialData() async {
+    try {
+      final profile = await _teacherService.getTeacherProfile();
+      final allClasses = await _schoolService.getClasses();
+
+      final teacherAssignedClasses = allClasses.where((sc) {
+        final isTeacherInClassList = sc.teachers.any((t) =>
+            (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
+            (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase()));
+        final isClassInProfileList = profile.assignedClasses.any((ac) {
+          final cleanAc = ac.trim().toLowerCase();
+          return cleanAc == sc.displayName.trim().toLowerCase() ||
+                 cleanAc == sc.id.trim().toLowerCase() ||
+                 cleanAc == sc.shortLabel.trim().toLowerCase();
+        });
+        return isTeacherInClassList || isClassInProfileList;
+      }).toList();
+
+      final activeClasses = teacherAssignedClasses.isNotEmpty ? teacherAssignedClasses : allClasses;
+
+      SchoolClass? defaultClass;
+      if (_selectedStudentId != null) {
+        defaultClass = activeClasses.firstWhere(
+          (c) => c.students.any((s) => s.studentId == _selectedStudentId),
+          orElse: () => activeClasses.isNotEmpty ? activeClasses.first : allClasses.first,
+        );
+      } else if (activeClasses.isNotEmpty) {
+        defaultClass = activeClasses.first;
+      }
+
+      final suggestedSubjects = _getSubjectsForSelectedClass(defaultClass, profile);
+
+      if (mounted) {
+        setState(() {
+          _teacherProfile = profile;
+          _availableClasses = activeClasses;
+          _selectedClassId = defaultClass?.id;
+          _classStudents = defaultClass?.students ?? [];
+          _teacherSubjects = profile.assignedSubjects;
+          if (!_isEditing && suggestedSubjects.isNotEmpty) {
+            _subjectController.text = suggestedSubjects.first;
+          }
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   void dispose() {
-    _studentIdController.dispose();
-    _studentNameController.dispose();
     _subjectController.dispose();
-    _termController.dispose();
-    _recommendationController.dispose();
-    for (final row in _componentRows) {
-      row.dispose();
-    }
+    _scoreController.dispose();
+    _maxScoreController.dispose();
+    _academicYearController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
-  double get _totalEarned {
-    double total = 0;
-    for (final row in _componentRows) {
-      total += double.tryParse(row.scoreController.text.trim()) ?? 0;
+  double get _earned => double.tryParse(_scoreController.text.trim()) ?? 0;
+  double get _max => (double.tryParse(_maxScoreController.text.trim()) ?? 100) > 0
+      ? (double.tryParse(_maxScoreController.text.trim()) ?? 100)
+      : 100;
+  double get _percentage => (_earned / _max) * 100;
+
+  AssessmentType get _mappedType {
+    switch (_assessmentTypeLabel) {
+      case 'Quiz':
+        return AssessmentType.quiz;
+      case 'Midterm':
+        return AssessmentType.midterm;
+      case 'Final':
+        return AssessmentType.finalExam;
+      case 'Project':
+        return AssessmentType.project;
+      case 'Other':
+        return AssessmentType.composite;
+      case 'Assignment':
+      default:
+        return AssessmentType.assignment;
     }
-    return total;
-  }
-
-  double get _totalMax {
-    double total = 0;
-    for (final row in _componentRows) {
-      total += double.tryParse(row.maxScoreController.text.trim()) ?? 0;
-    }
-    return total > 0 ? total : 100;
-  }
-
-  double get _percentage => (_totalEarned / _totalMax) * 100;
-
-  String get _computedGrade {
-    final p = _percentage;
-    if (p >= 90) return 'A+';
-    if (p >= 85) return 'A';
-    if (p >= 80) return 'A-';
-    if (p >= 75) return 'B+';
-    if (p >= 70) return 'B';
-    if (p >= 65) return 'B-';
-    if (p >= 60) return 'C+';
-    if (p >= 50) return 'C';
-    if (p >= 45) return 'C-';
-    if (p >= 40) return 'D';
-    return 'F';
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (!_isTeacherAssigned || _selectedClass == null) {
+    if (_selectedStudentId == null || _selectedStudentId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Access Restricted: You are not assigned to any class by the administrator.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    final inputId = _studentIdController.text.trim().toUpperCase();
-    final isStudentInSelectedClass = _selectedClass!.students.any((s) =>
-        s.studentId.trim().toUpperCase() == inputId ||
-        (s.studentCode != null && s.studentCode!.trim().toUpperCase() == inputId));
-
-    if (!isStudentInSelectedClass && _selectedClass!.students.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Access Restricted: Student "$inputId" is NOT enrolled in ${_selectedClass!.displayName}. You can only add results for students in your assigned class.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please select a student from the class roster.'), backgroundColor: Colors.red),
       );
       return;
     }
 
     setState(() => _submitting = true);
-
     try {
-      final components = <AssessmentComponent>[];
-      for (final row in _componentRows) {
-        final name = row.nameController.text.trim().isNotEmpty
-            ? row.nameController.text.trim()
-            : 'Assessment';
-        final score = double.tryParse(row.scoreController.text.trim()) ?? 0;
-        final maxScore = double.tryParse(row.maxScoreController.text.trim()) ?? 10;
-        components.add(AssessmentComponent(name: name, score: score, maxScore: maxScore));
-      }
-
-      final totalScore = _totalEarned;
-      final maxScoreTotal = _totalMax;
+      final studentName = _selectedStudentName ?? 'Student';
+      final subject = _subjectController.text.trim();
+      final score = _earned;
+      final maxScore = _max;
+      final term = '$_selectedSemester (${_academicYearController.text.trim()})';
+      final comment = _commentController.text.trim();
 
       if (_isEditing) {
         final updated = GradeEntry(
           id: widget.existingEntry!.id,
-          studentId: _studentIdController.text.trim(),
-          studentName: _studentNameController.text.trim(),
-          subject: _subjectController.text.trim(),
-          assessmentType: _assessmentType,
-          score: totalScore,
-          maxScore: maxScoreTotal,
-          term: _termController.text.trim(),
-          components: components,
-          parentRecommendation: _recommendationController.text.trim().isNotEmpty
-              ? _recommendationController.text.trim()
-              : null,
+          studentId: _selectedStudentId!,
+          studentName: studentName,
+          subject: subject,
+          assessmentType: _mappedType,
+          score: score,
+          maxScore: maxScore,
+          term: term,
+          parentRecommendation: comment.isNotEmpty ? comment : null,
           createdAt: widget.existingEntry!.createdAt,
         );
         await _teacherService.updateGradeEntry(updated);
       } else {
         await _teacherService.addGradeEntry(
-          studentId: _studentIdController.text.trim(),
-          studentName: _studentNameController.text.trim(),
-          subject: _subjectController.text.trim(),
-          assessmentType: _assessmentType,
-          score: totalScore,
-          maxScore: maxScoreTotal,
-          term: _termController.text.trim(),
-          components: components,
-          parentRecommendation: _recommendationController.text.trim().isNotEmpty
-              ? _recommendationController.text.trim()
-              : null,
+          studentId: _selectedStudentId!,
+          studentName: studentName,
+          subject: subject,
+          assessmentType: _mappedType,
+          score: score,
+          maxScore: maxScore,
+          term: term,
+          parentRecommendation: comment.isNotEmpty ? comment : null,
         );
       }
 
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditing
-              ? 'Student record updated (${totalScore.toStringAsFixed(0)}/${maxScoreTotal.toStringAsFixed(0)} · $_computedGrade)!'
-              : 'New assessment saved (${totalScore.toStringAsFixed(0)}/${maxScoreTotal.toStringAsFixed(0)} · $_computedGrade)!'),
+          content: Text(_isEditing ? 'Grade record updated successfully!' : 'Grade submitted to roster successfully!'),
           backgroundColor: KukieAccent.success,
         ),
       );
@@ -394,7 +283,7 @@ class _AddGradePageState extends State<AddGradePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save grade: $e')),
+        SnackBar(content: Text('Failed to save grade: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -403,643 +292,530 @@ class _AddGradePageState extends State<AddGradePage> {
 
   @override
   Widget build(BuildContext context) {
-    final earned = _totalEarned;
-    final maxTotal = _totalMax;
-    final letterGrade = _computedGrade;
+    final uniqueClasses = <String, SchoolClass>{};
+    for (final c in _availableClasses) {
+      if (c.id.isNotEmpty && !uniqueClasses.containsKey(c.id)) {
+        uniqueClasses[c.id] = c;
+      }
+    }
+    final deduplicatedClasses = uniqueClasses.values.toList();
+
+    final uniqueStudents = <String, StudentClassInfo>{};
+    for (final s in _classStudents) {
+      if (s.studentId.isNotEmpty && !uniqueStudents.containsKey(s.studentId)) {
+        uniqueStudents[s.studentId] = s;
+      }
+    }
+    final deduplicatedStudents = uniqueStudents.values.toList();
+
+    final validClassId = deduplicatedClasses.any((c) => c.id == _selectedClassId) ? _selectedClassId : null;
+    final validStudentId = deduplicatedStudents.any((s) => s.studentId == _selectedStudentId) ? _selectedStudentId : null;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Student Grade & Guidance' : 'Manage Student Assessments'),
+        title: Text(
+          _isEditing ? 'Edit Student Grade' : 'Record Student Grade',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: KukieAccent.violetTint,
-                  borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-                  border: Border.all(color: KukieAccent.cardBorder),
-                ),
-                child: Row(
-                  children: [
-                    Icon(_isEditing ? Icons.edit_note : Icons.tune, color: KukieAccent.violet),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'Choose any assessment sections (Midterm, Attendance, Project, Quiz, Final) and enter scores. Total score is calculated automatically.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: KukieAccent.ink,
-                              fontWeight: FontWeight.w500,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Student & Course Details',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              if (!_isTeacherAssigned) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                  padding: const EdgeInsets.all(AppSpacing.md),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x05000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.lock_person_outlined, color: Colors.amber.shade900, size: 26),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
+                      // 1. Select Class *
+                      const Text(
+                        'Select Class / Cohort *',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: validClassId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: 'Select teaching class',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        items: deduplicatedClasses.map((c) {
+                          final label = c.displayName.isNotEmpty ? c.displayName : 'Grade ${c.grade}-${c.section}';
+                          return DropdownMenuItem<String>(
+                            value: c.id,
+                            child: Text(
+                              '$label (${c.students.length} Students)',
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (classId) {
+                          if (classId != null) {
+                            final match = deduplicatedClasses.firstWhere((c) => c.id == classId);
+                            final subjs = _getSubjectsForSelectedClass(match, _teacherProfile);
+                            setState(() {
+                              _selectedClassId = classId;
+                              _classStudents = match.students;
+                              _selectedStudentId = null;
+                              _selectedStudentName = null;
+                              if (!_isEditing && subjs.isNotEmpty) {
+                                _subjectController.text = subjs.first;
+                              }
+                            });
+                          }
+                        },
+                        validator: (v) => (v == null || v.isEmpty) ? 'Please select a class' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 2. Select Student *
+                      const Text(
+                        'Select Student *',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: validStudentId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: deduplicatedStudents.isEmpty ? 'No students enrolled in class' : 'Select student from roster',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        items: deduplicatedStudents.map((s) {
+                          return DropdownMenuItem<String>(
+                            value: s.studentId,
+                            child: Text(
+                              '${s.studentName} (${s.studentId})',
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final match = _classStudents.firstWhere(
+                              (s) => s.studentId == val,
+                              orElse: () => StudentClassInfo(id: val, studentId: val, studentName: 'Student', classId: ''),
+                            );
+                            setState(() {
+                              _selectedStudentId = val;
+                              _selectedStudentName = match.studentName;
+                            });
+                          }
+                        },
+                        validator: (v) => (v == null || v.isEmpty) ? 'Please select a student' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 3. Subject *
+                      const Text(
+                        'Subject *',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _subjectController,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Physics, Maths',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Subject is required' : null,
+                      ),
+                      Builder(builder: (context) {
+                        final selectedClassObj = deduplicatedClasses.firstWhere(
+                          (c) => c.id == validClassId,
+                          orElse: () => deduplicatedClasses.isNotEmpty ? deduplicatedClasses.first : const SchoolClass(id: '', grade: 0, section: ''),
+                        );
+                        final availableSubjs = _getSubjectsForSelectedClass(selectedClassObj, _teacherProfile);
+
+                        if (availableSubjs.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: availableSubjs.map((subj) {
+                                final isSel = _subjectController.text.trim().toLowerCase() == subj.trim().toLowerCase();
+                                return InkWell(
+                                  onTap: () => setState(() => _subjectController.text = subj),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isSel ? KukieAccent.violetTint : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSel ? KukieAccent.violet : const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      subj,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                                        color: isSel ? KukieAccent.violet : const Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        );
+                      }),
+                      const SizedBox(height: 16),
+
+                      // 4. Assessment Type Pills
+                      const Text(
+                        'Assessment Type',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _assessmentTypes.map((type) {
+                            final isSelected = _assessmentTypeLabel == type['label'];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InkWell(
+                                onTap: () => setState(() => _assessmentTypeLabel = type['label']!),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? KukieAccent.violet : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isSelected ? KukieAccent.violet : const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    type['label']!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected ? Colors.white : const Color(0xFF475569),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 5. Score Obtained * & Maximum Score *
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Score Obtained *',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _scoreController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: '85',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8FAFC),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                  ),
+                                  validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'Invalid' : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Maximum Score *',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _maxScoreController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: '100',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8FAFC),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                  ),
+                                  validator: (v) => (v == null || (double.tryParse(v.trim()) ?? 0) <= 0) ? 'Invalid' : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 6. Resulting Grade Evaluation (100% Scale Indicator)
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Class Access Restricted',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
-                                color: Colors.amber.shade900,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Resulting Grade Evaluation',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                                ),
+                                Text(
+                                  '${_percentage.toStringAsFixed(0)}%',
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0284C7)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'The Admin has not assigned you to any class yet. You cannot search students or record grades until an Admin assigns you to a class.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.amber.shade900,
-                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  _max == 100 ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                  size: 14,
+                                  color: _max == 100 ? Colors.green.shade700 : const Color(0xFF0284C7),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _max == 100
+                                        ? '✓ Evaluated out of 100% — Final score ready for class roster submission.'
+                                        : 'Current Score: ${_earned.toStringAsFixed(0)} / ${_max.toStringAsFixed(0)} pts (${_percentage.toStringAsFixed(0)}% equivalent out of 100)',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _max == 100 ? Colors.green.shade800 : const Color(0xFF0369A1)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-              DropdownButtonFormField<SchoolClass>(
-                initialValue: _selectedClass,
-                isExpanded: true,
-                borderRadius: BorderRadius.circular(12),
-                dropdownColor: Colors.white,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
-                decoration: InputDecoration(
-                  labelText: 'Assigned Class / Section *',
-                  hintText: 'Select assigned class',
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  prefixIcon: const Icon(Icons.class_outlined, size: 18),
-                  fillColor: Colors.grey.shade50,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-                items: _assignedClasses.map((sc) {
-                  return DropdownMenuItem<SchoolClass>(
-                    value: sc,
-                    child: Text(
-                      '${sc.displayName} (${sc.students.length} students)',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
-                onChanged: !_isTeacherAssigned
-                    ? null
-                    : (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedClass = val;
-                            _updateKnownStudents();
-                            _studentIdController.clear();
-                            _studentNameController.clear();
-                          });
-                        }
-                      },
-                validator: (v) => (v == null && _isTeacherAssigned) ? 'Please select an assigned class' : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _studentIdController,
-                enabled: _isTeacherAssigned,
-                decoration: InputDecoration(
-                  labelText: 'Student ID * (Type or Select)',
-                  hintText: 'e.g. SG-2026-000001',
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  prefixIcon: const Icon(Icons.badge_outlined, size: 18),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  suffixIcon: PopupMenuButton<String>(
-                    enabled: _isTeacherAssigned,
-                    icon: const Icon(Icons.person_search_outlined, color: KukieAccent.violet, size: 20),
-                    tooltip: 'Select registered student from class',
-                    onSelected: (id) {
-                      if (id != '__EMPTY__') {
-                        _studentIdController.text = id;
-                        _onStudentIdChanged();
-                      }
-                    },
-                    itemBuilder: (context) {
-                      if (!_isTeacherAssigned) {
-                        return [
-                          const PopupMenuItem<String>(
-                            value: '__EMPTY__',
-                            enabled: false,
-                            child: Text(
-                              'Admin must assign you to a class first',
-                              style: TextStyle(fontSize: 12, color: Colors.amber),
-                            ),
-                          ),
-                        ];
-                      }
-                      if (_knownStudents.isEmpty) {
-                        return [
-                          const PopupMenuItem<String>(
-                            value: '__EMPTY__',
-                            enabled: false,
-                            child: Text(
-                              'No registered students in this class',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ),
-                        ];
-                      }
-                      return [
-                        for (final entry in _knownStudents.entries)
-                          PopupMenuItem<String>(
-                            value: entry.key,
-                            child: Container(
-                              constraints: const BoxConstraints(maxWidth: 220),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.person, size: 16, color: KukieAccent.violet),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '${entry.key} · ${entry.value}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
+                      const SizedBox(height: 16),
+
+                      // 7. Semester Choice & Academic Year
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Semester *',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                ),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _selectedSemester,
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8FAFC),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                                     ),
                                   ),
-                                ],
-                              ),
+                                  items: const [
+                                    DropdownMenuItem(value: '1st Semester', child: Text('1st Semester', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                    DropdownMenuItem(value: '2nd Semester', child: Text('2nd Semester', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _selectedSemester = val);
+                                  },
+                                ),
+                              ],
                             ),
                           ),
-                      ];
-                    },
-                  ),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Student ID is required' : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _studentNameController,
-                enabled: _isTeacherAssigned,
-                decoration: const InputDecoration(
-                  labelText: 'Student Full Name * (Auto-filled on ID match)',
-                  hintText: 'e.g. Abebe Bikila',
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  prefixIcon: Icon(Icons.person_outline, size: 18),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Student name is required'
-                    : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _subjectController,
-                    enabled: _isTeacherAssigned,
-                    decoration: const InputDecoration(
-                      labelText: 'Subject / Course *',
-                      hintText: 'e.g. Mathematics',
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      prefixIcon: Icon(Icons.book_outlined, size: 18),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Subject is required'
-                        : null,
-                  ),
-                    if (_recommendedSubjectsForSelectedClass.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Suggest from your assigned teaching subjects:',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: _recommendedSubjectsForSelectedClass.map((subject) {
-                        final isSelected = _subjectController.text.trim().toLowerCase() ==
-                            subject.trim().toLowerCase();
-                        return ChoiceChip(
-                          label: Text(
-                            subject,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isSelected ? KukieAccent.violet : Colors.black87,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Academic Year',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _academicYearController,
+                                  decoration: InputDecoration(
+                                    hintText: '2026-2027',
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8FAFC),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          selected: isSelected,
-                          onSelected: !_isTeacherAssigned
-                              ? null
-                              : (selected) {
-                                  if (selected) {
-                                    setState(() {
-                                      _subjectController.text = subject;
-                                    });
-                                  }
-                                },
-                          selectedColor: KukieAccent.violetTint,
-                          backgroundColor: Colors.grey.shade100,
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedYear,
-                      isExpanded: true,
-                      borderRadius: BorderRadius.circular(12),
-                      dropdownColor: Colors.white,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
-                      decoration: InputDecoration(
-                        labelText: 'Academic Year *',
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
-                        fillColor: Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: '2024/2025', child: Text('2024/2025', style: TextStyle(fontSize: 12.5))),
-                        DropdownMenuItem(value: '2025/2026', child: Text('2025/2026', style: TextStyle(fontSize: 12.5))),
-                        DropdownMenuItem(value: '2026/2027', child: Text('2026/2027', style: TextStyle(fontSize: 12.5))),
-                        DropdownMenuItem(value: '2027/2028', child: Text('2027/2028', style: TextStyle(fontSize: 12.5))),
-                      ],
-                      onChanged: !_isTeacherAssigned
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setState(() {
-                                  _selectedYear = val;
-                                  _updateTermText();
-                                });
-                              }
-                            },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedSemester,
-                      isExpanded: true,
-                      borderRadius: BorderRadius.circular(12),
-                      dropdownColor: Colors.white,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KukieAccent.violet, size: 20),
-                      decoration: InputDecoration(
-                        labelText: 'Semester *',
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        prefixIcon: const Icon(Icons.school_outlined, size: 18),
-                        fillColor: Colors.grey.shade50,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Semester 1', child: Text('Semester 1', style: TextStyle(fontSize: 12.5))),
-                        DropdownMenuItem(value: 'Semester 2', child: Text('Semester 2', style: TextStyle(fontSize: 12.5))),
-                      ],
-                      onChanged: !_isTeacherAssigned
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setState(() {
-                                  _selectedSemester = val;
-                                  _updateTermText();
-                                });
-                              }
-                            },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              // Preset Shortcuts
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Assessment Sections',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  PopupMenuButton<VoidCallback>(
-                    onSelected: (action) => action(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: KukieAccent.violetTint,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.flash_on, size: 14, color: KukieAccent.violet),
-                          SizedBox(width: 4),
-                          Text('Presets',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: KukieAccent.violet)),
                         ],
                       ),
-                    ),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: _loadStandardPreset,
-                        child: const Text('Standard (Att + Mid + Assig + Final)'),
+                      const SizedBox(height: 16),
+
+                      // 8. Teacher Feedback / Comment
+                      const Text(
+                        'Teacher Feedback / Comment',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
                       ),
-                      PopupMenuItem(
-                        value: _loadProjectPreset,
-                        child: const Text('Project Emphasis (Att + Proj + Mid + Final)'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _commentController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Excellent problem solving on quadratic equations.',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.all(12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
                       ),
-                      PopupMenuItem(
-                        value: _loadMidtermFinalPreset,
-                        child: const Text('Exams Only (Midterm 50 + Final 50)'),
+                      const SizedBox(height: 24),
+
+                      // 9. Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _submitting ? null : () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(fontSize: 14, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _submitting ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: KukieAccent.violet,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: _submitting
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : Text(
+                                      _isEditing ? 'Update Grade' : 'Submit Grade',
+                                      style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              // Dynamic Section Rows
-              ...List.generate(_componentRows.length, (index) {
-                final row = _componentRows[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: PopupMenuButton<String>(
-                                initialValue: row.nameController.text,
-                                onSelected: (val) {
-                                  row.nameController.text = val;
-                                  // Update default max score if known
-                                  final found = _presetAssessments.firstWhere(
-                                      (p) => p['name'] == val,
-                                      orElse: () => {});
-                                  if (found.isNotEmpty) {
-                                    row.maxScoreController.text =
-                                        (found['defaultMax'] as double)
-                                            .toStringAsFixed(0);
-                                  }
-                                  _updateSummation();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade400),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        row.nameController.text.isNotEmpty
-                                            ? row.nameController.text
-                                            : 'Select Assessment',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13.5),
-                                      ),
-                                      const Icon(Icons.arrow_drop_down, size: 18),
-                                    ],
-                                  ),
-                                ),
-                                itemBuilder: (context) => [
-                                  for (final preset in _presetAssessments)
-                                    PopupMenuItem(
-                                      value: preset['name'] as String,
-                                      child: Text(preset['name'] as String),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red, size: 20),
-                              onPressed: () => _removeComponentRow(index),
-                              tooltip: 'Remove section',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: row.scoreController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Score Earned *',
-                                  hintText: 'e.g. 27',
-                                  prefixIcon: Icon(Icons.check_circle_outline),
-                                ),
-                                validator: (v) {
-                                  final score = double.tryParse(v ?? '');
-                                  if (score == null || score < 0) return 'Invalid';
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: TextFormField(
-                                controller: row.maxScoreController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Max Score *',
-                                  hintText: 'e.g. 30',
-                                  prefixIcon: Icon(Icons.score),
-                                ),
-                                validator: (v) {
-                                  final maxScore = double.tryParse(v ?? '');
-                                  if (maxScore == null || maxScore <= 0) {
-                                    return 'Invalid';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: AppSpacing.xs),
-              OutlinedButton.icon(
-                onPressed: () => _addComponentRow(
-                    name: 'Quiz / Task', score: 0, maxScore: 10),
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Add Custom Assessment Section'),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              // --- Live Automatic Summation Box ---
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [KukieAccent.violet, KukieAccent.violet.withValues(alpha: 0.85)],
-                  ),
-                  borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Automatic Total Summation',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        Text(
-                          '${earned.toStringAsFixed(0)} / ${maxTotal.toStringAsFixed(0)} Marks',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'Overall: ${_percentage.toStringAsFixed(1)}%',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.amberAccent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Grade $letterGrade',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.xl),
-              // --- Confidential Parent Recommendation Box ---
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.lock_person_outlined,
-                            color: Colors.amber.shade900),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Teacher Recommendation (Parents Only)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.amber.shade900,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '🔒 PRIVACY GUARANTEE: This note will be visible exclusively to the student\'s parents/guardians and will NOT be shown to the student.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.amber.shade900.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextFormField(
-                      controller: _recommendationController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText:
-                            'Write professional feedback for the parents (e.g. "Student understands concepts well but needs 15 mins daily practice at home.")',
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              ElevatedButton.icon(
-                onPressed: (_submitting || !_isTeacherAssigned) ? null : _submit,
-                icon: _submitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : Icon(_isEditing ? Icons.save_outlined : Icons.check),
-                label: Text(_isEditing
-                    ? 'Update Student Record (${earned.toStringAsFixed(0)}/${maxTotal.toStringAsFixed(0)})'
-                    : 'Save Student Mark (${earned.toStringAsFixed(0)}/${maxTotal.toStringAsFixed(0)}) & Guidance'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

@@ -22,6 +22,8 @@ enum AttendanceStatus {
       case 'ABSENT':
         return AttendanceStatus.absent;
       case 'LATE':
+      case 'TARDY':
+      case 'TARDY / LATE':
         return AttendanceStatus.late;
       case 'EXCUSED':
         return AttendanceStatus.excused;

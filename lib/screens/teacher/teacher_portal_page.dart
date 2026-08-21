@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../models/grade_entry.dart';
-import '../../models/teacher_profile.dart';
+import '../../models/homework_entry.dart';
 import '../../models/school_class.dart';
-import '../../models/subject.dart';
+import '../../models/teacher_profile.dart';
+import '../../models/user.dart';
+import '../../services/appointment_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/homework_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
+import '../communication/private_communication_page.dart';
+import '../landing_page.dart';
 import 'add_grade_page.dart';
-import 'mark_attendance_page.dart';
 import 'manage_homework_page.dart';
+import 'mark_attendance_page.dart';
+import 'my_classes_page.dart';
+import 'teacher_appointments_page.dart';
+import 'teacher_notes_page.dart';
+
 
 class TeacherPortalPage extends StatefulWidget {
   const TeacherPortalPage({super.key});
@@ -23,11 +31,19 @@ class TeacherPortalPage extends StatefulWidget {
 
 class _TeacherPortalPageState extends State<TeacherPortalPage> {
   final _teacherService = TeacherService();
-  TeacherProfile? _profile;
-  List<GradeEntry> _grades = [];
+  final _schoolService = SchoolManagementService();
+  final _homeworkService = HomeworkService();
+  final _appointmentService = AppointmentService();
+
+  int _currentIndex = 0;
   bool _loading = true;
-  String _selectedSubject = 'ALL';
-  final List<String> _customSubjects = [];
+  String _teacherName = 'Teacher';
+  User? _currentUser;
+  TeacherProfile? _teacherProfile;
+  List<SchoolClass> _assignedClasses = [];
+  List<HomeworkEntry> _homeworks = [];
+  List<GradeEntry> _grades = [];
+  List<AppointmentItem> _appointments = [];
 
   @override
   void initState() {
@@ -36,545 +52,843 @@ class _TeacherPortalPageState extends State<TeacherPortalPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final profile = await _teacherService.getTeacherProfile();
-    final grades = await _teacherService.getGradeEntries();
-
     if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final user = await AuthService().getMe();
+      final name = '${user.firstName} ${user.lastName}'.trim();
+      _teacherName = name.isNotEmpty ? name : 'Teacher';
 
-    final subjectList = List<String>.from(profile.assignedSubjects);
-    for (final g in grades) {
-      if (g.subject.isNotEmpty && !subjectList.contains(g.subject)) {
-        subjectList.add(g.subject);
+      final profile = await _teacherService.getTeacherProfile();
+      final allClasses = await _schoolService.getClasses();
+
+      final filteredClasses = allClasses.where((sc) {
+        final isTeacherInClassList = sc.teachers.any((t) =>
+            (t.teacherId.isNotEmpty && t.teacherId == profile.id) ||
+            (t.teacherName.isNotEmpty && t.teacherName.toLowerCase() == profile.fullName.toLowerCase()));
+
+        final isClassInProfileList = profile.assignedClasses.any((ac) {
+          final cleanAc = ac.trim().toLowerCase();
+          return cleanAc == sc.displayName.trim().toLowerCase() ||
+                 cleanAc == sc.id.trim().toLowerCase() ||
+                 cleanAc == sc.shortLabel.trim().toLowerCase();
+        });
+
+        return isTeacherInClassList || isClassInProfileList;
+      }).toList();
+
+      final activeClasses = filteredClasses.isNotEmpty ? filteredClasses : allClasses;
+
+      final homeworks = await _homeworkService.getTeacherHomeworks();
+      final grades = await _teacherService.getGradeEntries();
+      final appointments = await _appointmentService.getTeacherAppointments();
+
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _teacherProfile = profile;
+          _assignedClasses = activeClasses;
+          _homeworks = homeworks;
+          _grades = grades;
+          _appointments = appointments;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
       }
     }
-
-    setState(() {
-      _profile = profile;
-      _grades = grades;
-      _customSubjects.clear();
-      _customSubjects.addAll(subjectList);
-      _loading = false;
-    });
   }
 
-  Future<void> _showAddSubjectBarDialog() async {
-    List<Subject> dbSubjects = [];
-    List<SchoolClass> availableClasses = [];
-    try {
-      dbSubjects = await SchoolManagementService().getSubjects();
-      availableClasses = await SchoolManagementService().getClasses();
-    } catch (_) {}
-
-    String? selectedDbSubject = dbSubjects.isNotEmpty ? dbSubjects.first.name : null;
-    SchoolClass? selectedClass = availableClasses.isNotEmpty ? availableClasses.first : null;
-    final customSubjectController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool useCustomSubject = dbSubjects.isEmpty;
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) {
-          return AlertDialog(
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: KukieAccent.violetTint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.assignment_ind_outlined, color: KukieAccent.violet, size: 20),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                const Expanded(
-                  child: Text(
-                    'Assign Subject to Profile',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Select a course created by the Admin in the school database to add to your teaching profile.',
-                      style: TextStyle(fontSize: 12.5, color: Colors.black87),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    if (dbSubjects.isNotEmpty && !useCustomSubject) ...[
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedDbSubject,
-                        decoration: const InputDecoration(
-                          labelText: 'Select Admin Course / Subject *',
-                          prefixIcon: Icon(Icons.menu_book_outlined),
-                        ),
-                        items: dbSubjects.map((s) => DropdownMenuItem(
-                          value: s.name,
-                          child: Text(s.name),
-                        )).toList(),
-                        onChanged: (val) {
-                          setDialogState(() => selectedDbSubject = val);
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      TextButton.icon(
-                        onPressed: () => setDialogState(() => useCustomSubject = true),
-                        icon: const Icon(Icons.add, size: 14),
-                        label: const Text('Add a custom subject name instead', style: TextStyle(fontSize: 12)),
-                      ),
-                    ] else ...[
-                      TextFormField(
-                        controller: customSubjectController,
-                        decoration: const InputDecoration(
-                          labelText: 'Subject Name *',
-                          hintText: 'e.g. Chemistry',
-                          prefixIcon: Icon(Icons.book_outlined),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      if (dbSubjects.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        TextButton.icon(
-                          onPressed: () => setDialogState(() => useCustomSubject = false),
-                          icon: const Icon(Icons.list, size: 14),
-                          label: const Text('Choose from Admin Courses list', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
-                    ],
-
-                    const SizedBox(height: AppSpacing.md),
-                    if (availableClasses.isNotEmpty) ...[
-                      DropdownButtonFormField<SchoolClass>(
-                        initialValue: selectedClass,
-                        decoration: const InputDecoration(
-                          labelText: 'Target Class (For DB TeacherClassSubject)',
-                          prefixIcon: Icon(Icons.class_outlined),
-                        ),
-                        items: availableClasses.map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(c.displayName),
-                        )).toList(),
-                        onChanged: (val) {
-                          setDialogState(() => selectedClass = val);
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogCtx).pop(),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    final targetSubject = useCustomSubject
-                        ? customSubjectController.text.trim()
-                        : (selectedDbSubject ?? customSubjectController.text.trim());
-
-                    if (targetSubject.isEmpty) return;
-
-                    // 1. Add to Teacher Profile (My Teaching Subjects)
-                    await _teacherService.addAssignedSubject(targetSubject);
-
-                    // 2. Persist to Neon DB TeacherClassSubject table
-                    try {
-                      final me = await AuthService().getMe();
-                      final cls = selectedClass ?? (availableClasses.isNotEmpty ? availableClasses.first : null);
-
-                      if (cls != null) {
-                        await SchoolManagementService().assignTeacherToClass(
-                          teacherId: me.id,
-                          teacherName: '${me.firstName} ${me.lastName}',
-                          classId: cls.id,
-                          subjectId: targetSubject,
-                          subjectName: targetSubject,
-                        );
-                      } else {
-                        await SchoolManagementService().createSubject(name: targetSubject);
-                      }
-                    } catch (_) {}
-
-                    if (!mounted) return;
-                    final nav = Navigator.of(dialogCtx);
-                    final messenger = ScaffoldMessenger.of(context);
-
-                    nav.pop();
-                    await _loadData();
-
-                    if (!mounted) return;
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Assigned "$targetSubject" to your teaching profile!'),
-                        backgroundColor: KukieAccent.success,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Assign to Profile'),
-              ),
-            ],
-          );
-        },
+  void _navigateToMyClasses([String? classId]) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MyClassesPage(initialClassId: classId),
       ),
-    );
+    ).then((_) => _loadData());
   }
 
-  Future<void> _openAddGrade() async {
-    final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const AddGradePage()),
-    );
-    if (added == true) {
-      _loadData();
+  void _navigateToAddGrade() {
+    Navigator.of(context).pushNamed(AddGradePage.routeName).then((_) => _loadData());
+  }
+
+  void _navigateToManageHomework() {
+    Navigator.of(context).pushNamed(ManageHomeworkPage.routeName).then((_) => _loadData());
+  }
+
+  void _navigateToMarkAttendance() {
+    Navigator.of(context).pushNamed(MarkAttendancePage.routeName).then((_) => _loadData());
+  }
+
+  void _navigateToTeacherNotes() {
+    Navigator.of(context).pushNamed(TeacherNotesPage.routeName).then((_) => _loadData());
+  }
+
+  void _navigateToAppointments() {
+    Navigator.of(context).pushNamed(TeacherAppointmentsPage.routeName).then((_) => _loadData());
+  }
+
+  void _navigateToChat() {
+    if (_currentUser != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PrivateCommunicationPage(user: _currentUser!),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User profile loading, please wait...')),
+      );
     }
   }
 
-  Future<void> _openEditGrade(GradeEntry entry) async {
-    final updated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => AddGradePage(existingEntry: entry)),
-    );
-    if (updated == true) {
-      _loadData();
-    }
-  }
-
-  Future<void> _deleteGrade(String id) async {
+  Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Student Grade?'),
-        content: const Text('Are you sure you want to delete this grade record?'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out of Teacher Portal?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE11D48)),
+            child: const Text('Sign Out'),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
-      await _teacherService.deleteGradeEntry(id);
-      _loadData();
+    if (confirm == true && mounted) {
+      await AuthService().logout();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(LandingPage.routeName, (route) => false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final firstName = _teacherName.split(' ').first;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Teacher Portal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddGrade,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Grade & Guidance'),
-        backgroundColor: KukieAccent.violet,
-        foregroundColor: Colors.white,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: KukieAccent.violet,
-        unselectedItemColor: Colors.grey.shade600,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on Grades / Main Dashboard
-              break;
-            case 1:
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const MarkAttendancePage()),
-              );
-              break;
-            case 2:
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ManageHomeworkPage()),
-              );
-              break;
-            case 3:
-              Navigator.of(context).pushNamed('/reports');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.grade_outlined), label: 'Grades'),
-          BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: 'Attendance'),
-          BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Homework'),
-          BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: 'Reports'),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: KukieAccent.violetTint,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.school_rounded, color: KukieAccent.violet, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TeacherHeaderCard(
-                    profile: _profile!,
-                    onProfileUpdated: _loadData,
+                  const Text(
+                    'Teacher Portal',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _StatsRow(gradesCount: _grades.length),
-                  const SizedBox(height: AppSpacing.md),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // --- Subject / Course Teaching Bars ---
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'My Teaching Subjects',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _showAddSubjectBarDialog,
-                        icon: const Icon(Icons.add_card, size: 16),
-                        label: const Text('+ Assign Subject'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          selected: _selectedSubject == 'ALL',
-                          label: Text('All Subjects (${_grades.length})'),
-                          onSelected: (selected) {
-                            if (selected) setState(() => _selectedSubject = 'ALL');
-                          },
-                          selectedColor: KukieAccent.violetTint,
-                          checkmarkColor: KukieAccent.violet,
-                        ),
-                        const SizedBox(width: 8),
-                        ..._customSubjects.map((subject) {
-                          final count = _grades
-                              .where((g) =>
-                                  g.subject.trim().toLowerCase() ==
-                                  subject.trim().toLowerCase())
-                              .length;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              selected: _selectedSubject == subject,
-                              label: Text('$subject ($count)'),
-                              onSelected: (selected) {
-                                if (selected) setState(() => _selectedSubject = subject);
-                              },
-                              selectedColor: KukieAccent.violetTint,
-                              checkmarkColor: KukieAccent.violet,
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _selectedSubject == 'ALL'
-                            ? 'Student Grades (${_grades.length})'
-                            : 'Students in $_selectedSubject (${_grades.where((g) => g.subject.trim().toLowerCase() == _selectedSubject.trim().toLowerCase()).length})',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _openAddGrade,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('New Entry'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Builder(
-                    builder: (context) {
-                      final filtered = _selectedSubject == 'ALL'
-                          ? _grades
-                          : _grades
-                              .where((g) =>
-                                  g.subject.trim().toLowerCase() ==
-                                  _selectedSubject.trim().toLowerCase())
-                              .toList();
-
-                      if (filtered.isEmpty) {
-                        return Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.xl),
-                            child: Center(
-                              child: Text(_selectedSubject == 'ALL'
-                                  ? 'No student grades recorded yet. Click "+ Add Grade & Guidance" to add the first result!'
-                                  : 'No students graded for "$_selectedSubject" yet.'),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Column(
-                        children: filtered
-                            .map(
-                              (g) => _TeacherGradeCard(
-                                grade: g,
-                                onEdit: () => _openEditGrade(g),
-                                onDelete: () => _deleteGrade(g.id),
-                              ),
-                            )
-                            .toList(),
-                      );
-                    },
+                  Text(
+                    'Faculty Hub • $firstName',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF475569)),
+            onPressed: _loadData,
+            tooltip: 'Refresh Data',
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildHomeTab(firstName),
+                _buildAcademicHubTab(),
+                _buildParentTab(),
+                _buildProfileTab(),
+              ],
+            ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (idx) => setState(() => _currentIndex = idx),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: KukieAccent.violet,
+          unselectedItemColor: const Color(0xFF94A3B8),
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_outlined),
+              activeIcon: Icon(Icons.dashboard_rounded),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.school_outlined),
+              activeIcon: Icon(Icons.school_rounded),
+              label: 'Academic Hub',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_alt_outlined),
+              activeIcon: Icon(Icons.people_alt_rounded),
+              label: 'Parents',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person_rounded),
+              label: 'Profile',
+            ),
+          ],
+        ),
+      ),
     );
   }
-}
 
-class _TeacherHeaderCard extends StatelessWidget {
-  const _TeacherHeaderCard({
-    required this.profile,
-    required this.onProfileUpdated,
-  });
-
-  final TeacherProfile profile;
-  final VoidCallback onProfileUpdated;
-
-  void _editMajorField(BuildContext context) {
-    final controller = TextEditingController(text: profile.majorField);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Major Field of Study'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Major Field of Study',
-            border: OutlineInputBorder(),
+  // ── 1. HOME TAB ─────────────────────────────────────────────────────────────
+  Widget _buildHomeTab(String firstName) {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Banner
+          _TopWelcomeBanner(
+            firstName: firstName,
+            onTakeAttendance: _navigateToMarkAttendance,
+            onCreateHomework: _navigateToManageHomework,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+          const SizedBox(height: 16),
+
+          // Metrics
+          _MetricsRow(
+            assignedClassesCount: _assignedClasses.length,
+            activeHomeworksCount: _homeworks.length,
+            gradeEntriesCount: _grades.length,
+            pendingAppointmentsCount: _appointments.where((a) => a.status.toUpperCase() == 'PENDING').length,
+            onClassesTap: () => setState(() => _currentIndex = 1),
+            onHomeworkTap: _navigateToManageHomework,
+            onGradesTap: _navigateToAddGrade,
+            onAppointmentsTap: _navigateToAppointments,
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (controller.text.trim().isNotEmpty) {
-                await TeacherService().updateMajorField(controller.text.trim());
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                  onProfileUpdated();
-                }
-              }
-            },
-            child: const Text('Save'),
+          const SizedBox(height: 16),
+
+          // Teaching Classes Card
+          _TeachingScheduleCard(
+            classes: _assignedClasses,
+            onViewRoster: () => _navigateToMyClasses(),
+            onSelectClass: (id) => _navigateToMyClasses(id),
+          ),
+          const SizedBox(height: 16),
+
+          // Appointments Card
+          _ParentAppointmentsCard(
+            appointments: _appointments,
+            onViewAll: _navigateToAppointments,
+          ),
+          const SizedBox(height: 16),
+
+          // Homework Card
+          _RecentHomeworkCard(
+            homeworks: _homeworks,
+            onViewAll: _navigateToManageHomework,
           ),
         ],
       ),
     );
   }
 
+  // ── 2. ACADEMIC HUB TAB ─────────────────────────────────────────────────────
+  Widget _buildAcademicHubTab() {
+    final classCount = _assignedClasses.length;
+    final classesSummaryStr = classCount > 0
+        ? _assignedClasses.map((c) => c.displayName.isNotEmpty ? c.displayName : 'Grade ${c.grade}-${c.section}').take(2).join(', ') + (classCount > 2 ? ' +${classCount - 2} more' : '')
+        : 'No classes assigned yet';
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Header Banner
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1F4F46E5),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Academic Hub 🎓',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Central management hub for class rosters, attendance sheet, gradebook entry, homework, and student observation notes.',
+                  style: TextStyle(fontSize: 12, color: Color(0xE6FFFFFF), height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 1. Featured Hero Card: Class Rosters & Student 360°
+          InkWell(
+            onTap: () => _navigateToMyClasses(),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: KukieAccent.violet.withAlpha(90), width: 1.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A5B4FE0),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: KukieAccent.violetTint,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.groups_rounded, color: KukieAccent.violet, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Class Rosters & Student 360°',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              classesSummaryStr,
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: KukieAccent.violet),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: KukieAccent.violet),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'View student cohorts, performance transcripts, behavioral notes, and linked parent contact details.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$classCount Assigned Cohort${classCount == 1 ? '' : 's'}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                        ),
+                      ),
+                      const Text(
+                        'Open Roster 360° →',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Section Header for Quick Actions
+          const Text(
+            'QUICK ACADEMIC ACTIONS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+              color: Color(0xFF94A3B8),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 2. Quick Actions Grid (4 Cards)
+          Row(
+            children: [
+              Expanded(
+                child: _AcademicHubActionCard(
+                  icon: Icons.star_outline_rounded,
+                  iconBg: const Color(0xFFF0EEFF),
+                  iconColor: KukieAccent.violet,
+                  title: 'Record Grade',
+                  subtitle: 'Log test/quiz score',
+                  onTap: _navigateToAddGrade,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AcademicHubActionCard(
+                  icon: Icons.assignment_outlined,
+                  iconBg: const Color(0xFFE0F2FE),
+                  iconColor: const Color(0xFF0284C7),
+                  title: 'Post Homework',
+                  subtitle: 'Assign homework task',
+                  onTap: _navigateToManageHomework,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _AcademicHubActionCard(
+                  icon: Icons.fact_check_outlined,
+                  iconBg: const Color(0xFFECFDF5),
+                  iconColor: const Color(0xFF10B981),
+                  title: 'Daily Attendance',
+                  subtitle: 'Mark student status',
+                  onTap: _navigateToMarkAttendance,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AcademicHubActionCard(
+                  icon: Icons.edit_note_rounded,
+                  iconBg: const Color(0xFFFEF3C7),
+                  iconColor: const Color(0xFFD97706),
+                  title: 'Student Notes',
+                  subtitle: 'Log behavioral note',
+                  onTap: _navigateToTeacherNotes,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 3. PARENT TAB ───────────────────────────────────────────────────────────
+  Widget _buildParentTab() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Banner
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Parent Engagement Hub 💬',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Direct messaging with parents, meeting appointment requests, and student progress notes.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFFE0F2FE)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Parent Chat Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFFD97706), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Direct Parent Messaging', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      SizedBox(height: 2),
+                      Text('Chat with registered parents about student performance', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _navigateToChat,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 36),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  child: const Text('Open Chat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Appointments Card
+          _ParentAppointmentsCard(
+            appointments: _appointments,
+            onViewAll: _navigateToAppointments,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 4. PROFILE TAB ──────────────────────────────────────────────────────────
+  Widget _buildProfileTab() {
+    final profile = _teacherProfile ?? TeacherProfile.sample();
+    final teacherNameStr = _teacherName.trim().isNotEmpty ? _teacherName.trim() : 'Teacher';
+    final initial = teacherNameStr.substring(0, 1).toUpperCase();
+    final emailStr = profile.email.isNotEmpty ? profile.email : (_currentUser?.email ?? 'teacher@schoolguardian.app');
+    final empIdStr = profile.employeeId.isNotEmpty ? profile.employeeId : 'TCH-1001';
+    final deptStr = profile.department.isNotEmpty ? profile.department : 'Academic Faculty';
+    final majorStr = profile.majorField.isNotEmpty ? profile.majorField : 'Educational Pedagogy';
+    final subsList = profile.assignedSubjects;
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Profile Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const [
+                BoxShadow(color: Color(0x08000000), blurRadius: 10, offset: Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: KukieAccent.violet,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(teacherNameStr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                const SizedBox(height: 2),
+                Text(emailStr, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KukieAccent.violetTint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Faculty ID: $empIdStr',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Academic Info Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Academic Identity', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const SizedBox(height: 12),
+                _ProfileDetailRow(icon: Icons.domain_rounded, label: 'Department', value: deptStr),
+                const Divider(height: 20, color: Color(0xFFF1F5F9)),
+                _ProfileDetailRow(icon: Icons.school_outlined, label: 'Major Field', value: majorStr),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Assigned Subjects Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Assigned Subjects', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const SizedBox(height: 10),
+                if (subsList.isEmpty)
+                  const Text('No specific subjects assigned.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)))
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: subsList.map((sub) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: KukieAccent.violetTint,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: KukieAccent.violet.withAlpha(50)),
+                        ),
+                        child: Text(
+                          sub,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Logout Button
+          OutlinedButton.icon(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 18),
+            label: const Text('Sign Out of Teacher Portal', style: TextStyle(color: Color(0xFFE11D48), fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: Color(0xFFFECDD3)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Components ───────────────────────────────────────────────────────────────
+
+class _ProfileDetailRow extends StatelessWidget {
+  const _ProfileDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: KukieAccent.violet),
+        const SizedBox(width: 10),
+        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+      ],
+    );
+  }
+}
+
+class _TopWelcomeBanner extends StatelessWidget {
+  const _TopWelcomeBanner({
+    required this.firstName,
+    required this.onTakeAttendance,
+    required this.onCreateHomework,
+  });
+
+  final String firstName;
+  final VoidCallback onTakeAttendance;
+  final VoidCallback onCreateHomework;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [KukieAccent.violet, KukieAccent.violet.withValues(alpha: 0.85)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-        boxShadow: AppColors.cardShadow,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x334F46E5),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                child: const Icon(Icons.psychology, size: 30, color: Colors.white),
-              ),
-              const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.fullName,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'ID: ${profile.employeeId} · ${profile.department}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Welcome back, $firstName! 👋',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0x33FFFFFF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Faculty Portal',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
           ),
-          const Divider(color: Colors.white24, height: 24),
+          const SizedBox(height: 6),
+          const Text(
+            'Manage student attendance, publish homework, log grades, and communicate with parents.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xE6FFFFFF),
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.school, size: 18, color: Colors.amberAccent),
-              const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  'Major Field: ${profile.majorField}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.amberAccent,
+                child: ElevatedButton.icon(
+                  onPressed: onTakeAttendance,
+                  icon: const Icon(Icons.fact_check_outlined, size: 15, color: Color(0xFF4F46E5)),
+                  label: const Text(
+                    'Take Attendance',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.edit, size: 18, color: Colors.amberAccent),
-                onPressed: () => _editMajorField(context),
-                tooltip: 'Edit Major Field of Study',
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onCreateHomework,
+                  icon: const Icon(Icons.add, size: 15, color: Colors.white),
+                  label: const Text(
+                    'Create Homework',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white54),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ),
             ],
           ),
@@ -584,269 +898,160 @@ class _TeacherHeaderCard extends StatelessWidget {
   }
 }
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.gradesCount});
+class _MetricsRow extends StatelessWidget {
+  const _MetricsRow({
+    required this.assignedClassesCount,
+    required this.activeHomeworksCount,
+    required this.gradeEntriesCount,
+    required this.pendingAppointmentsCount,
+    required this.onClassesTap,
+    required this.onHomeworkTap,
+    required this.onGradesTap,
+    required this.onAppointmentsTap,
+  });
 
-  final int gradesCount;
+  final int assignedClassesCount;
+  final int activeHomeworksCount;
+  final int gradeEntriesCount;
+  final int pendingAppointmentsCount;
+  final VoidCallback onClassesTap;
+  final VoidCallback onHomeworkTap;
+  final VoidCallback onGradesTap;
+  final VoidCallback onAppointmentsTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _StatBox(
-            title: 'Assigned Classes',
-            value: 'Active',
-            subtitle: 'Class management',
-            icon: Icons.class_outlined,
-            color: Colors.purple.shade700,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                title: 'Assigned Classes',
+                value: '$assignedClassesCount',
+                icon: Icons.class_outlined,
+                accentColor: KukieAccent.violet,
+                bgColor: KukieAccent.violetTint,
+                onTap: onClassesTap,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _MetricCard(
+                title: 'Active Homeworks',
+                value: '$activeHomeworksCount',
+                icon: Icons.assignment_outlined,
+                accentColor: const Color(0xFF0284C7),
+                bgColor: const Color(0xFFE0F2FE),
+                onTap: onHomeworkTap,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatBox(
-            title: 'Parent Notes',
-            value: '$gradesCount',
-            subtitle: 'Confidential',
-            icon: Icons.lock,
-            color: Colors.amber.shade800,
-          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                title: 'Grade Records',
+                value: '$gradeEntriesCount',
+                icon: Icons.grade_outlined,
+                accentColor: const Color(0xFF10B981),
+                bgColor: const Color(0xFFECFDF5),
+                onTap: onGradesTap,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _MetricCard(
+                title: 'Pending Appts',
+                value: '$pendingAppointmentsCount',
+                icon: Icons.calendar_today_outlined,
+                accentColor: const Color(0xFFD97706),
+                bgColor: const Color(0xFFFFFBEB),
+                onTap: onAppointmentsTap,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _StatBox extends StatelessWidget {
-  const _StatBox({
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.title,
     required this.value,
-    required this.subtitle,
     required this.icon,
-    required this.color,
+    required this.accentColor,
+    required this.bgColor,
+    required this.onTap,
   });
 
   final String title;
   final String value;
-  final String subtitle;
   final IconData icon;
-  final Color color;
+  final Color accentColor;
+  final Color bgColor;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-        border: Border.all(color: KukieAccent.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: color, size: 22),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700, color: KukieAccent.ink)),
-          Text(subtitle,
-              style: const TextStyle(fontSize: 11, color: KukieAccent.bodyGray)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TeacherGradeCard extends StatelessWidget {
-  const _TeacherGradeCard({
-    required this.grade,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final GradeEntry grade;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x05000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: KukieAccent.violetTint,
-                  child: Text(
-                    grade.letterGrade,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: KukieAccent.violet,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        grade.studentName,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                      Text(
-                        'ID: ${grade.studentId} · ${grade.subject}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: KukieAccent.violetTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${grade.score.toStringAsFixed(1)} / ${grade.maxScore.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: KukieAccent.violet,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (val) {
-                    if (val == 'edit') onEdit();
-                    if (val == 'delete') onDelete();
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 8),
-                          Text('Edit Student Grade'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Delete Record', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: accentColor, size: 22),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Chip(
-                  label: Text(grade.assessmentType.label,
-                      style: const TextStyle(fontSize: 11)),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    grade.term,
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 14),
-                  label: const Text('Edit'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-            if (grade.hasBreakdown) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final c in grade.activeComponents)
-                    _ComponentBadge(
-                        label:
-                            '${c.name}: ${c.score.toStringAsFixed(0)}/${c.maxScore.toStringAsFixed(0)}'),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                 ],
               ),
-            ],
-            if (grade.parentRecommendation != null && grade.parentRecommendation!.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.lock_outline,
-                            size: 14, color: Colors.amber.shade900),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Private Parent Recommendation',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      grade.parentRecommendation!,
-                      style: TextStyle(fontSize: 12.5, color: Colors.amber.shade900),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ],
         ),
       ),
@@ -854,26 +1059,475 @@ class _TeacherGradeCard extends StatelessWidget {
   }
 }
 
-class _ComponentBadge extends StatelessWidget {
-  const _ComponentBadge({required this.label});
+class _TeachingScheduleCard extends StatelessWidget {
+  const _TeachingScheduleCard({
+    required this.classes,
+    required this.onViewRoster,
+    this.onSelectClass,
+  });
 
-  final String label;
+  final List<SchoolClass> classes;
+  final VoidCallback onViewRoster;
+  final void Function(String classId)? onSelectClass;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KukieAccent.violetTint,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: KukieAccent.violet.withValues(alpha: 0.2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: KukieAccent.violet,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Teaching Classes',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Assigned sections & enrollment list',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: onViewRoster,
+                child: const Row(
+                  children: [
+                    Text('View All', style: TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.bold)),
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: KukieAccent.violet),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (classes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No assigned classes yet.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: classes.take(3).map((c) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () {
+                      if (onSelectClass != null) {
+                        onSelectClass!(c.id);
+                      } else {
+                        onViewRoster();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: KukieAccent.violetTint,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Grade ${c.grade}-${c.section}',
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  c.displayName,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'Academic Year: ${c.academicYear}',
+                                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${c.studentCount} Students',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+class _ParentAppointmentsCard extends StatelessWidget {
+  const _ParentAppointmentsCard({
+    required this.appointments,
+    required this.onViewAll,
+  });
+
+  final List<AppointmentItem> appointments;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Parent Appointment Requests',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Scheduled meetings with parents',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: onViewAll,
+                child: const Row(
+                  children: [
+                    Text('View All', style: TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.bold)),
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: KukieAccent.violet),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (appointments.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text('No active appointment requests right now.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+              ),
+            )
+          else
+            Column(
+              children: appointments.take(3).map((apt) {
+                final parentInitial = (apt.parentName.trim().isNotEmpty)
+                    ? apt.parentName.trim().substring(0, 1).toUpperCase()
+                    : 'P';
+                final displayName = (apt.parentName.trim().isNotEmpty) ? apt.parentName.trim() : 'Parent';
+                final studentDisplayName = (apt.studentName.trim().isNotEmpty) ? apt.studentName.trim() : 'Student';
+                final statusStr = apt.status.isNotEmpty ? apt.status : 'PENDING';
+                final dateStr = apt.date.isNotEmpty ? apt.date : 'Scheduled';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: KukieAccent.violetTint,
+                        child: Text(
+                          parentInitial,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Student: $studentDisplayName • $dateStr',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusStr == 'ACCEPTED' ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          statusStr,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusStr == 'ACCEPTED' ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentHomeworkCard extends StatelessWidget {
+  const _RecentHomeworkCard({
+    required this.homeworks,
+    required this.onViewAll,
+  });
+
+  final List<HomeworkEntry> homeworks;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = homeworks.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recent Homework Assignments',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Active tasks & published submissions',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: onViewAll,
+                child: const Row(
+                  children: [
+                    Text('View All', style: TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.bold)),
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: KukieAccent.violet),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (recent.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No homework assignments created yet.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: recent.map((hw) {
+                final titleStr = hw.title.isNotEmpty ? hw.title : 'Homework Task';
+                final subjectStr = hw.subject.isNotEmpty ? hw.subject : 'General';
+                final dueStr = hw.dueDate.toString().split(' ')[0];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF0284C7), size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              titleStr,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '$subjectStr • Due: $dueStr',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AcademicHubActionCard extends StatelessWidget {
+  const _AcademicHubActionCard({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x04000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

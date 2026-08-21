@@ -7,7 +7,6 @@ import '../../services/admin_service.dart';
 import '../../services/attendance_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
 class MarkAttendancePage extends StatefulWidget {
@@ -56,7 +55,6 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
       final profile = await _teacherService.getTeacherProfile();
       final allClasses = await _schoolService.getClasses();
 
-      // Filter classes teacher teaches
       final teacherClasses = allClasses.where((c) {
         final isAssignedByJoin = c.teachers.any((t) =>
             t.teacherId == profile.id ||
@@ -85,24 +83,24 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
     _noteControllers.clear();
     _currentRoster.clear();
 
-    if (_selectedClass == null) return;
+    final target = _selectedClass;
+    if (target == null) return;
 
-    // Refresh classes from database service to ensure latest student assignments for this section
     try {
       final updatedClasses = await _schoolService.getClasses();
       final freshClass = updatedClasses.firstWhere(
         (c) =>
-            c.id == _selectedClass!.id ||
-            (c.grade == _selectedClass!.grade &&
-                c.section.toUpperCase() == _selectedClass!.section.toUpperCase()),
-        orElse: () => _selectedClass!,
+            c.id == target.id ||
+            (c.grade == target.grade &&
+                c.section.toUpperCase() == target.section.toUpperCase()),
+        orElse: () => target,
       );
       _selectedClass = freshClass;
     } catch (_) {}
 
-    // 1. Get real students directly assigned to the selected class section
-    if (_selectedClass!.students.isNotEmpty) {
-      for (final s in _selectedClass!.students) {
+    final activeClass = _selectedClass ?? target;
+    if (activeClass.students.isNotEmpty) {
+      for (final s in activeClass.students) {
         _currentRoster.add(_DisplayStudent(
           id: s.studentId,
           name: s.studentName,
@@ -110,7 +108,6 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
         ));
       }
     } else {
-      // 2. Fallback: load active students for attendance roster
       try {
         final activeStudents = await _adminService.getActive(UserRole.student);
         for (final st in activeStudents) {
@@ -123,13 +120,20 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
       } catch (_) {}
     }
 
-    // Initialize default Present status for each real student
     for (final s in _currentRoster) {
       _studentStatuses[s.id] = AttendanceStatus.present;
       _noteControllers[s.id] = TextEditingController();
     }
 
     if (mounted) setState(() {});
+  }
+
+  void _quickFillAll(AttendanceStatus status) {
+    setState(() {
+      for (final s in _currentRoster) {
+        _studentStatuses[s.id] = status;
+      }
+    });
   }
 
   Future<void> _pickDate() async {
@@ -155,7 +159,7 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
     int savedCount = 0;
     for (final s in _currentRoster) {
       final status = _studentStatuses[s.id] ?? AttendanceStatus.present;
-      final note = _noteControllers[s.id]?.text;
+      final note = _noteControllers[s.id]?.text.trim();
 
       try {
         await _attendanceService.markAttendance(
@@ -175,32 +179,23 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Attendance saved for $savedCount students!'),
-        backgroundColor: KukieAccent.success,
+        backgroundColor: const Color(0xFF10B981),
       ),
     );
     Navigator.of(context).pop(true);
   }
 
-  InputDecoration _dropdownDecoration(String labelText, IconData icon) {
-    return InputDecoration(
-      labelText: labelText,
-      prefixIcon: Icon(icon, color: KukieAccent.violet, size: 20),
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: KukieAccent.violet, width: 1.8),
-      ),
-    );
+  Color _getStatusColor(AttendanceStatus status) {
+    switch (status) {
+      case AttendanceStatus.present:
+        return const Color(0xFF10B981); // Emerald
+      case AttendanceStatus.absent:
+        return const Color(0xFFE11D48); // Rose
+      case AttendanceStatus.late:
+        return const Color(0xFFD97706); // Amber
+      case AttendanceStatus.excused:
+        return const Color(0xFF0284C7); // Sky
+    }
   }
 
   @override
@@ -208,97 +203,178 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
     final dateStr = DateFormat('EEE, MMM d, yyyy').format(_selectedDate);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Mark Attendance'),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Class Attendance Sheet',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            ),
+            Text('Daily Student Roster & History', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          ],
+        ),
         backgroundColor: Colors.white,
-        elevation: 0.5,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Class and Date Selectors Card
-                  Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_classes.isEmpty)
-                            const Text('No teaching classes assigned yet.', style: TextStyle(color: Colors.grey))
-                          else
-                            DropdownButtonFormField<SchoolClass>(
-                              initialValue: _selectedClass,
-                              isExpanded: true,
-                              decoration: _dropdownDecoration('Target Class', Icons.class_outlined),
-                              items: _classes
-                                  .map((c) => DropdownMenuItem(
-                                        value: c,
-                                        child: Text(c.displayName, overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (val) async {
-                                setState(() => _selectedClass = val);
-                                await _setupRosterForSelectedClass();
-                              },
+                  // Class & Date Header Card (Web style)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x05000000),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mark Attendance',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        const Text(
+                          'Tick a status per student, then save the sheet at once',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_classes.isNotEmpty)
+                          DropdownButtonFormField<String>(
+                            initialValue: _classes.any((c) => c.id == _selectedClass?.id)
+                                ? _selectedClass?.id
+                                : null,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Target Class',
+                              prefixIcon: const Icon(Icons.class_outlined, color: KukieAccent.violet, size: 18),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                             ),
-                          const SizedBox(height: 14),
-                          // Responsive Date Row preventing horizontal overflow
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today_outlined, color: KukieAccent.violet, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  dateStr,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: _pickDate,
-                                icon: const Icon(Icons.edit_calendar, size: 16),
-                                label: const Text('Change Date', style: TextStyle(fontSize: 13)),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                ),
-                              ),
-                            ],
+                            items: _classes
+                                .map((c) => DropdownMenuItem<String>(
+                                      value: c.id,
+                                      child: Text(c.displayName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                    ))
+                                .toList(),
+                            onChanged: (val) async {
+                              if (val != null) {
+                                final selected = _classes.firstWhere((c) => c.id == val, orElse: () => _classes.first);
+                                setState(() => _selectedClass = selected);
+                                await _setupRosterForSelectedClass();
+                              }
+                            },
                           ),
-                        ],
-                      ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: _pickDate,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today_outlined, color: KukieAccent.violet, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    dateStr,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                  ),
+                                ),
+                                const Text('Change Date', style: TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Student Roster (${_currentRoster.length})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
+                  const SizedBox(height: 16),
 
-                  if (_currentRoster.isEmpty)
-                    Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: const Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(Icons.people_outline, size: 48, color: Colors.grey),
-                              SizedBox(height: 12),
-                              Text(
-                                'No real students registered in this section yet.',
-                                style: TextStyle(fontSize: 14, color: Colors.grey),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                  // Quick fill bar (Web style)
+                  if (_currentRoster.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Text('Quick Fill All:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: AttendanceStatus.values.map((st) {
+                                final color = _getStatusColor(st);
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: InkWell(
+                                    onTap: () => _quickFillAll(st),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: color.withAlpha(25),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: color.withAlpha(76)),
+                                      ),
+                                      child: Text(
+                                        st.displayName.toUpperCase(),
+                                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Roster List
+                  if (_currentRoster.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.people_outline, size: 44, color: Color(0xFFCBD5E1)),
+                            SizedBox(height: 12),
+                            Text(
+                              'No students enrolled in this section yet.',
+                              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -311,107 +387,120 @@ class _MarkAttendancePageState extends State<MarkAttendancePage> {
                         final student = _currentRoster[index];
                         final currentStatus = _studentStatuses[student.id] ?? AttendanceStatus.present;
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: KukieAccent.violetTint,
-                                      child: Text(
-                                        student.name.isNotEmpty ? student.name.substring(0, 1).toUpperCase() : 'S',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet),
-                                      ),
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: KukieAccent.violetTint,
+                                    child: Text(
+                                      student.name.isNotEmpty ? student.name.substring(0, 1).toUpperCase() : 'S',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet, fontSize: 13),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                          if (student.code != null && student.code!.isNotEmpty)
-                                            Text('ID: ${student.code}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                        ],
-                                      ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A))),
+                                        if (student.code != null && student.code!.isNotEmpty)
+                                          Text('ID: ${student.code}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: AttendanceStatus.values.map((status) {
-                                      final isSelected = currentStatus == status;
-                                      Color activeColor;
-                                      switch (status) {
-                                        case AttendanceStatus.present:
-                                          activeColor = KukieAccent.success;
-                                          break;
-                                        case AttendanceStatus.absent:
-                                          activeColor = Colors.red;
-                                          break;
-                                        case AttendanceStatus.late:
-                                          activeColor = Colors.orange;
-                                          break;
-                                        case AttendanceStatus.excused:
-                                          activeColor = Colors.blue;
-                                          break;
-                                      }
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // 4 Status Pill Selection
+                              Row(
+                                children: AttendanceStatus.values.map((status) {
+                                  final isSelected = currentStatus == status;
+                                  final statusColor = _getStatusColor(status);
 
-                                      return Padding(
-                                        padding: const EdgeInsets.only(right: 6),
-                                        child: ChoiceChip(
-                                          label: Text(
-                                            status.displayName,
-                                            style: TextStyle(
-                                              color: isSelected ? Colors.white : Colors.black87,
-                                              fontSize: 12,
-                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  return Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _studentStatuses[student.id] = status;
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 7),
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? statusColor : const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: isSelected ? statusColor : const Color(0xFFE2E8F0),
                                             ),
                                           ),
-                                          selected: isSelected,
-                                          selectedColor: activeColor,
-                                          onSelected: (selected) {
-                                            if (selected) {
-                                              setState(() {
-                                                _studentStatuses[student.id] = status;
-                                              });
-                                            }
-                                          },
+                                          child: Center(
+                                            child: Text(
+                                              status.displayName,
+                                              style: TextStyle(
+                                                color: isSelected ? Colors.white : const Color(0xFF475569),
+                                                fontSize: 11,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      );
-                                    }).toList(),
-                                  ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              // Note Input
+                              TextField(
+                                controller: _noteControllers[student.id],
+                                style: const TextStyle(fontSize: 12),
+                                decoration: InputDecoration(
+                                  hintText: 'Observation note (optional)...',
+                                  hintStyle: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         );
                       },
                     ),
 
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: _saving || _currentRoster.isEmpty ? null : _saveAttendance,
                       icon: _saving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check_circle_outline),
-                      label: Text(_saving ? 'Saving...' : 'Submit Attendance'),
-                      style: ElevatedButton.styleFrom(
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      label: Text(_saving ? 'Saving...' : 'Save Attendance Sheet (${_currentRoster.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
                         backgroundColor: KukieAccent.violet,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

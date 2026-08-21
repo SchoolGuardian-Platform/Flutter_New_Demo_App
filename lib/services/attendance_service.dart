@@ -121,7 +121,9 @@ class AttendanceService {
       final res = await _apiClient.get('/attendance/student/$studentId', requireAuth: true);
       final rawList = res['data'] is List
           ? res['data'] as List
-          : (res is List ? res as List : null);
+          : (res['attendance'] is List
+              ? res['attendance'] as List
+              : (res is List ? res as List : null));
       if (rawList != null) {
         final list = <AttendanceRecord>[];
         for (final item in rawList) {

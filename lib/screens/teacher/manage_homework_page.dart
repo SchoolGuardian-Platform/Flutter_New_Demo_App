@@ -6,7 +6,6 @@ import '../../models/school_class.dart';
 import '../../services/homework_service.dart';
 import '../../services/school_management_service.dart';
 import '../../services/teacher_service.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 
 class ManageHomeworkPage extends StatefulWidget {
@@ -42,7 +41,6 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
       final allClasses = await _schoolService.getClasses();
       final allSubjects = await _schoolService.getSubjects();
 
-      // Filter classes teacher teaches
       final teacherClasses = allClasses.where((c) {
         final isAssignedByJoin = c.teachers.any((t) =>
             t.teacherId == profile.id ||
@@ -52,7 +50,6 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
         return isAssignedByJoin || isAssignedByName;
       }).toList();
 
-      // Collect teacher's assigned subjects directly from profile
       final Set<String> subjSet = {};
       for (final s in profile.assignedSubjects) {
         if (s.trim().isNotEmpty) subjSet.add(s.trim());
@@ -78,35 +75,13 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
     }
   }
 
-  InputDecoration _dialogInputDecoration(String labelText, IconData icon) {
-    return InputDecoration(
-      labelText: labelText,
-      prefixIcon: Icon(icon, color: KukieAccent.violet, size: 20),
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: KukieAccent.violet, width: 1.8),
-      ),
-    );
-  }
-
   Future<void> _showCreateHomeworkDialog() async {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final profile = await _teacherService.getTeacherProfile();
 
     SchoolClass? selectedClass = _classes.isNotEmpty ? _classes.first : null;
-    
+
     List<String> getAvailableSubjects(SchoolClass? cls) {
       if (cls != null && cls.teachers.isNotEmpty) {
         final classSubjs = <String>[];
@@ -168,8 +143,8 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
-                    'New Homework Assignment',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    'Create New Homework',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -187,11 +162,18 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                       DropdownButtonFormField<SchoolClass>(
                         initialValue: selectedClass,
                         isExpanded: true,
-                        decoration: _dialogInputDecoration('Target Class *', Icons.class_outlined),
+                        decoration: InputDecoration(
+                          labelText: 'Target Class *',
+                          prefixIcon: const Icon(Icons.class_outlined, color: KukieAccent.violet, size: 18),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        ),
                         items: _classes
                             .map((c) => DropdownMenuItem(
                                   value: c,
-                                  child: Text(c.displayName, overflow: TextOverflow.ellipsis),
+                                  child: Text(c.displayName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                                 ))
                             .toList(),
                         onChanged: (val) {
@@ -206,16 +188,22 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                       ),
                     const SizedBox(height: 12),
 
-                    // Dynamic Subject Dropdown suggested directly from teacher's assigned subjects for selected class
                     if (currentSubjects.isNotEmpty)
                       DropdownButtonFormField<String>(
                         initialValue: currentSubjects.contains(selectedSubject) ? selectedSubject : currentSubjects.first,
                         isExpanded: true,
-                        decoration: _dialogInputDecoration('Subject *', Icons.book_outlined),
+                        decoration: InputDecoration(
+                          labelText: 'Subject *',
+                          prefixIcon: const Icon(Icons.book_outlined, color: KukieAccent.violet, size: 18),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        ),
                         items: currentSubjects
                             .map((subj) => DropdownMenuItem(
                                   value: subj,
-                                  child: Text(subj, overflow: TextOverflow.ellipsis),
+                                  child: Text(subj, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                                 ))
                             .toList(),
                         onChanged: (val) {
@@ -225,14 +213,27 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                     else
                       TextFormField(
                         initialValue: selectedSubject,
-                        decoration: _dialogInputDecoration('Subject *', Icons.book_outlined),
+                        decoration: InputDecoration(
+                          labelText: 'Subject *',
+                          prefixIcon: const Icon(Icons.book_outlined, color: KukieAccent.violet, size: 18),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        ),
                         onChanged: (val) => selectedSubject = val,
                       ),
                     const SizedBox(height: 12),
 
                     TextFormField(
                       controller: titleCtrl,
-                      decoration: _dialogInputDecoration('Assignment Title *', Icons.title),
+                      decoration: InputDecoration(
+                        labelText: 'Assignment Title *',
+                        hintText: 'e.g. Chapter 4 Exercises: Q1 to Q15',
+                        prefixIcon: const Icon(Icons.title_rounded, color: KukieAccent.violet, size: 18),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
@@ -240,50 +241,50 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                     TextFormField(
                       controller: descCtrl,
                       maxLines: 3,
-                      decoration: _dialogInputDecoration('Instructions / Description *', Icons.description_outlined),
+                      decoration: InputDecoration(
+                        labelText: 'Detailed Instructions *',
+                        prefixIcon: const Icon(Icons.description_outlined, color: KukieAccent.violet, size: 18),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
 
-                    Card(
-                      elevation: 0,
-                      color: Colors.grey.shade50,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDueDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 180)),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDueDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.event, color: KukieAccent.violet, size: 20),
-                                const SizedBox(width: 8),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Due Date', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
-                                    Text(dateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                  ],
-                                ),
-                              ],
+                            const Icon(Icons.event_outlined, color: KukieAccent.violet, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Due Date', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                                  Text(dateStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                ],
+                              ),
                             ),
-                            TextButton(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: selectedDueDate,
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(const Duration(days: 180)),
-                                );
-                                if (picked != null) {
-                                  setDialogState(() => selectedDueDate = picked);
-                                }
-                              },
-                              child: const Text('Select Date'),
-                            ),
+                            const Text('Select Date', style: TextStyle(fontSize: 12, color: KukieAccent.violet, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -297,7 +298,7 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                 onPressed: () => Navigator.of(dialogCtx).pop(),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              FilledButton(
                 onPressed: () async {
                   if (formKey.currentState!.validate() && selectedClass != null) {
                     final messenger = ScaffoldMessenger.of(context);
@@ -314,42 +315,20 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                       nav.pop();
                       _loadData();
                       messenger.showSnackBar(
-                        const SnackBar(content: Text('Homework assignment published and saved!'), backgroundColor: KukieAccent.success),
+                        const SnackBar(content: Text('Homework published successfully!'), backgroundColor: Color(0xFF10B981)),
                       );
                     } on ApiException catch (e) {
-                      // 401 = teacher has a stale/mock session token — must re-login
-                      if (e.statusCode == 401) {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.warning_amber_rounded, color: Colors.white),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Session expired. Please log out and log back in.',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: Colors.deepOrange.shade700,
-                            duration: const Duration(seconds: 5),
-                          ),
-                        );
-                      } else {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
-                        );
-                      }
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+                      );
                     } catch (e) {
                       messenger.showSnackBar(
-                        SnackBar(content: Text('Error saving to DB: $e'), backgroundColor: Colors.red),
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                       );
                     }
                   }
                 },
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: KukieAccent.violet,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -371,16 +350,30 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Homework Assignments'),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Homework Assignments',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            ),
+            Text('Class Tasks & Submission Guidelines', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          ],
+        ),
         backgroundColor: Colors.white,
-        elevation: 0.5,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateHomeworkDialog,
         backgroundColor: KukieAccent.violet,
-        icon: const Icon(Icons.add),
-        label: const Text('New Homework'),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Create Homework', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: RefreshIndicator(
         onRefresh: _loadData,
@@ -395,18 +388,18 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade400),
+                            const Icon(Icons.assignment_outlined, size: 54, color: Color(0xFFCBD5E1)),
                             const SizedBox(height: 16),
-                            const Text('No homework assignments published yet.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                            const Text('No homework assignments posted yet.', style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
                             const SizedBox(height: 20),
-                            ElevatedButton.icon(
+                            FilledButton.icon(
                               onPressed: _showCreateHomeworkDialog,
                               icon: const Icon(Icons.add),
-                              label: const Text('Create First Homework'),
-                              style: ElevatedButton.styleFrom(
+                              label: const Text('Create First Assignment'),
+                              style: FilledButton.styleFrom(
                                 backgroundColor: KukieAccent.violet,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           ],
@@ -416,60 +409,84 @@ class _ManageHomeworkPageState extends State<ManageHomeworkPage> {
                   )
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.all(16),
                     itemCount: _homeworks.length,
                     itemBuilder: (context, index) {
                       final hw = _homeworks[index];
                       final dueStr = DateFormat('EEE, MMM d, yyyy').format(hw.dueDate);
 
-                      return Card(
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: KukieAccent.violetTint,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      hw.subject,
-                                      style: const TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x05000000),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: KukieAccent.violetTint,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                                    onPressed: () => _deleteHomework(hw.id),
+                                  child: Text(
+                                    hw.subject,
+                                    style: const TextStyle(color: KukieAccent.violet, fontWeight: FontWeight.bold, fontSize: 11.5),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              const SizedBox(height: 4),
-                              Text(hw.description, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-                              const Divider(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Target: ${hw.className ?? 'Class'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                  Row(
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFE11D48)),
+                                  onPressed: () => _deleteHomework(hw.id),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 4),
+                            Text(hw.description, style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.3)),
+                            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Target: ${hw.className ?? 'Assigned Class'}',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFFBEB),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFDE68A)),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      const Icon(Icons.event, size: 14, color: Colors.orange),
+                                      const Icon(Icons.event_outlined, size: 13, color: Color(0xFFD97706)),
                                       const SizedBox(width: 4),
-                                      Text('Due: $dueStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange)),
+                                      Text('Due: $dueStr', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       );
                     },

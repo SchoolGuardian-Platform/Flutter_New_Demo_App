@@ -6,17 +6,18 @@ import '../../models/account_status.dart';
 import '../../models/attendance_record.dart';
 import '../../models/grade_entry.dart';
 import '../../models/homework_entry.dart';
+import '../../models/relationship.dart';
 import '../../models/student_link.dart';
 import '../../services/attendance_service.dart';
 import '../../services/homework_service.dart';
 import '../../services/parent_service.dart';
+import '../../services/teacher_note_service.dart';
 import '../../services/teacher_service.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'link_student_page.dart';
 
-/// Parent's "Linked Students" tab -- the verified students connected to
-/// this parent's account. Backed by `GET /parents/my-students`
+/// Parent's "My Child" page -- verified students connected to
+/// this parent's account. Backed by `GET /parents/my-students`.
 class MyStudentsPage extends StatefulWidget {
   const MyStudentsPage({super.key});
 
@@ -52,7 +53,7 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
       setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Something went wrong loading your students.');
+      setState(() => _error = 'Something went wrong loading your connected students.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -68,41 +69,41 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Linked Students')),
-      body: _buildBody(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: KukieAccent.violet,
-        unselectedItemColor: Colors.grey.shade600,
-        type: BottomNavigationBarType.fixed,
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 8,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on Students
-              break;
-            case 1:
-              _openLinkStudent();
-              break;
-            case 2:
-              Navigator.of(context).pushNamed('/reports');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.people_outline), label: 'My Students'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_link_outlined), label: 'Link Student'),
-          BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: 'Reports'),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: const [
+            Icon(Icons.family_restroom_rounded, color: KukieAccent.violet, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'My Child Portal',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF475569)),
+            tooltip: 'Refresh Students',
+          ),
         ],
       ),
+      body: _buildBody(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openLinkStudent,
-        icon: const Icon(Icons.add),
-        label: const Text('Link a Student'),
+        icon: const Icon(Icons.add_link_rounded, size: 20),
+        label: const Text('Link a Student', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: KukieAccent.violet,
         foregroundColor: Colors.white,
+        elevation: 4,
       ),
     );
   }
@@ -116,50 +117,173 @@ class _MyStudentsPageState extends State<MyStudentsPage> {
     if (_error != null && students == null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(onPressed: _load, child: const Text('Retry')),
+              const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF475569))),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _load,
+                style: FilledButton.styleFrom(backgroundColor: KukieAccent.violet),
+                child: const Text('Retry'),
+              ),
             ],
           ),
-        ),
-      );
-    }
-    if (students == null || students.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          children: const [
-            SizedBox(
-              height: 320,
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: Text(
-                    'No linked students yet. Tap "Link a Student" below to '
-                    'send a request.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.outline),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xl2),
-        itemCount: students.length,
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-        itemBuilder: (context, index) => _StudentLinkCard(link: students[index]),
+      child: ListView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        padding: const EdgeInsets.all(20),
+        children: [
+          // ── Hero Banner Card ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [KukieAccent.violet, KukieAccent.violetDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: KukieAccent.violet.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.shield_outlined, color: Colors.white, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'GUARDIAN PORTAL',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (students != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '${students.length} Student${students.length != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: KukieAccent.violet,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Connected Students',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Monitor real-time academic evaluations, daily attendance metrics, homework assignments, and teacher feedback notes.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          if (students == null || students.isEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: KukieAccent.violetTint,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person_add_rounded, size: 36, color: KukieAccent.violet),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Linked Students Yet',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Link your student account using their Student ID (e.g. SG-2026-000001) or registered email to view their progress.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _openLinkStudent,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: KukieAccent.violet,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.add_link_rounded, size: 18),
+                    label: const Text('Link Student Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: students.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 16),
+              itemBuilder: (context, index) => _StudentLinkCard(link: students[index]),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -180,6 +304,7 @@ class _StudentLinkCardState extends State<_StudentLinkCard> {
   List<AttendanceRecord> _attendance = [];
   List<GradeEntry> _grades = [];
   List<HomeworkEntry> _homework = [];
+  List<TeacherNoteItem> _teacherNotes = [];
 
   Future<void> _toggleExpand() async {
     final newExpanded = !_expanded;
@@ -191,11 +316,13 @@ class _StudentLinkCardState extends State<_StudentLinkCard> {
         final attList = await AttendanceService().getStudentAttendance(widget.link.studentId);
         final gradeList = await TeacherService().getGradesForStudent(widget.link.studentId);
         final hwList = await HomeworkService().getStudentHomeworks(widget.link.studentId);
+        final noteList = await TeacherNoteService().getStudentNotes(widget.link.studentId);
         if (mounted) {
           setState(() {
             _attendance = attList;
             _grades = gradeList;
             _homework = hwList;
+            _teacherNotes = noteList;
             _loadingDetails = false;
           });
         }
@@ -213,208 +340,341 @@ class _StudentLinkCardState extends State<_StudentLinkCard> {
     int lateCount = _attendance.where((r) => r.status == AttendanceStatus.late).length;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.outlineVariant),
-        boxShadow: AppColors.cardShadow,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           InkWell(
             onTap: _toggleExpand,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: KukieAccent.violetTint,
-                    shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: KukieAccent.violetTint,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: KukieAccent.violet.withValues(alpha: 0.3), width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        link.fullName.isNotEmpty ? link.fullName[0].toUpperCase() : 'S',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: KukieAccent.violet,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Icon(Icons.school_outlined, color: KukieAccent.violet, size: 20),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(link.fullName,
-                                style: Theme.of(context).textTheme.labelLarge),
-                          ),
-                          Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.secondary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(AppRadius.full),
-                              border: Border.all(
-                                  color: AppColors.secondary.withValues(alpha: 0.4)),
-                            ),
-                            child: Text(
-                              link.relationshipType.name,
-                              style: const TextStyle(
-                                color: AppColors.secondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                link.fullName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(link.email, style: Theme.of(context).textTheme.bodySmall),
-                      if (link.status != null && link.status != AccountStatus.active)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Student account status: ${link.status!.name}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppColors.warning),
-                          ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: KukieAccent.violetTint,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                link.relationshipType.label.toUpperCase(),
+                                style: const TextStyle(
+                                  color: KukieAccent.violet,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          link.email,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                        if (link.status != null && link.status != AccountStatus.active)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Account Status: ${link.status!.name}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                Icon(
-                  _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  color: Colors.grey,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF64748B),
+                    size: 26,
+                  ),
+                ],
+              ),
             ),
           ),
 
           if (_expanded) ...[
-            const Divider(height: 20),
-            if (_loadingDetails)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              )
-            else ...[
-              // Attendance Section for Parent
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Attendance Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text('${_attendance.length} total records', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _chip('Present', presentCount, KukieAccent.success),
-                  _chip('Absent', absentCount, Colors.red),
-                  _chip('Late', lateCount, Colors.orange),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Grades Section for Parent
-              const Row(
-                children: [
-                  Icon(Icons.assessment_outlined, size: 16, color: KukieAccent.violet),
-                  SizedBox(width: 6),
-                  Text('Academic Reports', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (_grades.isEmpty)
-                const Text('No grades posted yet.', style: TextStyle(fontSize: 12, color: Colors.grey))
-              else
-                ..._grades.map((g) => Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(g.subject, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                Text('${g.assessmentType.label} (${g.term})', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              ],
-                            ),
-                          ),
-                          Text('${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.bold, color: KukieAccent.violet, fontSize: 13)),
-                        ],
-                      ),
-                    )),
-              const SizedBox(height: 12),
-
-              // Homework Section for Parent
-              const Row(
-                children: [
-                  Icon(Icons.assignment_outlined, size: 16, color: KukieAccent.violet),
-                  SizedBox(width: 6),
-                  Text('Homework Assignments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (_homework.isEmpty)
-                const Text('No pending homework assignments.', style: TextStyle(fontSize: 12, color: Colors.grey))
-              else
-                ..._homework.map((hw) {
-                  final dueFormatted = DateFormat('MMM d').format(hw.dueDate);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: _loadingDetails
+                  ? const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(hw.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text('${hw.subject} • Due $dueFormatted', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
+                        // ── Attendance Metrics ──
+                        const Text(
+                          'Attendance Overview',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: KukieAccent.violetTint,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(hw.subject, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KukieAccent.violet)),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(child: _statusCard('Present', '$presentCount', const Color(0xFFDCFCE7), const Color(0xFF15803D))),
+                            const SizedBox(width: 8),
+                            Expanded(child: _statusCard('Absent', '$absentCount', const Color(0xFFFEF2F2), const Color(0xFFDC2626))),
+                            const SizedBox(width: 8),
+                            Expanded(child: _statusCard('Late', '$lateCount', const Color(0xFFFFFBEB), const Color(0xFFD97706))),
+                          ],
                         ),
+                        const SizedBox(height: 18),
+
+                        // ── Academic Performance ──
+                        Row(
+                          children: const [
+                            Icon(Icons.assessment_rounded, size: 18, color: KukieAccent.violet),
+                            SizedBox(width: 8),
+                            Text(
+                              'Academic Performance',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_grades.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 6),
+                            child: Text('No grade records posted yet.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                          )
+                        else
+                          ..._grades.map((g) => Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: KukieAccent.violetTint,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          g.letterGrade,
+                                          style: const TextStyle(fontWeight: FontWeight.w900, color: KukieAccent.violet, fontSize: 13),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            g.subject,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                          ),
+                                          Text(
+                                            '${g.assessmentType.label} • ${g.term}',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '${g.score.toStringAsFixed(1)} / ${g.maxScore.toStringAsFixed(0)}',
+                                      style: const TextStyle(fontWeight: FontWeight.w900, color: KukieAccent.violet, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                        const SizedBox(height: 18),
+
+                        // ── Pending Homework ──
+                        Row(
+                          children: const [
+                            Icon(Icons.assignment_rounded, size: 18, color: KukieAccent.violet),
+                            SizedBox(width: 8),
+                            Text(
+                              'Homework Assignments',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_homework.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 6),
+                            child: Text('No pending homework assignments.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                          )
+                        else
+                          ..._homework.map((hw) {
+                            final dueFormatted = DateFormat('MMM d').format(hw.dueDate);
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          hw.title,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                        ),
+                                        Text(
+                                          '${hw.subject} • Due $dueFormatted',
+                                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: KukieAccent.violetTint,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      hw.subject,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: KukieAccent.violet),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 18),
+
+                        // ── Teacher Notes & Feedback ──
+                        Row(
+                          children: const [
+                            Icon(Icons.rate_review_rounded, size: 18, color: KukieAccent.violet),
+                            SizedBox(width: 8),
+                            Text(
+                              'Teacher Notes & Feedback',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_teacherNotes.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 6),
+                            child: Text('No teacher observation notes recorded.', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                          )
+                        else
+                          ..._teacherNotes.map((note) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        note.title,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                      ),
+                                      if (note.teacherName != null)
+                                        Text(
+                                          'By ${note.teacherName}',
+                                          style: const TextStyle(fontSize: 11, color: KukieAccent.violet, fontWeight: FontWeight.bold),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    note.content,
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.3),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
                       ],
                     ),
-                  );
-                }),
-            ],
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _chip(String label, int val, Color c) {
-    return Column(
-      children: [
-        Text('$val', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: c)),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      ],
+  Widget _statusCard(String label, String value, Color bg, Color textCol) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: textCol)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textCol)),
+        ],
+      ),
     );
   }
 }

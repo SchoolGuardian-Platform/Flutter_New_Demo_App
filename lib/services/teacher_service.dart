@@ -165,10 +165,10 @@ class TeacherService {
             : _profile.assignedClasses;
         final mergedSubjects = adminSubjects.isNotEmpty
             ? <String>{...adminSubjects, ...gradeSubjects}
-                .where((s) => s.trim().isNotEmpty && s.toLowerCase() != 'maths')
+                .where((s) => s.trim().isNotEmpty)
                 .toList()
             : <String>{..._profile.assignedSubjects, ...gradeSubjects}
-                .where((s) => s.trim().isNotEmpty && s.toLowerCase() != 'maths')
+                .where((s) => s.trim().isNotEmpty)
                 .toList();
 
         _profile = TeacherProfile(
@@ -274,7 +274,11 @@ class TeacherService {
 
         if (response.statusCode == 200) {
           final body = jsonDecode(response.body);
-          final List<dynamic> data = body['data'] is List ? body['data'] : (body is List ? body : []);
+          final List<dynamic> data = body['data'] is List
+              ? body['data']
+              : (body['grades'] is List
+                  ? body['grades']
+                  : (body is List ? body : []));
           final fetched = <GradeEntry>[];
           for (final item in data) {
             if (item is Map<String, dynamic>) {
@@ -303,17 +307,9 @@ class TeacherService {
             }
           }
 
-          if (fetched.isNotEmpty) {
-            for (final f in fetched) {
-              final idx = _entries.indexWhere((e) => e.id == f.id);
-              if (idx != -1) {
-                _entries[idx] = f;
-              } else {
-                _entries.add(f);
-              }
-            }
-            await _persistToDisk();
-          }
+          _entries.clear();
+          _entries.addAll(fetched);
+          await _persistToDisk();
         }
       }
     } catch (_) {}
