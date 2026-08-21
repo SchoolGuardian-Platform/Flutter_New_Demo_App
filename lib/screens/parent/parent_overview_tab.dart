@@ -7,6 +7,7 @@ import '../../services/communication_service.dart';
 import '../../services/parent_service.dart';
 import '../../theme/kukie_accent.dart';
 import 'link_student_page.dart';
+import 'parent_screen_time_page.dart';
 
 class ParentOverviewTab extends StatefulWidget {
   const ParentOverviewTab({super.key, required this.user, required this.onNavigateToChildTab});
@@ -527,7 +528,78 @@ class _ParentOverviewTabState extends State<ParentOverviewTab> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          // ── Child Screen Time & Parental Controls Card ──
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.phonelink_setup_rounded,
+                    color: Color(0xFF8B5CF6),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Child Screen Time & Controls',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Monitor app usage, set time limits & bedtime locks',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final firstStudent = (students.isNotEmpty) ? students.first : null;
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => ParentScreenTimePage(
+                        parentUser: widget.user,
+                        studentId: firstStudent?.studentId ?? 'student_demo_1',
+                        studentName: firstStudent?.fullName ?? 'Child',
+                      ),
+                    ));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                  ),
+                  child: const Text('Manage', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // ── My Linked Students Section ──
           Row(
