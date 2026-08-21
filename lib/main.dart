@@ -43,6 +43,8 @@ import 'screens/parent/link_student_page.dart';
 import 'screens/student/guardians_page.dart';
 import 'screens/student/student_profile_page.dart';
 import 'screens/student/homework_ai_assistant_page.dart';
+import 'screens/student/student_screen_time_page.dart';
+import 'screens/parent/parent_screen_time_page.dart';
 import 'screens/unauthorized_page.dart';
 import 'theme/app_theme.dart';
 
@@ -346,6 +348,16 @@ class _SchoolGuardianAppState extends State<SchoolGuardianApp> {
             if (hw == null) return MaterialPageRoute(builder: (_) => const LandingPage());
             return MaterialPageRoute(
                 builder: (_) => HomeworkAiAssistantPage(homework: hw as dynamic));
+
+          case StudentScreenTimePage.routeName:
+            final u = settings.arguments as User?;
+            if (u == null) return MaterialPageRoute(builder: (_) => const LandingPage());
+            return MaterialPageRoute(builder: (_) => StudentScreenTimePage(user: u));
+
+          case ParentScreenTimePage.routeName:
+            final u = settings.arguments as User?;
+            if (u == null) return MaterialPageRoute(builder: (_) => const LandingPage());
+            return MaterialPageRoute(builder: (_) => ParentScreenTimePage(parentUser: u));
 
           case AccountRejectedPage.routeName:
             final reason = settings.arguments as String?;
