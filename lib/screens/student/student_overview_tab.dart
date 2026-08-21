@@ -18,6 +18,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/kukie_accent.dart';
 import 'homework_ai_assistant_page.dart';
 import 'student_profile_page.dart';
+import 'student_screen_time_page.dart';
 
 /// Bento-Grid Front-Page Overview Dashboard for School Guardian
 class StudentOverviewTab extends StatefulWidget {
@@ -366,6 +367,71 @@ class StudentOverviewTabState extends State<StudentOverviewTab> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+
+            // Screen Time & Digital Wellness Quick Launcher Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.phonelink_setup_rounded,
+                        color: Color(0xFF8B5CF6), size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Screen Time & App Usage',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Track app activity, category breakdown & downtime',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => StudentScreenTimePage(user: user),
+                      ));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                    child: const Text('View', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
