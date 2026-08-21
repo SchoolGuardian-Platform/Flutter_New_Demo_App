@@ -67,15 +67,19 @@ class DowntimeBanner extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text(
-                          'Downtime & Bedtime Lock',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                        Flexible(
+                          child: Text(
+                            'Downtime & Bedtime Lock',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -106,6 +110,8 @@ class DowntimeBanner extends StatelessWidget {
                         color: Color(0xFFC7D2FE),
                         fontWeight: FontWeight.w500,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
@@ -124,23 +130,29 @@ class DowntimeBanner extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    color: Color(0xFFA5B4FC),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Daily Screen Allowance: $limitStr',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.timer_outlined,
+                      color: Color(0xFFA5B4FC),
+                      size: 15,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Daily Allowance: $limitStr',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (isEditable && onEditGoal != null)
                 GestureDetector(
@@ -153,6 +165,7 @@ class DowntimeBanner extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.edit_rounded, size: 12, color: Colors.white),
                         SizedBox(width: 4),

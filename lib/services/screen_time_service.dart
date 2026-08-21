@@ -180,6 +180,31 @@ class ScreenTimeService {
     await prefs.setString(goalKey, jsonEncode(goal.toJson()));
   }
 
+  /// Increment live active screen time for student (defaults to active School Guardian session)
+  Future<void> recordLiveSession(String studentId, {int additionalMinutes = 1}) async {
+    final summary = await getSummary(studentId);
+    final apps = List<AppUsageItem>.from(summary.appUsages);
+
+    // Find active app or update/add School Guardian Learning app
+    int eduIndex = apps.indexWhere((a) => a.packageName == 'com.google.android.apps.classroom' || a.category == AppCategory.education);
+
+    if (eduIndex != -1) {
+      final app = apps[eduIndex];
+      apps[eduIndex] = app.copyWith(
+        minutesUsed: app.minutesUsed + additionalMinutes,
+        lastUsed: DateTime.now(),
+      );
+    } else if (apps.isNotEmpty) {
+      final app = apps[0];
+      apps[0] = app.copyWith(
+        minutesUsed: app.minutesUsed + additionalMinutes,
+        lastUsed: DateTime.now(),
+      );
+    }
+
+    await _saveApps(studentId, apps);
+  }
+
   Future<void> _saveApps(String studentId, List<AppUsageItem> apps) async {
     final prefs = await SharedPreferences.getInstance();
     final appsKey = '$_appUsagesKeyPrefix$studentId';

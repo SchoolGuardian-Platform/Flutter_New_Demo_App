@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/screen_time_models.dart';
 import '../../models/user.dart';
@@ -23,11 +24,26 @@ class _StudentScreenTimePageState extends State<StudentScreenTimePage> {
   final _service = ScreenTimeService();
   bool _loading = true;
   ScreenTimeSummary? _summary;
+  Timer? _liveTimer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Start live tracking timer every 15 seconds for real-time usage ticking
+    _liveTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      await _service.recordLiveSession(widget.user.id, additionalMinutes: 1);
+      if (mounted) {
+        final updated = await _service.getSummary(widget.user.id);
+        setState(() => _summary = updated);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -55,6 +71,30 @@ class _StudentScreenTimePageState extends State<StudentScreenTimePage> {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.circle, size: 7, color: Color(0xFF16A34A)),
+                SizedBox(width: 4),
+                Text(
+                  'LIVE TRACKING',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF15803D),
+                  ),
+                ),
+              ],
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
