@@ -11,7 +11,7 @@ class ScreenTimeService {
   ScreenTimeService._internal();
   static final ScreenTimeService _instance = ScreenTimeService._internal();
 
-  static const String _appUsagesKeyPrefix = 'screen_time_apps_v1_';
+  static const String _appUsagesKeyPrefix = 'screen_time_apps_v2_';
   static const String _goalKeyPrefix = 'screen_time_goal_v1_';
 
   /// Query native Android/iOS OS for real device app usage statistics today.
