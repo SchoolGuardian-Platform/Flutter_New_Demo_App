@@ -11,7 +11,6 @@ class ScreenTimeService {
 
   static const String _appUsagesKeyPrefix = 'screen_time_apps_v1_';
   static const String _goalKeyPrefix = 'screen_time_goal_v1_';
-  static const String _logsKeyPrefix = 'screen_time_logs_v1_';
 
   /// Default mock apps generated for high fidelity offline usage tracking.
   List<AppUsageItem> _generateDefaultApps() {
@@ -159,8 +158,6 @@ class ScreenTimeService {
     required String appId,
     required int limitMinutes,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final appsKey = '$_appUsagesKeyPrefix$studentId';
     final summary = await getSummary(studentId);
 
     final updatedApps = summary.appUsages.map((app) {
@@ -192,7 +189,6 @@ class ScreenTimeService {
 
   List<DailyScreenTime> _generateWeeklyLogs(List<AppUsageItem> todayApps) {
     final now = DateTime.now();
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final mockTotals = [180, 210, 195, 240, 220, 260, 250];
 
     final logs = <DailyScreenTime>[];

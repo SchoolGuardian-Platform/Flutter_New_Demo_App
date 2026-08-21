@@ -320,8 +320,6 @@ class _ParentHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isExceeded = summary.isLimitExceeded;
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(

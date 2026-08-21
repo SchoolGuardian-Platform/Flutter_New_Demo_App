@@ -114,7 +114,7 @@ class DowntimeBanner extends StatelessWidget {
                 Switch.adaptive(
                   value: goal.isDowntimeEnabled,
                   onChanged: onToggleDowntime,
-                  activeColor: const Color(0xFF818CF8),
+                  activeThumbColor: const Color(0xFF818CF8),
                 ),
             ],
           ),
