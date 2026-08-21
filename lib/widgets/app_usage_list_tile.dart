@@ -40,40 +40,8 @@ class AppUsageListTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // App Icon Container (Real App Logo)
-          Container(
-            width: 44,
-            height: 44,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: item.realLogoUrl.isNotEmpty
-                  ? const Color(0xFFF8FAFC)
-                  : item.category.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: item.realLogoUrl.isNotEmpty
-                    ? const Color(0xFFE2E8F0)
-                    : Colors.transparent,
-              ),
-            ),
-            child: item.realLogoUrl.isNotEmpty
-                ? Image.network(
-                    item.realLogoUrl,
-                    width: 26,
-                    height: 26,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      item.category.icon,
-                      color: item.category.color,
-                      size: 22,
-                    ),
-                  )
-                : Icon(
-                    item.category.icon,
-                    color: item.category.color,
-                    size: 22,
-                  ),
-          ),
+          // App Icon Container (Authentic Brand Logos & Emblems)
+          _RealAppLogo(item: item),
           const SizedBox(width: AppSpacing.md),
 
           // App info & progress bar
@@ -198,6 +166,116 @@ class AppUsageListTile extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Renders authentic app brand logos with real brand colors, gradients, and emblems.
+class _RealAppLogo extends StatelessWidget {
+  const _RealAppLogo({required this.item});
+
+  final AppUsageItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = item.appName.toLowerCase();
+    final pkg = item.packageName.toLowerCase();
+
+    // Default container styling
+    Color bgColor = item.category.color.withValues(alpha: 0.15);
+    Gradient? gradient;
+    Widget logoChild = Icon(item.category.icon, color: item.category.color, size: 22);
+
+    if (name.contains('tiktok') || pkg.contains('musically')) {
+      bgColor = const Color(0xFF000000);
+      logoChild = Stack(
+        alignment: Alignment.center,
+        children: const [
+          Icon(Icons.music_note_rounded, color: Color(0xFF25F4EE), size: 23),
+          Icon(Icons.music_note_rounded, color: Color(0xFFFE2C55), size: 22),
+          Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
+        ],
+      );
+    } else if (name.contains('roblox') || pkg.contains('roblox')) {
+      bgColor = const Color(0xFF000000);
+      logoChild = Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE60012),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Transform(
+            transform: Matrix4.rotationZ(0.2),
+            alignment: Alignment.center,
+            child: const Icon(Icons.crop_square_rounded, color: Colors.white, size: 14),
+          ),
+        ),
+      );
+    } else if (name.contains('classroom') || pkg.contains('classroom')) {
+      bgColor = const Color(0xFF0F9D58);
+      logoChild = const Icon(Icons.school_rounded, color: Colors.white, size: 22);
+    } else if (name.contains('youtube') || pkg.contains('youtube')) {
+      bgColor = const Color(0xFFFF0000);
+      logoChild = Container(
+        width: 22,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: const Center(
+          child: Icon(Icons.play_arrow_rounded, color: Color(0xFFFF0000), size: 14),
+        ),
+      );
+    } else if (name.contains('duolingo') || pkg.contains('duolingo')) {
+      bgColor = const Color(0xFF58CC02);
+      logoChild = const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 22);
+    } else if (name.contains('instagram') || pkg.contains('instagram')) {
+      gradient = const LinearGradient(
+        colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+      );
+      logoChild = const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 22);
+    } else if (name.contains('notion') || pkg.contains('notion')) {
+      bgColor = const Color(0xFF000000);
+      logoChild = const Icon(Icons.edit_note_rounded, color: Colors.white, size: 24);
+    } else if (name.contains('snapchat') || pkg.contains('snapchat')) {
+      bgColor = const Color(0xFFFFFC00);
+      logoChild = const Icon(Icons.sentiment_very_satisfied_rounded, color: Colors.black, size: 22);
+    } else if (name.contains('spotify') || pkg.contains('spotify')) {
+      bgColor = const Color(0xFF1DB954);
+      logoChild = const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 22);
+    }
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: gradient == null ? bgColor : null,
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: bgColor.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: item.realLogoUrl.isNotEmpty
+            ? Image.network(
+                item.realLogoUrl,
+                width: 26,
+                height: 26,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => logoChild,
+              )
+            : logoChild,
       ),
     );
   }
