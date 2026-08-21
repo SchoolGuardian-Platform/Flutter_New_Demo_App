@@ -40,19 +40,39 @@ class AppUsageListTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // App Icon Container
+          // App Icon Container (Real App Logo)
           Container(
             width: 44,
             height: 44,
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: item.category.color.withValues(alpha: 0.12),
+              color: item.realLogoUrl.isNotEmpty
+                  ? const Color(0xFFF8FAFC)
+                  : item.category.color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: item.realLogoUrl.isNotEmpty
+                    ? const Color(0xFFE2E8F0)
+                    : Colors.transparent,
+              ),
             ),
-            child: Icon(
-              item.category.icon,
-              color: item.category.color,
-              size: 22,
-            ),
+            child: item.realLogoUrl.isNotEmpty
+                ? Image.network(
+                    item.realLogoUrl,
+                    width: 26,
+                    height: 26,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      item.category.icon,
+                      color: item.category.color,
+                      size: 22,
+                    ),
+                  )
+                : Icon(
+                    item.category.icon,
+                    color: item.category.color,
+                    size: 22,
+                  ),
           ),
           const SizedBox(width: AppSpacing.md),
 

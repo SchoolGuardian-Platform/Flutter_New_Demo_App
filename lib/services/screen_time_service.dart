@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/screen_time_models.dart';
 
 /// Manages student screen usage metrics, local telemetry, app limits,
-/// and downtime schedules using SharedPreferences.
+/// and downtime schedules using SharedPreferences and device UsageStats.
 class ScreenTimeService {
   factory ScreenTimeService() => _instance;
   ScreenTimeService._internal();
@@ -11,6 +13,60 @@ class ScreenTimeService {
 
   static const String _appUsagesKeyPrefix = 'screen_time_apps_v1_';
   static const String _goalKeyPrefix = 'screen_time_goal_v1_';
+
+  /// Query native Android/iOS OS for real device app usage statistics today.
+  Future<List<AppUsageItem>> fetchRealDeviceUsageStats() async {
+    if (kIsWeb) return [];
+
+    try {
+      final now = DateTime.now();
+      final startDate = DateTime(now.year, now.month, now.day);
+      final endDate = now;
+
+      final infoList = await AppUsage().getAppUsage(startDate, endDate);
+      if (infoList.isEmpty) return [];
+
+      final realApps = <AppUsageItem>[];
+      for (int i = 0; i < infoList.length; i++) {
+        final info = infoList[i];
+        final mins = info.usage.inMinutes;
+        if (mins <= 0) continue;
+
+        final pkg = info.packageName.toLowerCase();
+        final name = info.appName.isNotEmpty ? info.appName : info.packageName;
+
+        // Determine category based on package or app name
+        AppCategory cat = AppCategory.utilities;
+        if (pkg.contains('social') || pkg.contains('musically') || pkg.contains('instagram') || pkg.contains('facebook') || pkg.contains('twitter') || pkg.contains('tiktok')) {
+          cat = AppCategory.social;
+        } else if (pkg.contains('game') || pkg.contains('roblox') || pkg.contains('minecraft') || pkg.contains('pubg')) {
+          cat = AppCategory.gaming;
+        } else if (pkg.contains('youtube') || pkg.contains('netflix') || pkg.contains('hulu') || pkg.contains('video')) {
+          cat = AppCategory.entertainment;
+        } else if (pkg.contains('classroom') || pkg.contains('duolingo') || pkg.contains('canvas') || pkg.contains('learn') || pkg.contains('school')) {
+          cat = AppCategory.education;
+        } else if (pkg.contains('note') || pkg.contains('notion') || pkg.contains('office') || pkg.contains('doc')) {
+          cat = AppCategory.productivity;
+        }
+
+        realApps.add(AppUsageItem(
+          id: 'real_app_$i',
+          appName: name,
+          packageName: info.packageName,
+          category: cat,
+          minutesUsed: mins,
+          timeLimitMinutes: cat == AppCategory.social ? 45 : (cat == AppCategory.gaming ? 60 : 0),
+          lastUsed: info.endDate,
+        ));
+      }
+
+      realApps.sort((a, b) => b.minutesUsed.compareTo(a.minutesUsed));
+      return realApps;
+    } catch (e) {
+      debugPrint('Real device AppUsage query notice: $e');
+      return [];
+    }
+  }
 
   /// Default mock apps generated for high fidelity offline usage tracking.
   List<AppUsageItem> _generateDefaultApps() {
@@ -88,21 +144,28 @@ class ScreenTimeService {
     final appsKey = '$_appUsagesKeyPrefix$studentId';
     final goalKey = '$_goalKeyPrefix$studentId';
 
+    // Try fetching real device screen time usage statistics from the device OS first
+    final realDeviceApps = await fetchRealDeviceUsageStats();
+
     // Load App Usages
     List<AppUsageItem> apps = [];
-    final rawAppsJson = prefs.getString(appsKey);
-    if (rawAppsJson != null && rawAppsJson.isNotEmpty) {
-      try {
-        final List<dynamic> decoded = jsonDecode(rawAppsJson);
-        apps = decoded
-            .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        apps = _generateDefaultApps();
-      }
+    if (realDeviceApps.isNotEmpty) {
+      apps = realDeviceApps;
     } else {
-      apps = _generateDefaultApps();
-      await _saveApps(studentId, apps);
+      final rawAppsJson = prefs.getString(appsKey);
+      if (rawAppsJson != null && rawAppsJson.isNotEmpty) {
+        try {
+          final List<dynamic> decoded = jsonDecode(rawAppsJson);
+          apps = decoded
+              .map((e) => AppUsageItem.fromJson(e as Map<String, dynamic>))
+              .toList();
+        } catch (_) {
+          apps = _generateDefaultApps();
+        }
+      } else {
+        apps = _generateDefaultApps();
+        await _saveApps(studentId, apps);
+      }
     }
 
     // Load Goal

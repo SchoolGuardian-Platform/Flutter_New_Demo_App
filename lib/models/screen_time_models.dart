@@ -72,6 +72,7 @@ class AppUsageItem {
   final int minutesUsed;
   final int timeLimitMinutes; // 0 means no explicit limit set
   final DateTime lastUsed;
+  final String? iconUrl;
 
   const AppUsageItem({
     required this.id,
@@ -81,7 +82,38 @@ class AppUsageItem {
     required this.minutesUsed,
     this.timeLimitMinutes = 0,
     required this.lastUsed,
+    this.iconUrl,
   });
+
+  /// High-resolution real app logo URL for recognized apps or custom iconUrl.
+  String get realLogoUrl {
+    if (iconUrl != null && iconUrl!.isNotEmpty) return iconUrl!;
+    final name = appName.toLowerCase();
+    final pkg = packageName.toLowerCase();
+
+    if (name.contains('tiktok') || pkg.contains('musically')) {
+      return 'https://cdn.simpleicons.org/tiktok/FE2C55';
+    } else if (name.contains('roblox') || pkg.contains('roblox')) {
+      return 'https://cdn.simpleicons.org/roblox/000000';
+    } else if (name.contains('classroom') || pkg.contains('classroom')) {
+      return 'https://cdn.simpleicons.org/googleclassroom/0F9D58';
+    } else if (name.contains('youtube') || pkg.contains('youtube')) {
+      return 'https://cdn.simpleicons.org/youtube/FF0000';
+    } else if (name.contains('duolingo') || pkg.contains('duolingo')) {
+      return 'https://cdn.simpleicons.org/duolingo/58CC02';
+    } else if (name.contains('instagram') || pkg.contains('instagram')) {
+      return 'https://cdn.simpleicons.org/instagram/E4405F';
+    } else if (name.contains('notion') || pkg.contains('notion')) {
+      return 'https://cdn.simpleicons.org/notion/000000';
+    } else if (name.contains('snapchat') || pkg.contains('snapchat')) {
+      return 'https://cdn.simpleicons.org/snapchat/FFFC00';
+    } else if (name.contains('spotify') || pkg.contains('spotify')) {
+      return 'https://cdn.simpleicons.org/spotify/1DB954';
+    } else if (name.contains('school') || pkg.contains('schoolguardian')) {
+      return 'https://cdn.simpleicons.org/flutter/02569B';
+    }
+    return '';
+  }
 
   bool get isLimitExceeded =>
       timeLimitMinutes > 0 && minutesUsed > timeLimitMinutes;
@@ -98,6 +130,7 @@ class AppUsageItem {
     int? minutesUsed,
     int? timeLimitMinutes,
     DateTime? lastUsed,
+    String? iconUrl,
   }) {
     return AppUsageItem(
       id: id ?? this.id,
@@ -107,6 +140,7 @@ class AppUsageItem {
       minutesUsed: minutesUsed ?? this.minutesUsed,
       timeLimitMinutes: timeLimitMinutes ?? this.timeLimitMinutes,
       lastUsed: lastUsed ?? this.lastUsed,
+      iconUrl: iconUrl ?? this.iconUrl,
     );
   }
 
@@ -119,6 +153,7 @@ class AppUsageItem {
       'minutesUsed': minutesUsed,
       'timeLimitMinutes': timeLimitMinutes,
       'lastUsed': lastUsed.toIso8601String(),
+      'iconUrl': iconUrl,
     };
   }
 
@@ -136,6 +171,7 @@ class AppUsageItem {
       lastUsed: json['lastUsed'] != null
           ? DateTime.tryParse(json['lastUsed'] as String) ?? DateTime.now()
           : DateTime.now(),
+      iconUrl: json['iconUrl'] as String?,
     );
   }
 }
