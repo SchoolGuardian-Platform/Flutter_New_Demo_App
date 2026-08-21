@@ -20,7 +20,8 @@ class ScreenTimeService {
 
     try {
       final now = DateTime.now();
-      final startDate = DateTime(now.year, now.month, now.day);
+      // Look back from 24 hours ago to cover today's full device session
+      final startDate = now.subtract(Duration(hours: now.hour, minutes: now.minute, seconds: now.second));
       final endDate = now;
 
       final infoList = await AppUsage().getAppUsage(startDate, endDate);
@@ -29,29 +30,30 @@ class ScreenTimeService {
       final realApps = <AppUsageItem>[];
       for (int i = 0; i < infoList.length; i++) {
         final info = infoList[i];
-        final mins = info.usage.inMinutes;
-        if (mins <= 0) continue;
+        final seconds = info.usage.inSeconds;
+        if (seconds <= 5) continue; // Ignore system noise < 5 sec
 
+        final mins = info.usage.inMinutes > 0 ? info.usage.inMinutes : 1;
         final pkg = info.packageName.toLowerCase();
-        final name = info.appName.isNotEmpty ? info.appName : info.packageName;
+        final resolvedName = _resolveAppName(info.packageName, info.appName);
 
         // Determine category based on package or app name
         AppCategory cat = AppCategory.utilities;
-        if (pkg.contains('social') || pkg.contains('musically') || pkg.contains('instagram') || pkg.contains('facebook') || pkg.contains('twitter') || pkg.contains('tiktok')) {
+        if (pkg.contains('social') || pkg.contains('musically') || pkg.contains('instagram') || pkg.contains('facebook') || pkg.contains('twitter') || pkg.contains('tiktok') || pkg.contains('snapchat') || pkg.contains('whatsapp')) {
           cat = AppCategory.social;
-        } else if (pkg.contains('game') || pkg.contains('roblox') || pkg.contains('minecraft') || pkg.contains('pubg')) {
+        } else if (pkg.contains('game') || pkg.contains('roblox') || pkg.contains('minecraft') || pkg.contains('pubg') || pkg.contains('clash')) {
           cat = AppCategory.gaming;
-        } else if (pkg.contains('youtube') || pkg.contains('netflix') || pkg.contains('hulu') || pkg.contains('video')) {
+        } else if (pkg.contains('youtube') || pkg.contains('netflix') || pkg.contains('hulu') || pkg.contains('video') || pkg.contains('spotify')) {
           cat = AppCategory.entertainment;
         } else if (pkg.contains('classroom') || pkg.contains('duolingo') || pkg.contains('canvas') || pkg.contains('learn') || pkg.contains('school')) {
           cat = AppCategory.education;
-        } else if (pkg.contains('note') || pkg.contains('notion') || pkg.contains('office') || pkg.contains('doc')) {
+        } else if (pkg.contains('note') || pkg.contains('notion') || pkg.contains('office') || pkg.contains('doc') || pkg.contains('chrome') || pkg.contains('browser')) {
           cat = AppCategory.productivity;
         }
 
         realApps.add(AppUsageItem(
-          id: 'real_app_$i',
-          appName: name,
+          id: 'real_app_${info.packageName}_$i',
+          appName: resolvedName,
           packageName: info.packageName,
           category: cat,
           minutesUsed: mins,
@@ -66,6 +68,37 @@ class ScreenTimeService {
       debugPrint('Real device AppUsage query notice: $e');
       return [];
     }
+  }
+
+  /// Maps Android raw package names to clean human-readable application titles.
+  static String _resolveAppName(String packageName, String rawAppName) {
+    if (rawAppName.isNotEmpty && !rawAppName.contains('.')) return rawAppName;
+    final pkg = packageName.toLowerCase();
+
+    if (pkg.contains('musically') || pkg.contains('tiktok')) return 'TikTok';
+    if (pkg.contains('roblox')) return 'Roblox';
+    if (pkg.contains('youtube')) return 'YouTube';
+    if (pkg.contains('classroom')) return 'Google Classroom';
+    if (pkg.contains('instagram')) return 'Instagram';
+    if (pkg.contains('duolingo')) return 'Duolingo';
+    if (pkg.contains('notion')) return 'Notion & Notes';
+    if (pkg.contains('whatsapp')) return 'WhatsApp';
+    if (pkg.contains('facebook')) return 'Facebook';
+    if (pkg.contains('snapchat')) return 'Snapchat';
+    if (pkg.contains('spotify')) return 'Spotify';
+    if (pkg.contains('chrome')) return 'Google Chrome';
+    if (pkg.contains('schoolguardian')) return 'School Guardian';
+    if (pkg.contains('settings')) return 'Device Settings';
+
+    // Fallback: extract last segment of package name & capitalize
+    final parts = packageName.split('.');
+    if (parts.isNotEmpty) {
+      final last = parts.last;
+      if (last.length > 1) {
+        return last[0].toUpperCase() + last.substring(1);
+      }
+    }
+    return packageName;
   }
 
   /// Default mock apps generated for high fidelity offline usage tracking.
