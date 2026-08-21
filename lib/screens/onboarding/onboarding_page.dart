@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_role.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/kukie_accent.dart';
 import '../../widgets/app_logo.dart';
 import '../landing_page.dart';
 import '../login_page.dart';
@@ -34,7 +33,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   String? _selectedReferral;
   UserRole? _selectedRole;
-
 
   @override
   void dispose() {
@@ -86,7 +84,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final showSkip = _index == 1 || _index == 2;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -100,7 +98,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     if (showBack)
                       IconButton(
                         icon: const Icon(Icons.arrow_back_ios_new,
-                            size: 18, color: KukieAccent.ink),
+                            size: 18, color: AppColors.onSurface),
                         onPressed: () => _goTo(_index - 1),
                       )
                     else
@@ -112,7 +110,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         child: const Text(
                           'Skip',
                           style: TextStyle(
-                            color: KukieAccent.bodyGray,
+                            color: AppColors.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -177,8 +175,8 @@ class _PageDots extends StatelessWidget {
             height: 7,
             decoration: BoxDecoration(
               color: i == index
-                  ? KukieAccent.violet
-                  : KukieAccent.violet.withValues(alpha: 0.2),
+                  ? AppColors.primary
+                  : AppColors.primary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
           ),
@@ -188,8 +186,7 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-/// Shared full-width filled CTA button in the reference's rounded-rect
-/// style (not a full pill).
+/// Shared full-width filled CTA button in the app design style.
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton(
       {required this.label, required this.onPressed, this.enabled = true});
@@ -206,12 +203,12 @@ class _PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: KukieAccent.violet,
-          disabledBackgroundColor: KukieAccent.violet.withValues(alpha: 0.35),
+          backgroundColor: AppColors.primary,
+          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.35),
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(KukieAccent.buttonRadius),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           textStyle: const TextStyle(
             fontSize: 16,
@@ -280,7 +277,7 @@ class _WelcomePage extends StatelessWidget {
             width: 160,
             height: 160,
             decoration: const BoxDecoration(
-              color: KukieAccent.violetTint,
+              color: AppColors.primarySoftBg,
               shape: BoxShape.circle,
             ),
             child: const Center(child: AppLogoBadge(size: 84)),
@@ -294,7 +291,7 @@ class _WelcomePage extends StatelessWidget {
               fontWeight: FontWeight.w800,
               height: 1.2,
               letterSpacing: -0.4,
-              color: KukieAccent.ink,
+              color: AppColors.onSurface,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -303,7 +300,7 @@ class _WelcomePage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              color: KukieAccent.bodyGray,
+              color: AppColors.onSurfaceVariant,
               height: 1.5,
             ),
           ),
@@ -338,7 +335,7 @@ class _FeaturesPage extends StatelessWidget {
               fontWeight: FontWeight.w800,
               height: 1.25,
               letterSpacing: -0.3,
-              color: KukieAccent.ink,
+              color: AppColors.onSurface,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -361,9 +358,9 @@ class _FeatureCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
-        border: Border.all(color: KukieAccent.cardBorder),
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Row(
         children: [
@@ -371,10 +368,10 @@ class _FeatureCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: const BoxDecoration(
-              color: KukieAccent.violetTint,
+              color: AppColors.primarySoftBg,
               shape: BoxShape.circle,
             ),
-            child: Icon(feature.icon, color: KukieAccent.violet, size: 22),
+            child: Icon(feature.icon, color: AppColors.primary, size: 22),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -386,7 +383,7 @@ class _FeatureCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: KukieAccent.ink,
+                    color: AppColors.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -394,7 +391,7 @@ class _FeatureCard extends StatelessWidget {
                   feature.body,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: KukieAccent.bodyGray,
+                    color: AppColors.onSurfaceVariant,
                     height: 1.4,
                   ),
                 ),
@@ -441,7 +438,7 @@ class _ReferralPage extends StatelessWidget {
               fontWeight: FontWeight.w800,
               height: 1.25,
               letterSpacing: -0.3,
-              color: KukieAccent.ink,
+              color: AppColors.onSurface,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -477,16 +474,16 @@ class _SelectableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.sm + 4),
         decoration: BoxDecoration(
-          color: selected ? KukieAccent.violetTint : Colors.white,
-          borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+          color: selected ? AppColors.primarySoftBg : AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: selected ? KukieAccent.violet : KukieAccent.cardBorder,
+            color: selected ? AppColors.primary : AppColors.outlineVariant,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -495,7 +492,7 @@ class _SelectableRow extends StatelessWidget {
             Icon(icon,
                 size: 20,
                 color:
-                    selected ? KukieAccent.violet : KukieAccent.bodyGray),
+                    selected ? AppColors.primary : AppColors.onSurfaceVariant),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -503,13 +500,13 @@ class _SelectableRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? KukieAccent.violetDark : KukieAccent.ink,
+                  color: selected ? AppColors.primaryDark : AppColors.onSurface,
                 ),
               ),
             ),
             if (selected)
               const Icon(Icons.check_circle,
-                  size: 18, color: KukieAccent.violet),
+                  size: 18, color: AppColors.primary),
           ],
         ),
       ),
@@ -550,7 +547,7 @@ class _RolePage extends StatelessWidget {
               fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
-              color: KukieAccent.ink,
+              color: AppColors.onSurface,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -582,15 +579,15 @@ class _RoleSelectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: selected ? KukieAccent.violetTint : Colors.white,
-          borderRadius: BorderRadius.circular(KukieAccent.cardRadius),
+          color: selected ? AppColors.primarySoftBg : AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: selected ? KukieAccent.violet : KukieAccent.cardBorder,
+            color: selected ? AppColors.primary : AppColors.outlineVariant,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -600,12 +597,12 @@ class _RoleSelectCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: selected ? KukieAccent.violet : KukieAccent.violetTint,
+                color: selected ? AppColors.primary : AppColors.primarySoftBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 role.icon,
-                color: selected ? Colors.white : KukieAccent.violet,
+                color: selected ? Colors.white : AppColors.primary,
                 size: 22,
               ),
             ),
@@ -620,8 +617,8 @@ class _RoleSelectCard extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: selected
-                          ? KukieAccent.violetDark
-                          : KukieAccent.ink,
+                          ? AppColors.primaryDark
+                          : AppColors.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -629,7 +626,7 @@ class _RoleSelectCard extends StatelessWidget {
                     onboardingRoleBlurb(role),
                     style: const TextStyle(
                       fontSize: 12.5,
-                      color: KukieAccent.bodyGray,
+                      color: AppColors.onSurfaceVariant,
                       height: 1.35,
                     ),
                   ),
@@ -638,7 +635,7 @@ class _RoleSelectCard extends StatelessWidget {
             ),
             if (selected)
               const Icon(Icons.check_circle,
-                  size: 20, color: KukieAccent.violet),
+                  size: 20, color: AppColors.primary),
           ],
         ),
       ),
@@ -675,7 +672,7 @@ class _ReadyPage extends StatelessWidget {
               children: [
                 const Text(
                   'Select a role to continue.',
-                  style: TextStyle(color: KukieAccent.bodyGray, fontSize: 13),
+                  style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 _PrimaryButton(label: 'Choose Your Role', onPressed: onPickRole),
@@ -688,11 +685,11 @@ class _ReadyPage extends StatelessWidget {
             width: 120,
             height: 120,
             decoration: const BoxDecoration(
-              color: KukieAccent.violetTint,
+              color: AppColors.primarySoftBg,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check_rounded,
-                color: KukieAccent.violet, size: 56),
+                color: AppColors.primary, size: 56),
           ),
           const SizedBox(height: AppSpacing.xl2),
           const Text(
@@ -702,14 +699,14 @@ class _ReadyPage extends StatelessWidget {
               fontSize: 28,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
-              color: KukieAccent.ink,
+              color: AppColors.onSurface,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           const Text(
             "Let's get you started with School Guard.",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 15, color: KukieAccent.bodyGray),
+            style: TextStyle(fontSize: 15, color: AppColors.onSurfaceVariant),
           ),
           if (hasRole) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -717,13 +714,13 @@ class _ReadyPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               decoration: BoxDecoration(
-                color: KukieAccent.violetTint,
+                color: AppColors.primarySoftBg,
                 borderRadius: BorderRadius.circular(AppRadius.full),
               ),
               child: Text(
                 'Role: ${role!.label}',
                 style: const TextStyle(
-                  color: KukieAccent.violetDark,
+                  color: AppColors.primaryDark,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
