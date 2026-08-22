@@ -249,6 +249,9 @@ class _RealAppLogo extends StatelessWidget {
     } else if (name.contains('spotify') || pkg.contains('spotify')) {
       bgColor = const Color(0xFF1DB954);
       logoChild = const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 22);
+    } else if (name.contains('chess') || pkg.contains('chess') || name.contains('lichess') || pkg.contains('lichess')) {
+      bgColor = const Color(0xFF312E2B);
+      logoChild = const Icon(Icons.sports_esports_rounded, color: Color(0xFF629924), size: 24);
     }
 
     return Container(

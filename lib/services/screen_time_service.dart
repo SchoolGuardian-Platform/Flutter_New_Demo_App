@@ -103,7 +103,7 @@ class ScreenTimeService {
         AppCategory cat = AppCategory.utilities;
         if (pkg.contains('social') || pkg.contains('musically') || pkg.contains('instagram') || pkg.contains('facebook') || pkg.contains('twitter') || pkg.contains('tiktok') || pkg.contains('snapchat') || pkg.contains('whatsapp')) {
           cat = AppCategory.social;
-        } else if (pkg.contains('game') || pkg.contains('roblox') || pkg.contains('minecraft') || pkg.contains('pubg') || pkg.contains('clash')) {
+        } else if (pkg.contains('game') || pkg.contains('roblox') || pkg.contains('minecraft') || pkg.contains('pubg') || pkg.contains('clash') || pkg.contains('chess') || pkg.contains('lichess') || pkg.contains('puzzle') || pkg.contains('arcade') || pkg.contains('sudoku') || pkg.contains('cards') || pkg.contains('play')) {
           cat = AppCategory.gaming;
         } else if (pkg.contains('youtube') || pkg.contains('netflix') || pkg.contains('hulu') || pkg.contains('video') || pkg.contains('spotify')) {
           cat = AppCategory.entertainment;
@@ -171,6 +171,9 @@ class ScreenTimeService {
     if (pkg.contains('snapchat')) return 'Snapchat';
     if (pkg.contains('spotify')) return 'Spotify';
     if (pkg.contains('chrome')) return 'Google Chrome';
+    if (pkg.contains('lichess')) return 'Lichess';
+    if (pkg.contains('chess.clock')) return 'Chess Clock';
+    if (pkg.contains('chess')) return 'Chess';
     if (pkg.contains('schoolguardian')) return 'School Guardian';
     if (pkg.contains('settings')) return 'Device Settings';
 
@@ -366,7 +369,8 @@ class ScreenTimeService {
           continue;
         }
 
-        final dayStart = DateTime(dayTarget.year, dayTarget.month, dayTarget.day, 0, 0, 0);
+        // Expand window slightly before midnight so UsageStatsManager matches the daily bucket
+        final dayStart = DateTime(dayTarget.year, dayTarget.month, dayTarget.day, 0, 0, 0).subtract(const Duration(minutes: 30));
         final dayEnd = DateTime(dayTarget.year, dayTarget.month, dayTarget.day, 23, 59, 59);
 
         final dayInfo = await AppUsage().getAppUsage(dayStart, dayEnd);
@@ -382,7 +386,7 @@ class ScreenTimeService {
 
         logs.add(DailyScreenTime(
           date: dateStr,
-          totalMinutes: dayTotal > 0 ? dayTotal : (180 + (i * 12) % 45),
+          totalMinutes: dayTotal,
           appUsages: const [],
         ));
       }
