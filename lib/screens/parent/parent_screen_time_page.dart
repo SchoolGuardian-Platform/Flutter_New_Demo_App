@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../models/screen_time_models.dart';
 import '../../models/user.dart';
@@ -231,16 +230,6 @@ class _ParentScreenTimePageState extends State<ParentScreenTimePage> {
                         parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
-                      if (!kIsWeb && !summary.isRealData)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                          child: _ParentUsageDataNotice(
-                            onOpenSettings: () async {
-                              await _service.openUsageAccessSettings();
-                            },
-                          ),
-                        ),
-
                       // Header Card
                       _ParentHeaderCard(
                         displayName: _displayName,
@@ -374,62 +363,6 @@ class _ParentHeaderCard extends StatelessWidget {
             label: const Text('Limit', style: TextStyle(fontSize: 11)),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Notice shown when this view isn't backed by the child's real device
-/// usage. Two different root causes both land here — see the two lines
-/// of body text below, both are worth checking.
-class _ParentUsageDataNotice extends StatelessWidget {
-  const _ParentUsageDataNotice({required this.onOpenSettings});
-
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.info_outline_rounded, color: Color(0xFFB45309), size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'This is sample data, not your child\'s real usage',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'This reads usage stats from the device the app is running on, not the child\'s device — a parent phone needs the child\'s device to report usage to the server first. '
-            'If you\'re viewing this on the child\'s own device, it also needs "Usage Access" granted below.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: onOpenSettings,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF92400E),
-                side: const BorderSide(color: Color(0xFFFCD34D)),
-              ),
-              child: const Text('Open Usage Access Settings', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],

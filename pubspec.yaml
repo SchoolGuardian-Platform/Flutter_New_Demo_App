@@ -36,7 +36,6 @@ dependencies:
   google_fonts: ^6.2.1
   app_links: ^6.3.2
   intl: ^0.19.0
-  app_usage: ^4.1.0
   app_settings: ^5.1.1
   android_intent_plus: ^5.2.0
 
