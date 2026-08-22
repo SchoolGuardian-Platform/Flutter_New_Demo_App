@@ -327,7 +327,7 @@ class ScreenTimeService {
 
     final yesterdayMins = weeklyLogs.length >= 2
         ? weeklyLogs[weeklyLogs.length - 2].totalMinutes
-        : 210;
+        : 0;
 
     final weeklyAvg = (weeklyLogs.fold<int>(
                 0, (sum, log) => sum + log.totalMinutes) /
@@ -456,19 +456,18 @@ class ScreenTimeService {
     await prefs.setString(appsKey, jsonStr);
   }
 
-  /// Default mock weekly logs for offline preview when device telemetry is unavailable.
+  /// Default weekly logs generated strictly from saved local history or 0m (no fake numbers).
   List<DailyScreenTime> _generateDefaultWeeklyLogs(List<AppUsageItem> todayApps) {
     final now = DateTime.now();
-    final mockTotals = [180, 210, 195, 240, 220, 260, 250];
-
     final logs = <DailyScreenTime>[];
+
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final total = i == 0
           ? todayApps.fold<int>(0, (sum, a) => sum + a.minutesUsed)
-          : mockTotals[6 - i];
+          : 0;
 
       logs.add(DailyScreenTime(
         date: dateStr,
