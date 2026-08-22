@@ -262,6 +262,12 @@ class ScreenTimeSummary {
   final List<DailyScreenTime> weeklyLogs;
   final ScreenTimeGoal goal;
 
+  /// True when [appUsages] came from the device's real OS usage stats API.
+  /// False means the "Usage Access" permission isn't granted (or the
+  /// platform doesn't support it, e.g. iOS/web) and this is fallback/mock
+  /// data — the UI should tell the user why.
+  final bool isRealData;
+
   const ScreenTimeSummary({
     required this.todayMinutes,
     required this.yesterdayMinutes,
@@ -270,6 +276,7 @@ class ScreenTimeSummary {
     required this.appUsages,
     required this.weeklyLogs,
     required this.goal,
+    this.isRealData = false,
   });
 
   bool get isLimitExceeded => todayMinutes > goal.dailyLimitMinutes;
@@ -292,4 +299,3 @@ class ScreenTimeSummary {
     return map;
   }
 }
-

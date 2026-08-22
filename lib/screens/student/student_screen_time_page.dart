@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../models/screen_time_models.dart';
 import '../../models/user.dart';
@@ -71,30 +72,31 @@ class _StudentScreenTimePageState extends State<StudentScreenTimePage> {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF86EFAC)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.circle, size: 7, color: Color(0xFF16A34A)),
-                SizedBox(width: 4),
-                Text(
-                  'LIVE TRACKING',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF15803D),
+          if (summary?.isRealData ?? false)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.circle, size: 7, color: Color(0xFF16A34A)),
+                  SizedBox(width: 4),
+                  Text(
+                    'LIVE TRACKING',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF15803D),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadData,
@@ -113,6 +115,18 @@ class _StudentScreenTimePageState extends State<StudentScreenTimePage> {
                         parent: AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
+                      // Usage Access permission notice — shown whenever we're
+                      // displaying generated data instead of the device's
+                      // real usage stats.
+                      if (!kIsWeb && !summary.isRealData) ...[
+                        _UsageAccessBanner(
+                          onOpenSettings: () async {
+                            await _service.openUsageAccessSettings();
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
+
                       // Hero Metric Card
                       _HeroMetricCard(summary: summary),
                       const SizedBox(height: AppSpacing.lg),
@@ -305,6 +319,62 @@ class _HeroMetricCard extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(
                 isExceeded ? AppColors.error : AppColors.primary,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when we're displaying generated/mock usage instead of the
+/// device's real stats — almost always because the Android "Usage
+/// Access" special permission hasn't been granted yet. Tapping the
+/// button deep-links straight to that settings screen.
+class _UsageAccessBanner extends StatelessWidget {
+  const _UsageAccessBanner({required this.onOpenSettings});
+
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Color(0xFFB45309), size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Showing sample data, not this device\'s real usage',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Grant "Usage Access" so this app can read real screen time from this device.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton(
+              onPressed: onOpenSettings,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF92400E),
+                side: const BorderSide(color: Color(0xFFFCD34D)),
+              ),
+              child: const Text('Open Usage Access Settings', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],

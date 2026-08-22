@@ -4,6 +4,16 @@ import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/screen_time_models.dart';
 
+// NOTE: requires the `android_intent_plus` package to deep-link the user to
+// Android's "Usage Access" screen. There is no runtime permission dialog for
+// this permission (see the doc comment on `openUsageAccessSettings` below),
+// and the `app_settings` package does NOT expose this screen — it has no
+// `usageAccess` entry in its `AppSettingsType` enum — so a raw Android
+// intent is the only way to deep-link there.
+// Add to pubspec.yaml:
+//   android_intent_plus: ^5.2.0
+import 'package:android_intent_plus/android_intent.dart';
+
 /// Manages student screen usage metrics, local telemetry, app limits,
 /// and downtime schedules using SharedPreferences and device UsageStats.
 class ScreenTimeService {
@@ -14,9 +24,51 @@ class ScreenTimeService {
   static const String _appUsagesKeyPrefix = 'screen_time_apps_v2_';
   static const String _goalKeyPrefix = 'screen_time_goal_v1_';
 
+  /// True after the most recent [fetchRealDeviceUsageStats] call actually
+  /// got data back from the OS. False means we're showing generated/mock
+  /// data — either because the platform doesn't expose usage stats (iOS,
+  /// web) or, on Android, because the "Usage Access" special permission
+  /// hasn't been granted yet.
+  ///
+  /// IMPORTANT (this is almost certainly your real-device issue):
+  /// `app_usage` reads Android's UsageStatsManager, which is gated behind
+  /// the PACKAGE_USAGE_STATS permission. That permission:
+  ///   1. Must be declared in android/app/src/main/AndroidManifest.xml:
+  ///        <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+  ///            tools:ignore="ProtectedPermissions" />
+  ///   2. CANNOT be granted via a normal runtime permission popup. The user
+  ///      must manually enable it in
+  ///      Settings > Apps > Special app access > Usage access.
+  /// When it isn't granted, `getAppUsage()` does NOT throw — it just
+  /// returns an empty list — which is why this was failing silently and
+  /// falling back to the bundled mock apps with no visible error.
+  ///
+  /// Also note: on iOS there is no public API for reading other apps'
+  /// usage at all (Apple's DeviceActivity/Screen Time API requires a
+  /// special entitlement and doesn't work like this), so this will always
+  /// be mock data on iOS regardless of permissions.
+  bool lastFetchUsedRealData = false;
+
+  /// Opens the OS screen where the user grants Usage Access. There's no
+  /// way to grant this permission programmatically or via a normal
+  /// permission_handler-style dialog — an explicit Android intent to
+  /// `Settings.ACTION_USAGE_ACCESS_SETTINGS` is the only option, and only
+  /// works on Android (no iOS equivalent exists).
+  Future<void> openUsageAccessSettings() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    const intent = AndroidIntent(
+      action: 'android.settings.USAGE_ACCESS_SETTINGS',
+    );
+    await intent.launch();
+  }
+
   /// Query native Android/iOS OS for real device app usage statistics today.
   Future<List<AppUsageItem>> fetchRealDeviceUsageStats() async {
-    if (kIsWeb) return [];
+    if (kIsWeb) {
+      lastFetchUsedRealData = false;
+      return [];
+    }
 
     try {
       final now = DateTime.now();
@@ -25,7 +77,13 @@ class ScreenTimeService {
       final endDate = now;
 
       final infoList = await AppUsage().getAppUsage(startDate, endDate);
-      if (infoList.isEmpty) return [];
+      if (infoList.isEmpty) {
+        // Empty result on a real device almost always means the Usage
+        // Access permission isn't granted yet (see doc comment above) —
+        // app_usage doesn't throw for this, it just returns nothing.
+        lastFetchUsedRealData = false;
+        return [];
+      }
 
       final realApps = <AppUsageItem>[];
       for (int i = 0; i < infoList.length; i++) {
@@ -67,9 +125,11 @@ class ScreenTimeService {
       }
 
       realApps.sort((a, b) => b.minutesUsed.compareTo(a.minutesUsed));
+      lastFetchUsedRealData = realApps.isNotEmpty;
       return realApps;
     } catch (e) {
       debugPrint('Real device AppUsage query notice: $e');
+      lastFetchUsedRealData = false;
       return [];
     }
   }
@@ -279,6 +339,7 @@ class ScreenTimeService {
       appUsages: apps,
       weeklyLogs: weeklyLogs,
       goal: goal,
+      isRealData: realDeviceApps.isNotEmpty,
     );
   }
 
