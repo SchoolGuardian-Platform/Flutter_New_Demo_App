@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.schoolguardian_app"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
