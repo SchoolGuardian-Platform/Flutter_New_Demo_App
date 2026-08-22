@@ -33,8 +33,12 @@ class ScreenTimeService {
         final seconds = info.usage.inSeconds;
         if (seconds <= 5) continue; // Ignore system noise < 5 sec
 
-        final mins = info.usage.inMinutes > 0 ? info.usage.inMinutes : 1;
         final pkg = info.packageName.toLowerCase();
+
+        // Exclude Android internal system OS noise, launchers, and keyboards
+        if (_isSystemPackage(pkg)) continue;
+
+        final mins = info.usage.inMinutes > 0 ? info.usage.inMinutes : 1;
         final resolvedName = _resolveAppName(info.packageName, info.appName);
 
         // Determine category based on package or app name
@@ -68,6 +72,26 @@ class ScreenTimeService {
       debugPrint('Real device AppUsage query notice: $e');
       return [];
     }
+  }
+
+  /// Checks if a package is internal Android OS background noise (System UI, Launcher, Keyboards)
+  static bool _isSystemPackage(String pkg) {
+    if (pkg.contains('systemui') ||
+        pkg.contains('launcher') ||
+        pkg.contains('inputmethod') ||
+        pkg.contains('keyboard') ||
+        pkg.contains('honeyboard') ||
+        pkg.contains('providers.') ||
+        pkg.contains('permissioncontroller') ||
+        pkg.contains('packageinstaller') ||
+        pkg.contains('qualcomm') ||
+        pkg.contains('incallui') ||
+        pkg.contains('android.settings') ||
+        pkg == 'android' ||
+        pkg == 'com.android.phone') {
+      return true;
+    }
+    return false;
   }
 
   /// Maps Android raw package names to clean human-readable application titles.
@@ -290,6 +314,7 @@ class ScreenTimeService {
         for (int j = 0; j < dayInfo.length; j++) {
           final info = dayInfo[j];
           if (info.usage.inSeconds <= 5) continue;
+          if (_isSystemPackage(info.packageName.toLowerCase())) continue;
           final mins = info.usage.inMinutes > 0 ? info.usage.inMinutes : 1;
           dayTotal += mins;
         }
